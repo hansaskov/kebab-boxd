@@ -1,0 +1,68 @@
+---
+import BaseHead from "../components/BaseHead.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import SideBar from "../components/SideBar.astro";
+// import { ClientRouter } from "astro:transitions";
+
+const {
+    image,
+    title,
+    description ,
+    includeSidebar = true,
+    px = 12,
+    ogType
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" data-theme="cupcake" transition:animate="none">
+    <head>
+        <BaseHead
+            title={title}
+            description={description}
+            image={image}
+            ogType={ogType}
+        />
+        <slot name="head" />
+    </head>
+    <body>
+        <div class="bg-base-100 drawer lg:drawer-open">
+            <input id="my-drawer" type="checkbox" class="drawer-toggle" />
+            <div class="drawer-content bg-base-100">
+                <Header title={title} includeSidebar={includeSidebar} />
+                <div class="md:flex md:justify-center">
+                    <main
+                        class={`p-6 px-${px} pt-10 lg:max-w-[900px] max-w-[100vw]`}
+                    >
+                        <slot />
+                    </main>
+                </div>
+                <Footer />
+            </div>
+            {
+                includeSidebar && (
+                    <SideBar />
+                )
+            }
+        </div>
+    </body>
+</html>
+
+<script type="speculationrules">
+  {
+    "prefetch": [{
+      "urls": ["/cv", "/projects", "/"],
+      "eagerness": "immediate"
+    }],
+    "prerender": [{
+      "where": {
+        "and": [
+          { "href_matches": "/*" },
+          { "not": {"href_matches": "/logout"}}
+        ]
+      },
+      "eagerness": "eager"
+    }]
+  }
+</script>

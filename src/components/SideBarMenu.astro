@@ -1,0 +1,9 @@
+---
+const pathname = Astro.url.pathname;
+---
+
+<ul class="menu grow shrink menu-md overflow-y-auto w-full">
+    <li><a class:list={["py-3 text-base", { "bg-base-300": pathname === "/" }]} href="/">Home</a></li>
+    <li><a class:list={["py-3 text-base", { "bg-base-300": pathname.startsWith("/projects") }]} href="/projects">Projects</a></li>
+    <li><a class:list={["py-3 text-base", { "bg-base-300": pathname.startsWith("/cv") }]} href="/cv">CV</a></li>
+</ul>

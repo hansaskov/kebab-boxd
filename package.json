@@ -1,0 +1,34 @@
+{
+  "name": "kebab-boxd",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Astrofy is a free and open-source template for your Personal Portfolio Website built with Astro and TailwindCSS. Create in minutes a website with Blog, CV, Project Section, Store and RSS Feed.",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "studio": "drizzle-kit studio",
+    "lint": "oxlint --fix",
+    "format": "oxfmt",
+    "check": "oxfmt && oxlint --fix"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.2.1",
+    "astro": "6.3.6",
+    "daisyui": "^5.5.19",
+    "drizzle-orm": "1.0.0-rc.3",
+    "tailwindcss": "^4.2.1"
+  },
+  "devDependencies": {
+    "drizzle-kit": "1.0.0-rc.3",
+    "oxfmt": "^0.43.0",
+    "oxlint": "^1.58.0"
+  },
+  "overrides": {
+    "vite": "^7"
+  }
+}

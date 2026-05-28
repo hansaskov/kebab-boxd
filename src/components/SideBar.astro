@@ -1,0 +1,36 @@
+---
+import SideBarFooter from "./SideBarFooter.astro";
+import { Picture } from "astro:assets";
+import SideBarMenu from "./SideBarMenu.astro";
+import ProfilePicture from "../media/profile.jpg"
+---
+
+<div class="drawer-side z-40">
+    <label for="my-drawer" class="drawer-overlay"></label>
+    <aside
+        class="px-2 pt-2 h-auto min-h-full w-76 bg-base-200 text-base-content flex flex-col"
+    >
+        <div class="w-fit mx-auto mt-5 mb-6">
+            <a href="/">
+                <div
+                    class="avatar transition ease-in-out hover:scale-[102%] block m-auto"
+                >
+                    <div class="w-32 h-32">
+                        <Picture
+                            class="mask mask-circle"
+                            width={384}
+                            height={384}
+                            formats={["avif", "webp"]}
+                            src={ProfilePicture}
+                            alt="Profile image of Hans Askov drinking from a glass looking to the left out of a window."
+                            fetchpriority="high"
+                            
+                        />
+                    </div>
+                </div>
+            </a>
+        </div>
+        <SideBarMenu />
+        <SideBarFooter />
+    </aside>
+</div>
