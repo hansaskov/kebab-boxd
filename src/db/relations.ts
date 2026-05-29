@@ -15,17 +15,17 @@ export const relations = defineRelations(s, (r) => ({
     favorites: r.many.restaurants({
       from: r.users.id.through(r.favorites.userId),
       to: r.restaurants.id.through(r.favorites.restaurantId),
-      alias: "favorites"
+      alias: "favorites",
     }),
     bucketList: r.many.restaurants({
       from: r.users.id.through(r.bucketList.userId),
       to: r.restaurants.id.through(r.bucketList.restaurantId),
-      alias: "bucketList"
+      alias: "bucketList",
     }),
     likes: r.many.reviews({
       from: r.users.id.through(r.likes.userId),
       to: r.reviews.id.through(r.likes.reviewId),
-      alias: "likes"
+      alias: "likes",
     }),
     profilePicture: r.one.pictures({
       from: r.users.profilePictureId,
@@ -36,10 +36,10 @@ export const relations = defineRelations(s, (r) => ({
   restaurants: {
     reviews: r.many.reviews(),
     favorites: r.many.users({
-      alias: "favorites"
+      alias: "favorites",
     }),
     wantsToGo: r.many.users({
-      alias: "bucketList"
+      alias: "bucketList",
     }),
     location: r.one.locations({
       from: r.restaurants.locationId,
@@ -64,7 +64,7 @@ export const relations = defineRelations(s, (r) => ({
       to: r.pictures.id.through(r.reviewPictures.pictureId),
     }),
     likes: r.many.users({
-      alias: "likes"
+      alias: "likes",
     }),
   },
 

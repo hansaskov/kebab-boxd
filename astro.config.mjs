@@ -13,9 +13,9 @@ export default defineConfig({
   },
   env: {
     schema: {
-      DB_FILE_NAME: envField.string({access: "secret", context: "server", optional: false})
+      DB_FILE_NAME: envField.string({ access: "secret", context: "server", optional: false }),
     },
-    validateSecrets: true
+    validateSecrets: true,
   },
   vite: {
     plugins: [tailwindcss()],
@@ -28,7 +28,6 @@ export default defineConfig({
       },
     },
   },
-
   adapter: node({
     mode: "standalone",
   }),
