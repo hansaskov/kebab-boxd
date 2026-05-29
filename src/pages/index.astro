@@ -1,10 +1,14 @@
 ---
+import { db } from "../db";
 import BaseLayout from "../layouts/BaseLayout.astro";
+export const prerender = false
+
+const user = await db.query.users.findFirst()
 ---
 
 <BaseLayout title="Home">
   <div class="pb-12 mt-5">
-    <h1 class="text-5xl font-bold text-balance">Hans Askov</h1>
+    <h1 class="text-5xl font-bold text-balance capitalize">{user?.username ?? "Big Mama"}</h1>
     <div class="text-2xl py-3 font-bold text-balance">
       Software Engineering Master Student
     </div>

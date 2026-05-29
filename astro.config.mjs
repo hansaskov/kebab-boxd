@@ -1,20 +1,24 @@
 import { defineConfig, envField } from "astro/config";
 import tailwindcss from "@tailwindcss/vite";
 
+import node from "@astrojs/node";
+
 // https://astro.build/config
 export default defineConfig({
   site: "https://hans.askov.dk",
   output: "static",
+
   build: {
     inlineStylesheets: "always",
   },
-  vite: {
-    plugins: [tailwindcss()],
-  },
   env: {
     schema: {
-      DB_FILE_NAME: envField.string({context: "server", access: "public", optional: false})
-    }
+      DB_FILE_NAME: envField.string({access: "secret", context: "server", optional: false})
+    },
+    validateSecrets: true
+  },
+  vite: {
+    plugins: [tailwindcss()],
   },
   image: {
     service: {
@@ -24,4 +28,8 @@ export default defineConfig({
       },
     },
   },
+
+  adapter: node({
+    mode: "standalone",
+  }),
 });

@@ -17,6 +17,7 @@
     "check": "oxfmt && oxlint --fix"
   },
   "dependencies": {
+    "@astrojs/node": "^10.1.2",
     "@tailwindcss/vite": "^4.2.1",
     "astro": "6.4.2",
     "daisyui": "^5.5.19",
