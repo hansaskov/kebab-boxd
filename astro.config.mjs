@@ -6,14 +6,15 @@ import node from "@astrojs/node";
 // https://astro.build/config
 export default defineConfig({
   site: "https://hans.askov.dk",
-  output: "static",
-
+  output: "server",
   build: {
     inlineStylesheets: "always",
   },
   env: {
     schema: {
       DB_FILE_NAME: envField.string({ access: "secret", context: "server", optional: false }),
+      GOOGLE_CLIENT_ID: envField.string({access: "secret", context: "server", optional: false}),
+      GOOGLE_CLIENT_SECRET: envField.string({access: "secret", context: "server", optional: false})
     },
     validateSecrets: true,
   },

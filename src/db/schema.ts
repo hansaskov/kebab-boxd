@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 
 export const users = p.snakeCase.table("users", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
-  username: p.text().notNull().unique(),
+  username: p.text().notNull(),
   email: p.text().notNull().unique(),
   googleId: p.text().notNull().unique(),
   profilePictureId: p.int({ mode: "number" }).references(() => pictures.id, {onDelete: "set null"}),
@@ -16,8 +16,12 @@ export const users = p.snakeCase.table("users", {
   updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(() => new Date),
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(() => new Date)
 }, (t) => [
-  p.index("users_profile_picture_id_idx").on(t.profilePictureId)
+  p.index("users_profile_picture_id_idx").on(t.profilePictureId),
+  p.index("users_name_idx").on(t.username),
+  p.index("users_email_idx").on(t.email),
+  p.index("users_google_id_idx").on(t.googleId)
 ]);
+
 
 export const locations = p.snakeCase.table("locations", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
@@ -34,7 +38,7 @@ export const locations = p.snakeCase.table("locations", {
 })
 
 export const restaurants = p.snakeCase.table("restaurants", {
-  id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
+  id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true}),
   name: p.text().notNull(),
   locationId: p.int({ mode: "number" }).notNull().references(() => locations.id),
   suggestedBy: p.int({ mode: "number" }).references(() => users.id),
@@ -136,7 +140,8 @@ export const reviewPictures = p.snakeCase.table("review_pictures", {
 export const sessions = p.snakeCase.table("sessions", {
   id: p.text().primaryKey(),
   userId: p.int({ mode: "number" }).notNull().references(() => users.id, {onDelete: "cascade"}),
-  expiresAt: p.int({ mode: "timestamp" }).notNull(),
+  secretHash: p.blob({mode: "buffer"}).notNull(),
+  lastVerifiedAt: p.int({ mode: "timestamp" }).notNull(),
   updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(() => new Date),
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(() => new Date)
 }, (t) => [

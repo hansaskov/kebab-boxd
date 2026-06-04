@@ -4,7 +4,9 @@
     "strictNullChecks": true,
     "paths": {
       "@components/*": ["./src/components/*"],
-      "@layouts/*": ["./src/layouts/*"]
+      "@layouts/*": ["./src/layouts/*"],
+      "@auth/*": ["./src/auth/*"],
+      "@db/*": ["./src/db/*"]
     }
   }
 }

@@ -19,6 +19,7 @@
   "dependencies": {
     "@astrojs/node": "^10.1.2",
     "@tailwindcss/vite": "^4.2.1",
+    "arctic": "^3.7.0",
     "astro": "6.4.2",
     "daisyui": "^5.5.19",
     "drizzle-orm": "1.0.0-rc.3",

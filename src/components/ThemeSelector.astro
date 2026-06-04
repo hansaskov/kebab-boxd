@@ -1,10 +1,20 @@
+---
+
+export interface Props {
+	theme: "cupcake" | "black";
+}
+
+const { theme } = Astro.props;
+
+---
+
 <label
     transition:persist="theme-toggle"
     class="swap swap-rotate btn btn-ghost btn-square"
     title="Toggle theme"
     aria-label="Toggle theme"
 >
-    <input type="checkbox" class="theme-controller" value="black" />
+    <input type="checkbox" class="theme-controller" value={theme.toString()} />
     <!-- Sun icon — light mode -->
     <svg
         class="swap-off h-5 w-5 fill-current md:h-6 md:w-6"

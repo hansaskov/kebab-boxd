@@ -102,7 +102,8 @@ CREATE TABLE `reviews` (
 CREATE TABLE `sessions` (
 	`id` text PRIMARY KEY,
 	`user_id` integer NOT NULL,
-	`expires_at` integer NOT NULL,
+	`secret_hash` blob NOT NULL,
+	`last_verified_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
 	`created_at` integer NOT NULL,
 	CONSTRAINT `fk_sessions_user_id_users_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE

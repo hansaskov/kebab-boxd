@@ -1,0 +1,8 @@
+---
+import AuthLayout from "@layouts/AuthLayout.astro";
+
+---
+
+<AuthLayout title="Login" description="Login page" prefetchUrls={["/", "/404"]} theme="cupcake" includeSidebar={true}>
+		<a class="btn" href="/api/auth/google">Sign in with Google</a>
+</AuthLayout>

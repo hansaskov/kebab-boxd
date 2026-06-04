@@ -1,8 +1,10 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "c3d9d839-4ffd-4450-bddb-530cc150cdd6",
-  "prevIds": ["00000000-0000-0000-0000-000000000000"],
+  "id": "303738db-57e4-42d5-b6cb-8d1f66eea6ff",
+  "prevIds": [
+    "7436d3e8-5996-4cff-be0e-837f5b9d979f"
+  ],
   "ddl": [
     {
       "name": "bucket_list",
@@ -599,12 +601,22 @@
       "table": "sessions"
     },
     {
+      "type": "blob",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "secret_hash",
+      "entityType": "columns",
+      "table": "sessions"
+    },
+    {
       "type": "integer",
       "notNull": true,
       "autoincrement": false,
       "default": null,
       "generated": null,
-      "name": "expires_at",
+      "name": "last_verified_at",
       "entityType": "columns",
       "table": "sessions"
     },
@@ -749,9 +761,13 @@
       "table": "users"
     },
     {
-      "columns": ["user_id"],
+      "columns": [
+        "user_id"
+      ],
       "tableTo": "users",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": false,
@@ -760,9 +776,13 @@
       "table": "bucket_list"
     },
     {
-      "columns": ["restaurant_id"],
+      "columns": [
+        "restaurant_id"
+      ],
       "tableTo": "restaurants",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": false,
@@ -771,9 +791,13 @@
       "table": "bucket_list"
     },
     {
-      "columns": ["user_id"],
+      "columns": [
+        "user_id"
+      ],
       "tableTo": "users",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": false,
@@ -782,9 +806,13 @@
       "table": "favorites"
     },
     {
-      "columns": ["restaurant_id"],
+      "columns": [
+        "restaurant_id"
+      ],
       "tableTo": "restaurants",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": false,
@@ -793,9 +821,13 @@
       "table": "favorites"
     },
     {
-      "columns": ["follower_id"],
+      "columns": [
+        "follower_id"
+      ],
       "tableTo": "users",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": false,
@@ -804,9 +836,13 @@
       "table": "followers"
     },
     {
-      "columns": ["following_id"],
+      "columns": [
+        "following_id"
+      ],
       "tableTo": "users",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": false,
@@ -815,9 +851,13 @@
       "table": "followers"
     },
     {
-      "columns": ["user_id"],
+      "columns": [
+        "user_id"
+      ],
       "tableTo": "users",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": false,
@@ -826,9 +866,13 @@
       "table": "likes"
     },
     {
-      "columns": ["review_id"],
+      "columns": [
+        "review_id"
+      ],
       "tableTo": "reviews",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": false,
@@ -837,9 +881,13 @@
       "table": "likes"
     },
     {
-      "columns": ["location_id"],
+      "columns": [
+        "location_id"
+      ],
       "tableTo": "locations",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "nameExplicit": false,
@@ -848,9 +896,13 @@
       "table": "restaurants"
     },
     {
-      "columns": ["suggested_by"],
+      "columns": [
+        "suggested_by"
+      ],
       "tableTo": "users",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "nameExplicit": false,
@@ -859,9 +911,13 @@
       "table": "restaurants"
     },
     {
-      "columns": ["review_id"],
+      "columns": [
+        "review_id"
+      ],
       "tableTo": "reviews",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": false,
@@ -870,9 +926,13 @@
       "table": "review_pictures"
     },
     {
-      "columns": ["picture_id"],
+      "columns": [
+        "picture_id"
+      ],
       "tableTo": "pictures",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": false,
@@ -881,9 +941,13 @@
       "table": "review_pictures"
     },
     {
-      "columns": ["author_id"],
+      "columns": [
+        "author_id"
+      ],
       "tableTo": "users",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": false,
@@ -892,9 +956,13 @@
       "table": "reviews"
     },
     {
-      "columns": ["restaurant_id"],
+      "columns": [
+        "restaurant_id"
+      ],
       "tableTo": "restaurants",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "nameExplicit": false,
@@ -903,9 +971,13 @@
       "table": "reviews"
     },
     {
-      "columns": ["user_id"],
+      "columns": [
+        "user_id"
+      ],
       "tableTo": "users",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": false,
@@ -914,9 +986,13 @@
       "table": "sessions"
     },
     {
-      "columns": ["profile_picture_id"],
+      "columns": [
+        "profile_picture_id"
+      ],
       "tableTo": "pictures",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": false,
@@ -925,77 +1001,104 @@
       "table": "users"
     },
     {
-      "columns": ["user_id", "restaurant_id"],
+      "columns": [
+        "user_id",
+        "restaurant_id"
+      ],
       "nameExplicit": false,
       "name": "bucket_list_pk",
       "entityType": "pks",
       "table": "bucket_list"
     },
     {
-      "columns": ["user_id", "restaurant_id"],
+      "columns": [
+        "user_id",
+        "restaurant_id"
+      ],
       "nameExplicit": false,
       "name": "favorites_pk",
       "entityType": "pks",
       "table": "favorites"
     },
     {
-      "columns": ["follower_id", "following_id"],
+      "columns": [
+        "follower_id",
+        "following_id"
+      ],
       "nameExplicit": false,
       "name": "followers_pk",
       "entityType": "pks",
       "table": "followers"
     },
     {
-      "columns": ["user_id", "review_id"],
+      "columns": [
+        "user_id",
+        "review_id"
+      ],
       "nameExplicit": false,
       "name": "likes_pk",
       "entityType": "pks",
       "table": "likes"
     },
     {
-      "columns": ["picture_id", "review_id"],
+      "columns": [
+        "picture_id",
+        "review_id"
+      ],
       "nameExplicit": false,
       "name": "review_pictures_pk",
       "entityType": "pks",
       "table": "review_pictures"
     },
     {
-      "columns": ["id"],
+      "columns": [
+        "id"
+      ],
       "nameExplicit": false,
       "name": "locations_pk",
       "table": "locations",
       "entityType": "pks"
     },
     {
-      "columns": ["id"],
+      "columns": [
+        "id"
+      ],
       "nameExplicit": false,
       "name": "pictures_pk",
       "table": "pictures",
       "entityType": "pks"
     },
     {
-      "columns": ["id"],
+      "columns": [
+        "id"
+      ],
       "nameExplicit": false,
       "name": "restaurants_pk",
       "table": "restaurants",
       "entityType": "pks"
     },
     {
-      "columns": ["id"],
+      "columns": [
+        "id"
+      ],
       "nameExplicit": false,
       "name": "reviews_pk",
       "table": "reviews",
       "entityType": "pks"
     },
     {
-      "columns": ["id"],
+      "columns": [
+        "id"
+      ],
       "nameExplicit": false,
       "name": "sessions_pk",
       "table": "sessions",
       "entityType": "pks"
     },
     {
-      "columns": ["id"],
+      "columns": [
+        "id"
+      ],
       "nameExplicit": false,
       "name": "users_pk",
       "table": "users",
@@ -1330,32 +1433,55 @@
       "table": "users"
     },
     {
-      "columns": ["url"],
+      "columns": [
+        {
+          "value": "username",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "users_name_idx",
+      "entityType": "indexes",
+      "table": "users"
+    },
+    {
+      "columns": [
+        {
+          "value": "email",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "users_email_idx",
+      "entityType": "indexes",
+      "table": "users"
+    },
+    {
+      "columns": [
+        {
+          "value": "google_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "users_google_id_idx",
+      "entityType": "indexes",
+      "table": "users"
+    },
+    {
+      "columns": [
+        "url"
+      ],
       "nameExplicit": false,
       "name": "pictures_url_unique",
       "entityType": "uniques",
       "table": "pictures"
-    },
-    {
-      "columns": ["username"],
-      "nameExplicit": false,
-      "name": "users_username_unique",
-      "entityType": "uniques",
-      "table": "users"
-    },
-    {
-      "columns": ["email"],
-      "nameExplicit": false,
-      "name": "users_email_unique",
-      "entityType": "uniques",
-      "table": "users"
-    },
-    {
-      "columns": ["google_id"],
-      "nameExplicit": false,
-      "name": "users_google_id_unique",
-      "entityType": "uniques",
-      "table": "users"
     },
     {
       "value": "\"follower_id\" != \"following_id\"",
