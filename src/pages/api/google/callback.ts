@@ -73,7 +73,7 @@ export async function GET(context: APIContext): Promise<Response> {
 
 	if (existingUser) {
 		const session = await createSession(existingUser.id);
-		setSessionTokenCookie(context, session.token, session.lastVerifiedAt);
+		setSessionTokenCookie(context.cookies, session.token, session.lastVerifiedAt);
 		return context.redirect("/");
 	}
 
@@ -92,6 +92,6 @@ export async function GET(context: APIContext): Promise<Response> {
     }
 
 	const session = await createSession(user.id);
-	setSessionTokenCookie(context, session.token, session.lastVerifiedAt);
+	setSessionTokenCookie(context.cookies, session.token, session.lastVerifiedAt);
 	return context.redirect("/");
 }

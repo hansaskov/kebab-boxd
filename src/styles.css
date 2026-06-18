@@ -1,10 +1,10 @@
 @import "tailwindcss";
 @plugin "daisyui" {
-  themes: cupcake, black;
+  themes: ;
 }
 
 @plugin "daisyui/theme" {
-  name: "cupcake";
+  name: "light";
   default: true;
   --color-base-100: oklch(97.788% 0.004 56.375);
   --color-base-200: oklch(93.982% 0.007 61.449);
@@ -37,7 +37,7 @@
 }
 
 @plugin "daisyui/theme" {
-  name: "black";
+  name: "dark";
   --color-base-100: oklch(0% 0 0);
   --color-base-200: oklch(19% 0 0);
   --color-base-300: oklch(22% 0 0);

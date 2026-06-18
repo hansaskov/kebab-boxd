@@ -1,0 +1,31 @@
+---
+interface Props {
+    prefetchUrls: string[];
+    eagerness?: "immediate" | "eager" | "moderate" | "conservative";
+}
+
+const { prefetchUrls, eagerness = "immediate" } = Astro.props;
+---
+
+<script
+    type="speculationrules"
+    set:html={JSON.stringify({
+        prefetch: [
+            {
+                urls: import.meta.env.PROD ? prefetchUrls : [], // Only apply prefetch in prod
+                eagerness: eagerness,
+            },
+        ],
+        prerender: [
+            {
+                where: {
+                    and: [
+                        { href_matches: "/*" },
+                        { not: { href_matches: "/logout" } },
+                    ],
+                },
+                eagerness: "eager",
+            },
+        ],
+    })}
+/>

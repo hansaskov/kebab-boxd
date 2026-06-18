@@ -9,6 +9,7 @@ export async function GET(context: APIContext): Promise<Response> {
 	const codeVerifier = generateCodeVerifier();
     const scopes = ["openid", "profile", "email"];
 	const url = google.createAuthorizationURL(state, codeVerifier, scopes);
+	url.searchParams.set("prompt", "select_account");
 
 	context.cookies.set("google_oauth_state", state, {
 		path: "/",

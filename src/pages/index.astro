@@ -1,55 +1,40 @@
 ---
+import { getSessionFromCookie } from "@auth/session";
 import { db } from "../db";
 import BaseLayout from "../layouts/BaseLayout.astro";
-export const prerender = false
+export const prerender = false;
 
-const user = await db.query.users.findFirst()
+const session = await getSessionFromCookie(Astro.cookies);
+
+if (!session) {
+  return Astro.redirect("/login");
+}
+
 ---
 
-<BaseLayout title="Home">
+<BaseLayout
+  title="Home"
+  description="Homepage"
+  includeSidebar={true}
+  prefetchUrls={[]}
+  theme={session.theme}
+>
   <div class="pb-12 mt-5">
-    <h1 class="text-5xl font-bold text-balance capitalize">{user?.username ?? "Big Mama"}</h1>
+    <h1 class="text-5xl font-bold text-balance capitalize">
+      {session.user.username}
+    </h1>
     <div class="text-2xl py-3 font-bold text-balance">
       Software Engineering Master Student
     </div>
     <div class="py-2">
       <text class="text-xl text-pretty">
-        Welcome! This is a personal website to introduce myself and to showcase
-        my projects. If you would like to know more about me please see my CV
+        Welcome! {session.user.username}!
       </text>
     </div>
-    <div class="mt-8 flex gap-8 justify-between md:justify-start">
-      <a class="btn w-full md:w-40 shrink" href="/cv">CV</a>
-      <a class="btn w-full md:w-40 shrink btn-outline" href="/projects">Projects</a>
+    <div>
+      <form method="post" action="api/logout/">
+        <button class="btn" type="submit">Logout</button>
+      </form>
     </div>
   </div>
-
-  <h2 class="text-2xl w-full font-bold mb-2 text-balance">About Me</h2>
-
-  <p class="pb-4 text-pretty">
-    My name is Hans Askov and i'm currently in my first semester of my masters,
-    working towards a degree in Software Engineering. I'm passionate about
-    Machine learning, fullstack web applications, large distributed systems and
-    much more
-  </p>
-
-  <p class="pb-4 text-pretty">
-    During my Bachelor thesis at Novo Nordisk, implementing a 6DoF pose
-    estimation method for robotic bin picking. This experience exposed me to
-    cutting-edge technology in computer vision and robotics, where precision is
-    key.
-  </p>
-
-  <p class="pb-12 text-pretty">
-    Besides machine learning, I also have a passion for full-stack web
-    applications and have created side projects in React with Next and Svelte
-    with SvelteKit. The aim of these projects are to establish a feature-driven
-    environment, empowering developers to be confident when making changes
-    between the frontend and backend. This confidence is ensured by implementing
-    type-safety between the frontend and backend, as well as incorporating
-    appropriate unit tests and end-to-end tests. The projects are then hosted in
-    a serverless environment, releaving the burden of self hosting and allowing
-    the developers to focus on new features.
-  </p>
-
 </BaseLayout>

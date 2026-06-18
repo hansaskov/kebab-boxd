@@ -1,54 +1,26 @@
 import { eq } from "drizzle-orm";
-import { db } from "../db";
-import * as s from "../db/schema";
+import { s, db } from "../db";
 import { constantTimeEqual, generateSecureRandomString, hashSecret } from "./hash";
-import type { APIContext } from "astro";
+import type { AstroCookies } from "astro";
 
 const inactivityTimeoutSeconds = 60 * 60 * 24 * 30; // 30 days
 const activityCheckIntervalSeconds = 60 * 60 * 24; // 24 hours
 
-export async function createSession(userId: number): Promise<SessionWithToken> {
-  const now = new Date();
+export async function getSessionFromCookie(cookies: AstroCookies) {
+  const token = cookies.get("session")?.value ?? null;
 
-  const id = generateSecureRandomString();
-  const secret = generateSecureRandomString();
-  const secretHash = await hashSecret(secret);
+  if (!token) return null
 
-  const token = `${id}.${secret}`;
+  const session = await validateSessionToken(token);
 
-  const session: SessionWithToken = {
-    id,
-    userId,
-    secretHash,
-    lastVerifiedAt: now,
-    token,
-  };
-
-  await db.insert(s.sessions).values(session);
-
-  return session;
-}
-
-export async function getSession(sessionId: string) {
-  const now = new Date();
-
-  const session = await db.query.sessions.findFirst({
-    with: { user: true },
-    where: { id: sessionId },
-  });
-
-  if (!session) {
-    return null;
+  if (session !== null) {
+    setSessionTokenCookie(cookies, token, session.lastVerifiedAt);
+    return session
+  } else {
+    deleteSessionTokenCookie(cookies);
+    return null
   }
-
-  // Inactivity timeout
-  if (now.getTime() - session.lastVerifiedAt.getTime() >= inactivityTimeoutSeconds * 1000) {
-    await db.delete(s.sessions).where(eq(s.sessions.id, sessionId));
-    return null;
-  }
-
-  return session;
-}
+};
 
 export async function validateSessionToken(token: string) {
   const now = new Date();
@@ -79,16 +51,62 @@ export async function validateSessionToken(token: string) {
   return session;
 }
 
+
+export async function createSession(userId: number): Promise<SessionWithToken> {
+  const now = new Date();
+
+  const id = generateSecureRandomString();
+  const secret = generateSecureRandomString();
+  const secretHash = await hashSecret(secret);
+
+  const token = `${id}.${secret}`;
+
+  const session: SessionWithToken = {
+    id,
+    userId,
+    secretHash,
+    lastVerifiedAt: now,
+    token,
+  };
+
+  await db.insert(s.sessions).values(session);
+
+  return session;
+}
+
+
+export async function getSession(sessionId: string) {
+  const now = new Date();
+
+  const session = await db.query.sessions.findFirst({
+    with: { user: true },
+    where: { id: sessionId },
+  });
+
+  if (!session) {
+    return null;
+  }
+
+  // Inactivity timeout
+  if (now.getTime() - session.lastVerifiedAt.getTime() >= inactivityTimeoutSeconds * 1000) {
+    await db.delete(s.sessions).where(eq(s.sessions.id, sessionId));
+    return null;
+  }
+
+  return session;
+}
+
+
 export async function deleteSession(sessionId: string): Promise<void> {
   await db.delete(s.sessions).where(eq(s.sessions.id, sessionId));
 }
 
 export function setSessionTokenCookie(
-  context: APIContext,
+  cookies: AstroCookies,
   token: string,
   lastVerifiedAt: Date,
 ): void {
-  context.cookies.set("session", token, {
+  cookies.set("session", token, {
     httpOnly: true,
     path: "/",
     secure: import.meta.env.PROD,
@@ -97,8 +115,8 @@ export function setSessionTokenCookie(
   });
 }
 
-export function deleteSessionTokenCookie(context: APIContext): void {
-  context.cookies.set("session", "", {
+export function deleteSessionTokenCookie(cookies: AstroCookies): void {
+  cookies.set("session", "", {
     httpOnly: true,
     path: "/",
     secure: import.meta.env.PROD,
