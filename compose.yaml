@@ -1,13 +1,19 @@
+x-base: &base
+  build: .
+  env_file: .env
+  volumes:
+    - ./${DB_FILE_NAME}:/app/${DB_FILE_NAME}
+
 services:
+  migrate:
+    <<: *base
+    command: ["node", "--run", "db:migrate"]
+
   app:
-    build: .
+    <<: *base
     restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     ports:
       - "4321:4321"
-    environment:
-      - ${DB_FILE_NAME-"db.sqlite"}
-      - ${GOOGLE_CLIENT_ID}
-      - ${GOOGLE_CLIENT_SECRET}
-    volumes:
-      - ./db.sqlite:/data/db.sqlite
-    
