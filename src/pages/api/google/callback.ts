@@ -49,7 +49,6 @@ export async function GET(context: APIContext): Promise<Response> {
     const raw = decodeIdToken(tokens.idToken());
     claims = GoogleClaimsSchema.parse(raw);
   } catch (e) {
-    console.error(raw);
     if (e instanceof z.ZodError) {
       return new Response(e.message, {
         status: 400,

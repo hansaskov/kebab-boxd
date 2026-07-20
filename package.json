@@ -14,17 +14,15 @@
     "studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@astrojs/check": "^0.9.9",
     "@astrojs/node": "^11.0.2",
     "@tailwindcss/vite": "^4.3.3",
     "arctic": "^3.7.0",
     "astro": "7.1.1",
-    "daisyui": "^5.6.18",
-    "drizzle-orm": "1.0.0-rc.4",
-    "tailwindcss": "^4.3.3",
-    "typescript": "^7.0.2"
+    "drizzle-kit": "1.0.0-rc.4",
+    "drizzle-orm": "1.0.0-rc.4"
   },
   "devDependencies": {
-    "drizzle-kit": "1.0.0-rc.4"
+  "tailwindcss": "^4.3.3",
+  "daisyui": "^5.6.18"
   }
 }
