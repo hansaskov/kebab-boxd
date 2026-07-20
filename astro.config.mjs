@@ -10,14 +10,6 @@ export default defineConfig({
   build: {
     inlineStylesheets: "always",
   },
-  env: {
-    schema: {
-      DB_FILE_NAME: envField.string({ access: "secret", context: "server", optional: false }),
-      GOOGLE_CLIENT_ID: envField.string({access: "secret", context: "server", optional: false}),
-      GOOGLE_CLIENT_SECRET: envField.string({access: "secret", context: "server", optional: false})
-    },
-    validateSecrets: true,
-  },
   vite: {
     plugins: [tailwindcss()],
   },

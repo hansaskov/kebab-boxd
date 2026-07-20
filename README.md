@@ -21,9 +21,9 @@ pnpm run dev
 ## Tech Stack
 
 - [Astro](https://astro.build)
-- [tailwindcss](https://tailwindcss.com/)
 - [DaisyUI](https://daisyui.com/)
 - [Drizzle](https://orm.drizzle.team)
+- [Sqlite](https://sqlite.org/docs.html)
 
 ## Functionality
 
@@ -51,92 +51,6 @@ pnpm run dev
 21. A user can update their profile picture.
 22. A user can delete their account.
 23. A user can request all their data. (GDPR)
-
-## Data Layout
-
-Terminology
-
-- Table
-- Field:X
-
-Table is a collection of items like users, items and so forth.
-Field is the data that is on the table, like name, age and such.
-X is the type of Field used, like a singular value, multiple values or derived values.
-
-Field:1 (Singular instance of name)
-Field:n (Multiple instances of name)
-Field:c (Derived count)
-Field:a (Derived average)
-
-All tables include an Id, updated_at and created_at field.
-
-- **Users**
-  - Username:1, Email:1, GoogleId:1, ProfilePictureId:1, Bio:1, Pronoun:1, Latitude:1, Longitude:1, IsAdmin:1
-
-- **Location**
-  - AddressLine1:1, AddressLine2:1, City:1, PostalCode:1, Region:1, Country:1, Latitude:1, Longitude:1
-
-- **Restaurants**
-  - Name:1, LocationId:1, SuggestedBy:1, Status:1, GooglePlaceId:1, RatingAvg:a, ReviewCount:c
-
-- **Reviews**
-  - Author:1, Restaurant:1, Rating:1, Description:1, LikeCount:c
-
-- **Followers**
-  - Follower:1, Following:1
-
-- **Favorites**
-  - User:1, Restaurant:1
-
-- **Likes**
-  - User:1, Review:1
-
-- **BucketList**
-  - User:1, Restaurant:1
-
-- **Pictures**
-  - Url:1
-
-- **ReviewPictures**
-  - Review:1, Picture:1
-
-- **Session**
-  - User:1, ExpiresAt:1
-
-## Relations
-
-Terminology
-
-- Relation:h1 (has one)
-- Relation:hn (has many)
-- Relation:b1 (belongs to one)
-
-- **Users**
-  - Reviews:hn, Followers:hn (as follower), Following:hn (as following), Favorites:hn, BucketList:hn, Likes:hn, ProfilePicture:h1
-
-- **Restaurants**
-  - Reviews:hn, Favorites:hn, BucketList:hn, Location:h1
-
-- **Reviews**
-  - Author:b1, Restaurant:b1, Likes:hn, ReviewPictures:hn
-
-- **Followers**
-  - Follower:b1 (User), Following:b1 (User)
-
-- **Favorites**
-  - User:b1, Restaurant:b1
-
-- **BucketList**
-  - User:b1, Restaurant:b1
-
-- **Likes**
-  - User:b1, Review:b1
-
-- **ReviewPictures**
-  - Review:b1, Picture:b1
-
-- **Session**
-  - User:b1
 
 ## Considerations
 
@@ -212,3 +126,5 @@ A notifications system (for follows, likes, and restaurant suggestion outcomes) 
 
 1. Database schema
 2. Login with Google
+3. Rate Limits (in memory) 
+4. 

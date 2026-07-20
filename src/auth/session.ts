@@ -9,18 +9,18 @@ const activityCheckIntervalSeconds = 60 * 60 * 24; // 24 hours
 export async function getSessionFromCookie(cookies: AstroCookies) {
   const token = cookies.get("session")?.value ?? null;
 
-  if (!token) return null
+  if (!token) return null;
 
   const session = await validateSessionToken(token);
 
   if (session !== null) {
     setSessionTokenCookie(cookies, token, session.lastVerifiedAt);
-    return session
+    return session;
   } else {
     deleteSessionTokenCookie(cookies);
-    return null
+    return null;
   }
-};
+}
 
 export async function validateSessionToken(token: string) {
   const now = new Date();
@@ -51,7 +51,6 @@ export async function validateSessionToken(token: string) {
   return session;
 }
 
-
 export async function createSession(userId: number): Promise<SessionWithToken> {
   const now = new Date();
 
@@ -74,7 +73,6 @@ export async function createSession(userId: number): Promise<SessionWithToken> {
   return session;
 }
 
-
 export async function getSession(sessionId: string) {
   const now = new Date();
 
@@ -95,7 +93,6 @@ export async function getSession(sessionId: string) {
 
   return session;
 }
-
 
 export async function deleteSession(sessionId: string): Promise<void> {
   await db.delete(s.sessions).where(eq(s.sessions.id, sessionId));

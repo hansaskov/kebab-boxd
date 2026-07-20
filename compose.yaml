@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "4321:4321"
+    environment:
+      - ${DB_FILE_NAME-"db.sqlite"}
+      - ${GOOGLE_CLIENT_ID}
+      - ${GOOGLE_CLIENT_SECRET}
+    volumes:
+      - ./db.sqlite:/data/db.sqlite
+    
