@@ -13,11 +13,11 @@
     "studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "astro": "7.1.1",
-    "sharp": "^0.35.3",
     "@astrojs/node": "^11.0.2",
+    "astro": "7.1.1",
     "drizzle-kit": "1.0.0-rc.4",
-    "drizzle-orm": "1.0.0-rc.4"
+    "drizzle-orm": "1.0.0-rc.4",
+    "sharp": "^0.35.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

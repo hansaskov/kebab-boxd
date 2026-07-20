@@ -3,6 +3,6 @@ import { drizzle } from "drizzle-orm/node-sqlite";
 import { relations } from "./relations";
 import * as s from "./schema";
 
-const db = drizzle(DB_FILE_NAME, { schema: s, relations, jit: true });
+const db = drizzle(DB_FILE_NAME, { relations, jit: true });
 
 export { s, db };
