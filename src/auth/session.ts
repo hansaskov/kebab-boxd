@@ -37,7 +37,7 @@ export async function validateSessionToken(token: string) {
     return null;
   }
 
-  const tokenSecretHash = await hashSecret(sessionSecret);
+  const tokenSecretHash = hashSecret(sessionSecret);
   const validSecret = constantTimeEqual(tokenSecretHash, session.secretHash);
   if (!validSecret) {
     return null;
@@ -56,7 +56,7 @@ export async function createSession(userId: number): Promise<SessionWithToken> {
 
   const id = generateSecureRandomString();
   const secret = generateSecureRandomString();
-  const secretHash = await hashSecret(secret);
+  const secretHash = hashSecret(secret);
 
   const token = `${id}.${secret}`;
 

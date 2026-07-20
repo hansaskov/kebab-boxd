@@ -1,11 +1,10 @@
 // pages/login/google/callback.ts
 import { createSession, setSessionTokenCookie } from "@auth/session";
-import { google } from "@auth/oauth";
-import { decodeIdToken } from "arctic";
+import { google, decodeIdToken } from "@auth/oauth";
+import type { GoogleTokenResponse } from "@auth/oauth";
 import { z } from "astro/zod";
 
 import type { APIContext } from "astro";
-import type { OAuth2Tokens } from "arctic";
 import { db, s } from "@db/index";
 
 export const GoogleClaimsSchema = z.object({
@@ -33,7 +32,7 @@ export async function GET(context: APIContext): Promise<Response> {
     });
   }
 
-  let tokens: OAuth2Tokens;
+  let tokens: GoogleTokenResponse;
   try {
     tokens = await google.validateAuthorizationCode(code, codeVerifier);
     context.cookies.delete("google_oauth_state", { path: "/" });
@@ -46,7 +45,7 @@ export async function GET(context: APIContext): Promise<Response> {
 
   let claims: z.infer<typeof GoogleClaimsSchema>;
   try {
-    const raw = decodeIdToken(tokens.idToken());
+    const raw = decodeIdToken(tokens.id_token);
     claims = GoogleClaimsSchema.parse(raw);
   } catch (e) {
     if (e instanceof z.ZodError) {

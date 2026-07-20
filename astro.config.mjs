@@ -7,6 +7,14 @@ import node from "@astrojs/node";
 export default defineConfig({
   site: "https://hans.askov.dk",
   output: "server",
+  env: {
+    schema: {
+      DB_FILE_NAME: envField.string({ context: "server", access: "secret" }),
+      GOOGLE_CLIENT_ID: envField.string({ context: "server", access: "secret" }),
+      GOOGLE_CLIENT_SECRET: envField.string({ context: "server", access: "secret" }),
+      GOOGLE_REDIRECT_URI: envField.string({ context: "server", access: "secret" }),
+    },
+  },
   build: {
     inlineStylesheets: "always",
   },

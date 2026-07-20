@@ -1,6 +1,5 @@
 // pages/login/google/index.ts
-import { generateCodeVerifier, generateState } from "arctic";
-import { google } from "@auth/oauth";
+import { generateCodeVerifier, generateState, google } from "@auth/oauth";
 
 import type { APIContext } from "astro";
 
