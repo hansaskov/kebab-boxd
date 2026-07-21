@@ -58,6 +58,7 @@ pnpm run dev
 
 ## Roadmap
 
-1. Database schema
-2. Login with Google
-3. Rate Limits (in memory)
+- [x] Database schema
+- [x] Login with Google
+- [] Sidebar Layout and placeholder pages
+- [] Rate Limits (in memory)

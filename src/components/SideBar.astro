@@ -5,18 +5,16 @@ import type { ComponentProps } from "astro/types";
 
 interface Props extends ComponentProps<typeof SideBarFooter> {}
 
-const { download_button } = Astro.props;
-
+const props = Astro.props;
+const pathname = Astro.url.pathname;
 ---
 
 <div class="drawer-side z-40">
     <label for="my-drawer" class="drawer-overlay"></label>
     <aside
-        class="px-2 pt-2 h-auto min-h-full w-76 bg-base-200 text-base-content flex flex-col"
+        class="h-auto min-h-full w-80 bg-base-200 text-base-content flex flex-col border-r border-base-300"
     >
-        <SideBarMenu />
-        <SideBarFooter {download_button} />
+        <SideBarMenu {pathname} />
+        <SideBarFooter {...props} />
     </aside>
 </div>
-
-

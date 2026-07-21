@@ -1,47 +1,63 @@
 ---
-interface Props {
-    download_button?: {
-        url: string,
-        title: string,
-    };
+import { ChevronUp } from "@lucide/astro";
+import ThemeSelector from "./ThemeSelector.astro";
+import type { ComponentProps } from "astro/types";
+
+interface Props extends ComponentProps<typeof ThemeSelector> {
+  username?: string;
+  isAdmin?: boolean;
 }
-const { download_button } = Astro.props;
+
+const { username = "", isAdmin = false, theme } = Astro.props;
+
+const initials = username
+  ? username
+      .split(/\s+/)
+      .map((p) => p[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase()
+  : "?";
 ---
 
-<div
-    class="block sticky pointer-events-none bottom-10 bg-base-200 justify-center h-12 [mask-image:linear-gradient(transparent,#000000)]"
->
-</div>
-<div
-    class="gap-2 pb-5 flex self-center justify-center"
->
+<div class="p-3 border-t border-base-300">
+  <button
+    popovertarget="sidebar-user-menu"
+    style="anchor-name:--sidebar-user-menu"
+    class="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-base-100/60 cursor-pointer w-full"
+  >
+    <div class="avatar">
+      <div class="w-10 rounded-full bg-primary text-primary-content grid place-items-center font-bold">{initials}</div>
+    </div>
+    <div class="flex-1 text-left">
+      <div class="font-semibold text-sm">{username}</div>
+      <div class="text-xs opacity-60">@{username}</div>
+    </div>
+    <ChevronUp size={16} />
+  </button>
+  <ul
+    class="dropdown dropdown-top menu bg-base-100 rounded-box shadow-lg border border-base-300 w-56 mb-2"
+    popover
+    id="sidebar-user-menu"
+    style="position-anchor:--sidebar-user-menu"
+  >
+    <li><a href="/profile">Profile</a></li>
+    <li><a href="/settings">Settings</a></li>
+    <ThemeSelector {...Astro.props} />
+    <form method="post" action="api/logout/">
+      <li>
+        <button class="text-left text-error" type="submit">Sign out</button>
+      </li>
+    </form>
     {
-        download_button && (
-            <a
-                href={download_button.url}
-                download
-                class="btn btn-square btn-ghost"
-                aria-label={download_button.title}
-                title={download_button.title}
-            >
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                >
-                    <>
-                        <path d="M12 17V3" />
-                        <path d="m6 11 6 6 6-6" />
-                        <path d="M19 21H5" />
-                    </>
-                </svg>
-            </a>
-        )
+      isAdmin && (
+        <>
+          <li class="menu-title text-xs">Admin</li>
+          <li><a href="/admin" class="text-warning">Admin console</a></li>
+          <li><a href="/admin/suggestions" class="text-warning">Pending suggestions</a></li>
+        </>
+      )
     }
+  </ul>
 </div>

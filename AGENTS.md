@@ -18,4 +18,5 @@ Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
 - No Client side javascript is allowed.
 - Forms should use Astro Actions. 
 - Each page needs to specify which sites can be pre-fetched immdiately. 
-- CSS-only UI with DaisyUI and Tailwind. Reach for the DaisyUI skill. Never reach for JS-dependent components.
+- CSS-only UI with DaisyUI. Reach for the DaisyUI skill. Never reach for JS-dependent components.
+- Astro components must extend `ComponentProps<typeof Child>` (from `astro/types`) for every forwarded child and spread `{...props}` at the call site. Then, to verify types use `pnpm check`. 

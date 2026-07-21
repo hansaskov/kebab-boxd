@@ -1,32 +1,72 @@
 ---
-const pathname = Astro.url.pathname;
-const pages = [
-    {
-        url: "/",
-        name: "Home",
-    },
+import { Rss, Compass, SquarePen } from "@lucide/astro";
+
+interface Props {
+  pathname: string;
+}
+
+const { pathname } = Astro.props;
+
+type Item = {
+  name: string;
+  href: string;
+  active: boolean;
+  icon: typeof Rss;
+};
+
+type Section = {
+  title: string;
+  items: Item[];
+};
+
+const sections: Section[] = [
+  {
+    title: "Discover",
+    items: [
+      { name: "Feed", href: "/", active: pathname === "/", icon: Rss },
+      {
+        name: "Explore",
+        href: "/explore",
+        active: pathname.startsWith("/explore"),
+        icon: Compass,
+      },
+    ],
+  },
+  {
+    title: "You",
+    items: [
+      {
+        name: "Reviews",
+        href: "/reviews",
+        active: pathname.startsWith("/reviews"),
+        icon: SquarePen,
+      },
+    ],
+  },
 ];
 ---
 
-<ul class="menu grow shrink menu-md overflow-y-auto w-full space-y-2">
-    {
-        pages.map(({ name, url }) => (
+<div class="p-4">
+  <a href="/" class="block text-xl font-bold tracking-tight">Kebab Boxd</a>
+</div>
+
+<nav class="flex-1 overflow-y-auto px-3 pb-3">
+  <ul class="menu gap-1 w-full">
+    {sections.map((s) => (
+      <>
+        <li class="menu-title">{s.title}</li>
+        {s.items.map((t) => {
+          const Icon = t.icon;
+          return (
             <li>
-                <a
-                    class:list={[
-                        "pl-4 py-3 text-base",
-                        {
-                            "bg-base-300":
-                                url === "/"
-                                    ? pathname === url
-                                    : pathname.startsWith(url),
-                        },
-                    ]}
-                    href={url}
-                >
-                    {name}
-                </a>
+              <a href={t.href} class:list={[t.active && "bg-base-100"]}>
+                <Icon size={20} />
+                {t.name}
+              </a>
             </li>
-        ))
-    }
-</ul>
+          );
+        })}
+      </>
+    ))}
+  </ul>
+</nav>

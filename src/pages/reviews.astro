@@ -1,23 +1,22 @@
 ---
 import { getSessionFromCookie } from "@auth/session";
-import BaseLayout from "../layouts/BaseLayout.astro";
+import BaseLayout from "@layouts/BaseLayout.astro";
 
 const session = await getSessionFromCookie(Astro.cookies);
-
 if (!session) {
   return Astro.redirect("/login");
 }
 ---
 
 <BaseLayout
-  title="Home"
-  description="Homepage"
+  title="Reviews"
+  description="Your reviews"
   includeSidebar={true}
-  prefetchUrls={["/explore", "/reviews"]}
+  prefetchUrls={["/", "/explore"]}
   theme={session.theme}
   username={session.user.username}
   isAdmin={session.user.isAdmin}
 >
-  <h1 class="text-4xl font-bold">Feed</h1>
-  <p class="mt-2 opacity-70">Recent reviews and activity from people you follow.</p>
+  <h1 class="text-4xl font-bold">Reviews</h1>
+  <p class="mt-2 opacity-70">Reviews you've written, drafted or published.</p>
 </BaseLayout>
