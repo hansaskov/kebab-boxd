@@ -13,13 +13,13 @@ if (!session) {
 ---
 
 <BaseLayout
+  class="pb-12 mt-5"
   title="Home"
   description="Homepage"
   includeSidebar={true}
   prefetchUrls={[]}
   theme={session.theme}
 >
-  <div class="pb-12 mt-5">
     <h1 class="text-5xl font-bold text-balance capitalize">
       {session.user.username}
     </h1>
@@ -36,5 +36,4 @@ if (!session) {
         <button class="btn" type="submit">Logout</button>
       </form>
     </div>
-  </div>
 </BaseLayout>

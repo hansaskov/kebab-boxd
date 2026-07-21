@@ -9,7 +9,7 @@ export const POST = (async ({ cookies, redirect }) => {
   }
 
   await deleteSession(session.id);
-  await deleteSessionTokenCookie(cookies);
+  deleteSessionTokenCookie(cookies);
 
   return redirect("/");
 }) satisfies APIRoute;
