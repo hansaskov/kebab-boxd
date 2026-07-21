@@ -66,7 +66,7 @@ export const reviews = p.snakeCase.table("reviews", {
 }, (t) => [
   p.index("reviews_author_id_idx").on(t.authorId),
   p.index("reviews_restaurant_id_idx").on(t.restaurantId),
-  p.check("reviews_rating_range", sql`${t.rating} BETWEEN 1 AND 10`)
+  p.check("reviews_rating_range", sql`${t.rating} BETWEEN 2 AND 10`)
 ])
 
 export const pictures = p.snakeCase.table("pictures", {
