@@ -9,6 +9,7 @@ const { prefetchUrls, eagerness = "immediate" } = Astro.props;
 
 <script
     type="speculationrules"
+    is:inline
     set:html={JSON.stringify({
         prefetch: [
             {

@@ -60,7 +60,6 @@ export async function GET(context: APIContext): Promise<Response> {
 
   const googleId = claims.sub;
   const username = claims.name;
-  const picture = claims.picture;
   const email = claims.email;
 
   // Verify that a user with id does not already exist
