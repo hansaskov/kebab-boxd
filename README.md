@@ -15,6 +15,10 @@ pnpm db:migrate
 ```
 
 ```bash
+pnpm astro check
+```
+
+```bash
 pnpm run dev
 ```
 
