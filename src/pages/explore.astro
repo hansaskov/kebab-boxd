@@ -2,7 +2,7 @@
 import { getSessionFromCookie } from "@auth/session";
 import BaseLayout from "@layouts/BaseLayout.astro";
 
-const session = await getSessionFromCookie(Astro.cookies);
+const session = await getSessionFromCookie(Astro.cookies, Astro.locals.db);
 if (!session) {
   return Astro.redirect("/login");
 }

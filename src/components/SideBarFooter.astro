@@ -8,7 +8,7 @@ interface Props extends ComponentProps<typeof ThemeSelector> {
   isAdmin?: boolean;
 }
 
-const { username = "", isAdmin = false, theme } = Astro.props;
+const { username = "", isAdmin = false } = Astro.props;
 
 const initials = username
   ? username

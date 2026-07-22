@@ -1,8 +1,18 @@
-import { DB_FILE_NAME } from "astro:env/server";
 import { drizzle } from "drizzle-orm/node-sqlite";
+import { migrate } from "drizzle-orm/node-sqlite/migrator";
 import { relations } from "./relations";
-import * as s from "./schema";
+export * as s from "./schema";
 
-const db = drizzle(DB_FILE_NAME, { relations, jit: true });
+const MIGRATIONS_DIR = ".drizzle";
 
-export { s, db };
+export function createDatabase(dbFileName: string) {
+	return drizzle(dbFileName, { relations, jit: true });
+}
+
+export function migrateDatabase(db: DB) {
+	return migrate(db, {
+		migrationsFolder: MIGRATIONS_DIR
+	})
+}
+
+export type DB = ReturnType<typeof createDatabase>;

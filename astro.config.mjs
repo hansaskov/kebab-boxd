@@ -1,4 +1,4 @@
-import { defineConfig, envField } from "astro/config";
+import { defineConfig, envField, memoryCache} from "astro/config";
 import tailwindcss from "@tailwindcss/vite";
 
 import node from "@astrojs/node";
@@ -7,6 +7,18 @@ import node from "@astrojs/node";
 export default defineConfig({
   site: "https://hans.askov.dk",
   output: "server",
+  build: {
+    inlineStylesheets: "always",
+  },
+  vite: {
+    plugins: [tailwindcss()],
+  },
+  cache: {
+    provider: memoryCache(),
+  },
+  adapter: node({
+    mode: "standalone",
+  }),
   env: {
     schema: {
       DB_FILE_NAME: envField.string({ context: "server", access: "secret" }),
@@ -14,12 +26,6 @@ export default defineConfig({
       GOOGLE_CLIENT_SECRET: envField.string({ context: "server", access: "secret" }),
       GOOGLE_REDIRECT_URI: envField.string({ context: "server", access: "secret" }),
     },
-  },
-  build: {
-    inlineStylesheets: "always",
-  },
-  vite: {
-    plugins: [tailwindcss()],
   },
   image: {
     service: {
@@ -29,7 +35,4 @@ export default defineConfig({
       },
     },
   },
-  adapter: node({
-    mode: "standalone",
-  }),
 });
