@@ -60,5 +60,5 @@ pnpm run dev
 
 - [x] Database schema
 - [x] Login with Google
-- [] Sidebar Layout and placeholder pages
+- [x] Sidebar Layout and placeholder pages
 - [] Rate Limits (in memory)
