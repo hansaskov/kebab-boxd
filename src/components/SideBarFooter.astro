@@ -1,5 +1,5 @@
 ---
-import { ChevronUp } from "@lucide/astro";
+import { ChevronUp, CircleUser, Settings, DoorOpen, Shield } from "@lucide/astro";
 import ThemeSelector from "./ThemeSelector.astro";
 import type { ComponentProps } from "astro/types";
 import type { User } from "@db/schema"
@@ -41,20 +41,19 @@ const initials = user?.username
       id="sidebar-user-menu"
       style="position-anchor:--sidebar-user-menu"
     >
-      <li><a href="/profile">Profile</a></li>
-      <li><a href="/settings">Settings</a></li>
+      <li><a href="/profile"><CircleUser size={16} />Profile</a></li>
+      <li><a href="/settings"><Settings size={16} />Settings</a></li>
       <ThemeSelector {...Astro.props} />
       <form method="post" action="api/logout/">
         <li>
-          <button class="text-left text-error" type="submit">Sign out</button>
+          <button class="text-left text-error" type="submit"><DoorOpen size={16} />Sign out</button>
         </li>
       </form>
       {
         user.isAdmin && (
           <>
             <li class="menu-title text-xs">Admin</li>
-            <li><a href="/admin" class="text-warning">Admin console</a></li>
-            <li><a href="/admin/suggestions" class="text-warning">Pending suggestions</a></li>
+            <li><a href="/admin" ><Shield size={16} />Admin console</a></li>
           </>
         )
       }

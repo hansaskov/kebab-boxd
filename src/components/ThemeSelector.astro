@@ -1,4 +1,5 @@
 ---
+import { Moon, Sun } from "@lucide/astro";
 import type { Session } from '@auth/session';
 
 interface Props {
@@ -7,33 +8,15 @@ interface Props {
 
 const { session } = Astro.props;
 
-const theme = session?.theme ?? "light"
-
-const options = [
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-  { value: "default", label: "Default" },
-];
+const isDark = session?.theme === "dark";
 ---
-
-<li>
-  <details>
-    <summary>Theme</summary>
-    <ul>
-      {options.map((o) => (
-        <li>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="theme"
-              value={o.value}
-              class="theme-controller radio radio-sm"
-              checked={o.value === theme }
-            />
-            <span>{o.label}</span>
-          </label>
-        </li>
-      ))}
-    </ul>
-  </details>
-</li>
+{session && (
+<form method="post" action="/api/theme">
+  <li>
+    <button class="text-left w-full" type="submit">
+      {isDark ? <Moon size={16} /> : <Sun size={16} />}
+      Theme
+    </button>
+  </li>
+</form>
+)}
