@@ -4,19 +4,60 @@ import BaseLayout from "@layouts/BaseLayout.astro";
 
 const session = await getSessionFromCookie(Astro.cookies, Astro.locals.db);
 if (!session) {
-  return Astro.redirect("/login");
+	return Astro.redirect("/login");
 }
+
+const cityParam = Astro.url.searchParams.get("city");
+const city = cityParam && cityParam.trim() !== "" ? cityParam : 'Odense';
+const highlightParam = Astro.url.searchParams.get("highlight");
+const highlightId = highlightParam ? Number(highlightParam) : null;
+
+
+const restaurants = await Astro.locals.db.query.restaurants.findMany({
+  where: {
+    status: "approved",
+    location: {
+      city: city
+    },
+  },
+  with: {
+    location: true
+  }
+})
 ---
 
 <BaseLayout
-  title="Explore"
-  description="Browse and search kebab spots"
-  includeSidebar={true}
-  prefetchUrls={["/", "/reviews"]}
-  theme={session.theme}
-  username={session.user.username}
-  isAdmin={session.user.isAdmin}
+	title="Explore"
+	description="Browse and search kebab spots"
+	includeSidebar={true}
+	prefetchUrls={["/", "/reviews"]}
+	session={session}
+	user={session.user}
+	class="max-w-none! lg:max-w-none!"
 >
-  <h1 class="text-4xl font-bold">Explore</h1>
-  <p class="mt-2 opacity-70">Browse, search, and find kebab spots near you.</p>
+	<div data-city={city} class="flex flex-col gap-6">
+		<header>
+			<h1 class="text-4xl font-bold">Explore</h1>
+			<p class="mt-2 text-base-content/70">
+				Viewing <span class="font-semibold text-base-content">{city}</span>
+			</p>
+		</header>
+
+		<div class="grid grid-cols-1 lg:grid-cols-[1fr_16rem] gap-6">
+			<section
+				data-explore-map
+				class="relative min-h-80 w-full rounded-box border-2 border-base-300 bg-base-200 overflow-hidden"
+				aria-label={`Map of ${city}`}
+			>
+			</section>
+
+			<aside data-nearby-cities class="min-h-24 rounded-box border-2 border-base-300 bg-base-200 p-4">
+				{/* Nearby cities — ticket 04 */}
+			</aside>
+		</div>
+
+		<section data-city-timeline class="min-h-24 rounded-box border-2 border-base-300 bg-base-200 p-4">
+			{/* City timeline — ticket 03 */}
+		</section>
+	</div>
 </BaseLayout>

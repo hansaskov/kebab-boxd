@@ -1,9 +1,13 @@
 ---
+import type { Session } from '@auth/session';
+
 interface Props {
-  theme: "light" | "dark";
+  session?: Session;
 }
 
-const { theme } = Astro.props;
+const { session } = Astro.props;
+
+const theme = session?.theme ?? "light"
 
 const options = [
   { value: "light", label: "Light" },
@@ -24,7 +28,7 @@ const options = [
               name="theme"
               value={o.value}
               class="theme-controller radio radio-sm"
-              checked={o.value === theme}
+              checked={o.value === theme }
             />
             <span>{o.label}</span>
           </label>

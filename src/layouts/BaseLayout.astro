@@ -5,6 +5,7 @@ import Footer from "../components/Footer.astro";
 import SideBar from "../components/SideBar.astro";
 import type { ComponentProps } from "astro/types";
 import SpeculationsAPI from "@components/SpeculationsAPI.astro";
+import type { Session } from "@auth/session";
 
 interface Props
   extends
@@ -19,7 +20,7 @@ const props = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en" data-theme={props.theme}>
+<html lang="en" data-theme={props.session?.theme ?? "light"}>
   <head>
     <BaseHead {...props} />
     <slot name="head" />

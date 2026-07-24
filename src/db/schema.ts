@@ -22,6 +22,8 @@ export const users = p.snakeCase.table("users", {
   p.index("users_google_id_idx").on(t.googleId)
 ]);
 
+export type User = typeof users.$inferSelect
+
 
 export const locations = p.snakeCase.table("locations", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
@@ -142,7 +144,7 @@ export const sessions = p.snakeCase.table("sessions", {
   userId: p.int({ mode: "number" }).notNull().references(() => users.id, {onDelete: "cascade"}),
   secretHash: p.blob({mode: "buffer"}).notNull(),
   lastVerifiedAt: p.int({ mode: "timestamp" }).notNull(),
-  theme: p.text({enum: ["light", "dark"]}).default("light").notNull(),
+  theme: p.text({enum: ["light", "dark"]}).notNull().default("light"),
   updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(() => new Date),
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(() => new Date)
 }, (t) => [

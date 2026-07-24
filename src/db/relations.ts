@@ -3,6 +3,7 @@ import * as s from "./schema";
 
 export const relations = defineRelations(s, (r) => ({
   users: {
+    sessions: r.many.sessions(),
     reviews: r.many.reviews(),
     following: r.many.users({
       from: r.users.id.through(r.followers.followerId), // Might be the other way around.

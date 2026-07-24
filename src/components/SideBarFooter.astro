@@ -2,62 +2,62 @@
 import { ChevronUp } from "@lucide/astro";
 import ThemeSelector from "./ThemeSelector.astro";
 import type { ComponentProps } from "astro/types";
+import type { User } from "@db/schema"
 
 interface Props extends ComponentProps<typeof ThemeSelector> {
-  username?: string;
-  isAdmin?: boolean;
+  user?: User;
 }
 
-const { username = "", isAdmin = false } = Astro.props;
+const { user } = Astro.props;
 
-const initials = username
-  ? username
+const initials = user?.username
       .split(/\s+/)
       .map((p) => p[0])
       .filter(Boolean)
       .slice(0, 2)
       .join("")
-      .toUpperCase()
-  : "?";
+      .toUpperCase();
 ---
 
-<div class="p-3 border-t border-base-300">
-  <button
-    popovertarget="sidebar-user-menu"
-    style="anchor-name:--sidebar-user-menu"
-    class="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-base-100/60 cursor-pointer w-full"
-  >
-    <div class="avatar">
-      <div class="w-10 rounded-full bg-primary text-primary-content grid place-items-center font-bold">{initials}</div>
-    </div>
-    <div class="flex-1 text-left">
-      <div class="font-semibold text-sm">{username}</div>
-      <div class="text-xs opacity-60">@{username}</div>
-    </div>
-    <ChevronUp size={16} />
-  </button>
-  <ul
-    class="dropdown dropdown-top menu bg-base-100 rounded-box shadow-lg border border-base-300 w-56 mb-2"
-    popover
-    id="sidebar-user-menu"
-    style="position-anchor:--sidebar-user-menu"
-  >
-    <li><a href="/profile">Profile</a></li>
-    <li><a href="/settings">Settings</a></li>
-    <ThemeSelector {...Astro.props} />
-    <form method="post" action="api/logout/">
-      <li>
-        <button class="text-left text-error" type="submit">Sign out</button>
-      </li>
-    </form>
-    {
-      isAdmin && (
-        <>
-          <li class="menu-title text-xs">Admin</li>
-          <li><a href="/admin" class="text-warning">Admin console</a></li>
-          <li><a href="/admin/suggestions" class="text-warning">Pending suggestions</a></li>
-        </>
-      )
-    }
-  </ul>
-</div>
+ {user && (
+  <div class="p-3 border-t border-base-300">
+    <button
+      popovertarget="sidebar-user-menu"
+      style="anchor-name:--sidebar-user-menu"
+      class="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-base-100/60 cursor-pointer w-full"
+    >
+      <div class="avatar">
+        <div class="w-10 rounded-full bg-primary text-primary-content grid place-items-center font-bold">{initials}</div>
+      </div>
+      <div class="flex-1 text-left">
+        <div class="font-semibold text-sm">{user.username}</div>
+        <div class="text-xs opacity-60">@{user.username}</div>
+      </div>
+      <ChevronUp size={16} />
+    </button>
+    <ul
+      class="dropdown dropdown-top menu bg-base-100 rounded-box shadow-lg border border-base-300 w-56 mb-2"
+      popover
+      id="sidebar-user-menu"
+      style="position-anchor:--sidebar-user-menu"
+    >
+      <li><a href="/profile">Profile</a></li>
+      <li><a href="/settings">Settings</a></li>
+      <ThemeSelector {...Astro.props} />
+      <form method="post" action="api/logout/">
+        <li>
+          <button class="text-left text-error" type="submit">Sign out</button>
+        </li>
+      </form>
+      {
+        user.isAdmin && (
+          <>
+            <li class="menu-title text-xs">Admin</li>
+            <li><a href="/admin" class="text-warning">Admin console</a></li>
+            <li><a href="/admin/suggestions" class="text-warning">Pending suggestions</a></li>
+          </>
+        )
+      }
+    </ul>
+  </div>
+ )}
