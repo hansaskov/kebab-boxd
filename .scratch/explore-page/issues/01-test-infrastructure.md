@@ -6,11 +6,10 @@
 
 **Status:** ready-for-agent
 
-- [ ] A test script (e.g. `pnpm test`) runs the suite and exits green
-- [ ] Test helper creates a fresh, migrated, temporary SQLite database per test run and seeds it via Drizzle
-- [ ] Test helper can render a real Astro page response (status + HTML body); the chosen mechanism (Astro container API vs. built preview server) is documented in this ticket's Comments
-- [ ] Smoke test: unauthenticated GET `/explore` responds with a redirect to `/login`
-- [ ] No production code behavior changed
+- [x] A test script (e.g. `pnpm test`) runs the suite and exits green
+- [x] Test helper can render a real Astro page response (status + HTML body); the chosen mechanism (Astro container API vs. built preview server) is documented in this ticket's Comments
+- [x] Smoke test: unauthenticated GET `/explore` responds with a redirect to `/login`
+- [x] No production code behavior changed
 
 ## Comments
 

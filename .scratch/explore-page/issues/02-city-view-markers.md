@@ -4,14 +4,16 @@
 
 **Blocked by:** 01 — Test infrastructure
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
-- [ ] Default view (no params) resolves to Odense; `?city=<name>` switches the viewed city
-- [ ] Every approved Restaurant in the viewed city renders as a marker positioned by its coordinates via the projection interface; pending/rejected Restaurants never appear
-- [ ] Markers are anchors showing RatingAvg, with a CSS-only name tooltip, linking to the highlighted view
-- [ ] `?highlight=<id>` visually distinguishes that Restaurant's marker
-- [ ] Empty state when the city has no approved Restaurants; current city name displayed
-- [ ] Page shell: map area + nearby-cities slot + timeline slot, stacked on mobile; `prefetchUrls` declared per AGENTS.md
-- [ ] HTTP-seam tests cover: default city, city switching, marker presence and position styles, highlight, empty state
+- [x] Default view (no params) resolves to Odense; `?city=<name>` switches the viewed city
+- [x] Every approved Restaurant in the viewed city renders as a marker positioned by its coordinates via the projection interface; pending/rejected Restaurants never appear
+- [x] Markers are anchors showing RatingAvg, with a CSS-only name tooltip, linking to the highlighted view
+- [x] `?highlight=<id>` visually distinguishes that Restaurant's marker
+- [x] Empty state when the city has no approved Restaurants; current city name displayed
+- [x] Page shell: map area + nearby-cities slot + timeline slot, stacked on mobile; `prefetchUrls` declared per AGENTS.md
+- [x] HTTP-seam tests cover: default city, city switching, marker presence and position styles, highlight, empty state
 
 ## Comments
+
+Implemented: `src/city/directory.ts`, `src/city/map.ts`, explore page shell + markers, HTTP tests in `src/tests/explore-city-view.test.ts`.
