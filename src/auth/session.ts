@@ -7,7 +7,7 @@ import type { AstroCookies } from "astro";
 const inactivityTimeoutSeconds = 60 * 60 * 24 * 30; // 30 days
 const activityCheckIntervalSeconds = 60 * 60 * 24; // 24 hours
 
-export async function getSessionFromCookie(cookies: AstroCookies, db: DB) {
+export async function getSessionAndUserFromCookie(cookies: AstroCookies, db: DB) {
 	const token = cookies.get("session")?.value ?? null;
 
 	if (!token) return null;

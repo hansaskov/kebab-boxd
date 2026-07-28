@@ -1,16 +1,14 @@
 ---
-import { getSessionFromCookie } from "@auth/session";
+import { getSessionAndUserFromCookie } from "@auth/session";
 import BaseLayout from "@layouts/BaseLayout.astro";
 
-const session = await getSessionFromCookie(Astro.cookies, Astro.locals.db);
+const session = await getSessionAndUserFromCookie(Astro.cookies, Astro.locals.db);
 if (!session) {
 	return Astro.redirect("/login");
 }
 
 const cityParam = Astro.url.searchParams.get("city");
 const city = cityParam && cityParam.trim() !== "" ? cityParam : 'Odense';
-const highlightParam = Astro.url.searchParams.get("highlight");
-const highlightId = highlightParam ? Number(highlightParam) : null;
 
 
 const restaurants = await Astro.locals.db.query.restaurants.findMany({
