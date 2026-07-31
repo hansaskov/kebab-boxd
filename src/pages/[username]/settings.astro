@@ -3,7 +3,6 @@ import { UserRoundCog, Shield, Bell} from "@lucide/astro";
 import { getSessionAndUserFromCookie } from "@auth/session";
 import { defaultSidebarMenuSections } from "@data/sidebar-menu-sections";
 import BaseLayout from "@layouts/BaseLayout.astro";
-import { Settings } from "@lucide/astro";
 
 const { username } = Astro.params
 
@@ -72,4 +71,16 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
   sidebarMenuSections={settingsSidebarMenuSection}
 >
   <h1 class="text-4xl font-bold">{user.fullname} Settings</h1>
+  <section id="account" class="mt-8">
+    <h2 class="text-2xl font-bold">Account</h2>
+    <p class="mt-2 text-base-content/60">Placeholder for account settings.</p>
+  </section>
+  <section id="security" class="mt-8">
+    <h2 class="text-2xl font-bold">Security</h2>
+    <p class="mt-2 text-base-content/60">Placeholder for security settings.</p>
+  </section>
+  <section id="notifications" class="mt-8">
+    <h2 class="text-2xl font-bold">Notifications</h2>
+    <p class="mt-2 text-base-content/60">Placeholder for notification settings.</p>
+  </section>
 </BaseLayout>

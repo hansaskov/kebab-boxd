@@ -1,13 +1,20 @@
 ---
-import { defaultSidebarMenuSections, type SidebarMenuSection } from '@data/sidebar-menu-sections';
-
-const pathname = Astro.url.pathname;
+import {
+  defaultSidebarMenuSections,
+  type SidebarMenuSection,
+} from "@data/sidebar-menu-sections";
 
 interface Props {
   sidebarMenuSections?: SidebarMenuSection[];
 }
 
 const { sidebarMenuSections = defaultSidebarMenuSections } = Astro.props;
+const { pathname } = Astro.url;
+
+// Links with a #fragment are never active: the fragment is client-side
+// state and the browser already shows the user where they are.
+const isActive = (href: string) =>
+  href === "/" ? pathname === "/" : pathname.startsWith(href);
 ---
 
 <div class="p-4">
@@ -15,18 +22,23 @@ const { sidebarMenuSections = defaultSidebarMenuSections } = Astro.props;
 </div>
 
 <nav class="flex-1 overflow-y-auto px-3 pb-3">
-  <ul class="menu gap-1 w-full">
+  <ul class="menu w-full gap-1">
     {
-      sidebarMenuSections.map((s) => (
+      sidebarMenuSections.map((section) => (
         <>
-          <li class="menu-title">{s.title}</li>
-          {s.items.map((t) => {
-            const Icon = t.icon;
+          <li class="menu-title">{section.title}</li>
+          {section.items.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
             return (
               <li>
-                <a href={t.href} class:list={[(t.href === "/" ? pathname === "/" : pathname.startsWith(t.href)) && "bg-base-100"]}>
+                <a
+                  href={item.href}
+                  class:list={[{ "bg-base-100": active }]}
+                  aria-current={active ? "page" : undefined}
+                >
                   <Icon size={20} />
-                  {t.name}
+                  {item.name}
                 </a>
               </li>
             );
