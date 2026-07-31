@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { createDrizzleDatabase, migrateDrizzleDatabase } from "@db/index";
-import { seedDatabase } from "@db/seed";
-import * as s from "@db/schema";
+import { createDrizzleDatabase, migrateDrizzleDatabase } from "@src/db/index";
+import { seedDatabase } from "@src/db/seed";
+import * as s from "@src/db/schema";
 
 describe("seedDatabase", () => {
 

@@ -1,6 +1,6 @@
-import { getSessionAndUserFromCookie } from "@auth/session";
+import { getSessionAndUserFromCookie } from "@src/auth/session";
 import { eq } from "drizzle-orm";
-import { s } from "@db/index";
+import { s } from "@src/db/index";
 import type { APIRoute } from "astro";
 
 export const POST = (async ({ cookies, redirect, locals, request }) => {

@@ -1,5 +1,5 @@
 import * as p from "drizzle-orm/sqlite-core";
-import { pronouns } from "@data/pronouns"
+import { pronouns } from "@src/data/pronouns"
 import { sql } from "drizzle-orm";
 
 export const users = p.snakeCase.table("users", {

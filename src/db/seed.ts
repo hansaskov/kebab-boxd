@@ -1,8 +1,8 @@
 import { reset, seed } from "drizzle-seed";
 import * as schema from "./schema";
 import type { DB } from "./index";
-import { pronouns } from "@data/pronouns";
-import { createSession } from "@auth/session";
+import { pronouns } from "@src/data/pronouns";
+import { createSession } from "@src/auth/session";
 
 const imageUrls = [
   "https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?w=800",

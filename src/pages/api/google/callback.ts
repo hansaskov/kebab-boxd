@@ -1,12 +1,12 @@
 // pages/login/google/callback.ts
-import { createSession, setSessionTokenCookie } from "@auth/session";
-import { google, decodeIdToken } from "@auth/oauth";
-import type { GoogleTokenResponse } from "@auth/oauth";
+import { createSession, setSessionTokenCookie } from "@src/auth/session";
+import { google, decodeIdToken } from "@src/auth/oauth";
+import type { GoogleTokenResponse } from "@src/auth/oauth";
 import { z } from "astro/zod";
 import { eq } from "drizzle-orm";
 
 import type { APIContext } from "astro";
-import { s } from "@db/index";
+import { s } from "@src/db/index";
 
 export const GoogleClaimsSchema = z.object({
 	sub: z.string().min(1),

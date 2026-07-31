@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { createDrizzleDatabase, migrateDrizzleDatabase } from "@db/index";
-import { users } from "@db/schema";
+import { createDrizzleDatabase, migrateDrizzleDatabase } from "@src/db/index";
+import { users } from "@src/db/schema";
 
 describe("users table constraints", () => {
   it("enforces unique constraint on username", () => {

@@ -1,9 +1,9 @@
 import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import { describe, it, expect  } from "vitest";
 import Explore from "../pages/explore.astro"
-import { createDrizzleDatabase, migrateDrizzleDatabase } from '@db/index';
-import { seedDatabase } from '@db/seed';
-import { createSession } from '@auth/session';
+import { createDrizzleDatabase, migrateDrizzleDatabase } from '@src/db/index';
+import { seedDatabase } from '@src/db/seed';
+import { createSession } from '@src/auth/session';
 
 describe("GET /explore (unauthenticated)", () => {
 

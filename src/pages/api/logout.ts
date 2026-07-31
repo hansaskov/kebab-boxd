@@ -1,4 +1,4 @@
-import { deleteSession, deleteSessionTokenCookie, getSessionAndUserFromCookie } from "@auth/session";
+import { deleteSession, deleteSessionTokenCookie, getSessionAndUserFromCookie } from "@src/auth/session";
 import type { APIRoute } from "astro";
 
 export const POST = (async ({ cookies, redirect, locals }) => {

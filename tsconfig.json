@@ -3,12 +3,7 @@
   "compilerOptions": {
     "verbatimModuleSyntax": true,
     "paths": {
-      "@components/*": ["./src/components/*"],
-      "@layouts/*": ["./src/layouts/*"],
-      "@media/*": ["./src/media/*"],
-      "@data/*": ["./src/data/*"],
-      "@auth/*": ["./src/auth/*"],
-      "@db/*": ["./src/db/*"]
+      "@src/*": ["./src/*"],
     }
   }
 }

@@ -1,8 +1,8 @@
 ---
 import { UserRoundCog, Shield, Bell} from "@lucide/astro";
-import { getSessionAndUserFromCookie } from "@auth/session";
-import { defaultSidebarMenuSections } from "@data/sidebar-menu-sections";
-import BaseLayout from "@layouts/BaseLayout.astro";
+import { getSessionAndUserFromCookie } from "@src/auth/session";
+import { defaultSidebarMenuSections } from "@src/data/sidebar-menu-sections";
+import BaseLayout from "@src/layouts/BaseLayout.astro";
 
 const { username } = Astro.params
 

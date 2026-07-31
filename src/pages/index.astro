@@ -1,5 +1,5 @@
 ---
-import { getSessionAndUserFromCookie } from "@auth/session";
+import { getSessionAndUserFromCookie } from "@src/auth/session";
 import BaseLayout from "../layouts/BaseLayout.astro";
 
 const session = await getSessionAndUserFromCookie(Astro.cookies, Astro.locals.db);
