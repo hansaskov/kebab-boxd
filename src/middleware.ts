@@ -1,5 +1,5 @@
 import { DB_FILE_NAME } from "astro:env/server";
-import { createDrizzleDatabase } from "./db";
+import { createDrizzleDatabase } from "@src/db";
 import { defineMiddleware } from "astro:middleware";
 
 const db = createDrizzleDatabase(DB_FILE_NAME);

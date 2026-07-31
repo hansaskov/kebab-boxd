@@ -4,7 +4,7 @@ import {
   base64UrlEncode,
   generateBase64UrlRandomString,
   hashSecret,
-} from "./hash";
+} from "@src/auth/hash";
 
 const authorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
 const tokenEndpoint = "https://oauth2.googleapis.com/token";

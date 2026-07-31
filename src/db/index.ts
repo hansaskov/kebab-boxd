@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/node-sqlite";
 import { migrate } from "drizzle-orm/node-sqlite/migrator";
-import { relations } from "./relations";
-export * as s from "./schema";
+import { relations } from "@src/db/relations";
+export * as s from "@src/db/schema";
 
 const MIGRATIONS_DIR = ".drizzle";
 

@@ -1,6 +1,6 @@
 import { reset, seed } from "drizzle-seed";
-import * as schema from "./schema";
-import type { DB } from "./index";
+import * as schema from "@src/db/schema";
+import type { DB } from "@src/db/index";
 import { pronouns } from "@src/data/pronouns";
 import { createSession } from "@src/auth/session";
 

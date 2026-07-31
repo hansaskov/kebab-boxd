@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
-import { s } from "../db";
-import type { DB } from "../db";
-import { constantTimeEqual, generateSecureRandomString, hashSecret } from "./hash";
+import { s } from "@src/db";
+import type { DB } from "@src/db";
+import { constantTimeEqual, generateSecureRandomString, hashSecret } from "@src/auth/hash";
 import type { AstroCookies } from "astro";
 
 const inactivityTimeoutSeconds = 60 * 60 * 24 * 30; // 30 days

@@ -1,5 +1,5 @@
 declare namespace App {
 	interface Locals {
-		db: import("./db").DB;
+		db: import("@src/db").DB;
 	}
 }

@@ -1,6 +1,6 @@
 import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import { describe, it, expect  } from "vitest";
-import Explore from "../pages/explore.astro"
+import Explore from "@src/pages/explore.astro"
 import { createDrizzleDatabase, migrateDrizzleDatabase } from '@src/db/index';
 import { seedDatabase } from '@src/db/seed';
 import { createSession } from '@src/auth/session';
