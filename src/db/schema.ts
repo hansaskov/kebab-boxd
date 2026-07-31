@@ -4,9 +4,10 @@ import { sql } from "drizzle-orm";
 
 export const users = p.snakeCase.table("users", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
+  fullname: p.text().notNull(),
   username: p.text().notNull(),
-  email: p.text().notNull().unique(),
-  googleId: p.text().notNull().unique(),
+  email: p.text().notNull(),
+  googleId: p.text().notNull(),
   profilePictureId: p.int({ mode: "number" }).references(() => pictures.id, {onDelete: "set null"}),
   isAdmin: p.int({ mode: "boolean" }).notNull().default(false),
   bio: p.text(),
@@ -19,7 +20,10 @@ export const users = p.snakeCase.table("users", {
   p.index("users_profile_picture_id_idx").on(t.profilePictureId),
   p.index("users_name_idx").on(t.username),
   p.index("users_email_idx").on(t.email),
-  p.index("users_google_id_idx").on(t.googleId)
+  p.index("users_google_id_idx").on(t.googleId),
+  p.uniqueIndex("users_username_unique").on(t.username),
+  p.uniqueIndex("users_email_unique").on(t.email),
+  p.uniqueIndex("users_google_id_unique").on(t.googleId),
 ]);
 
 export type User = typeof users.$inferSelect
@@ -45,7 +49,7 @@ export const restaurants = p.snakeCase.table("restaurants", {
   locationId: p.int({ mode: "number" }).notNull().references(() => locations.id),
   suggestedBy: p.int({ mode: "number" }).references(() => users.id),
   status: p.text({ enum: ["approved", "pending", "rejected"] }).notNull().default("pending"),
-  googlePlaceId: p.text().unique(),
+  googlePlaceId: p.text(),
   ratingAvg: p.real().notNull().default(0), // Derived
   reviewCount: p.int().notNull().default(0), // Derived
   updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(() => new Date),
@@ -53,7 +57,7 @@ export const restaurants = p.snakeCase.table("restaurants", {
 }, (t) => [
   p.index("restaurants_location_id_idx").on(t.locationId),
   p.index("restaurants_suggested_by_idx").on(t.suggestedBy),
-  p.index("restaurants_google_place_id_idx").on(t.googlePlaceId)
+  p.uniqueIndex("restaurants_google_place_id_unique").on(t.googlePlaceId)
 ])
 
 export const reviews = p.snakeCase.table("reviews", {

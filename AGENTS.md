@@ -12,7 +12,6 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 
 Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
 
-
 ## Coding standards
 
 - No Client side javascript is allowed.
@@ -20,3 +19,7 @@ Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
 - Each page needs to specify which sites can be pre-fetched immdiately. 
 - CSS-only UI with DaisyUI. Reach for the DaisyUI skill. Never reach for JS-dependent components.
 - Astro components must extend `ComponentProps<typeof Child>` (from `astro/types`) for every forwarded child and spread `{...props}` at the call site. Then, to verify types use `pnpm check`. 
+
+## Response style
+
+Only report to me in ASD-STE100 Simplified Technical English. 

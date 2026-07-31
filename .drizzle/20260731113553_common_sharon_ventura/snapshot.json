@@ -1,9 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "19a0023b-0106-446e-b102-367dbf37671a",
+  "id": "43dce7c2-59b2-4593-8a2b-f32db8f37ae9",
   "prevIds": [
-    "303738db-57e4-42d5-b6cb-8d1f66eea6ff"
+    "00000000-0000-0000-0000-000000000000"
   ],
   "ddl": [
     {
@@ -657,6 +657,16 @@
       "default": null,
       "generated": null,
       "name": "id",
+      "entityType": "columns",
+      "table": "users"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "fullname",
       "entityType": "columns",
       "table": "users"
     },
@@ -1333,10 +1343,10 @@
           "isExpression": false
         }
       ],
-      "isUnique": false,
+      "isUnique": true,
       "where": null,
       "origin": "manual",
-      "name": "restaurants_google_place_id_idx",
+      "name": "restaurants_google_place_id_unique",
       "entityType": "indexes",
       "table": "restaurants"
     },
@@ -1486,6 +1496,48 @@
     },
     {
       "columns": [
+        {
+          "value": "username",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "name": "users_username_unique",
+      "entityType": "indexes",
+      "table": "users"
+    },
+    {
+      "columns": [
+        {
+          "value": "email",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "name": "users_email_unique",
+      "entityType": "indexes",
+      "table": "users"
+    },
+    {
+      "columns": [
+        {
+          "value": "google_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "name": "users_google_id_unique",
+      "entityType": "indexes",
+      "table": "users"
+    },
+    {
+      "columns": [
         "url"
       ],
       "nameExplicit": false,
@@ -1500,7 +1552,7 @@
       "table": "followers"
     },
     {
-      "value": "\"rating\" BETWEEN 1 AND 10",
+      "value": "\"rating\" BETWEEN 2 AND 10",
       "name": "reviews_rating_range",
       "entityType": "checks",
       "table": "reviews"

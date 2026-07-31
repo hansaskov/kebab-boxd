@@ -96,7 +96,7 @@ CREATE TABLE `reviews` (
 	`created_at` integer NOT NULL,
 	CONSTRAINT `fk_reviews_author_id_users_id_fk` FOREIGN KEY (`author_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
 	CONSTRAINT `fk_reviews_restaurant_id_restaurants_id_fk` FOREIGN KEY (`restaurant_id`) REFERENCES `restaurants`(`id`),
-	CONSTRAINT "reviews_rating_range" CHECK("rating" BETWEEN 1 AND 10)
+	CONSTRAINT "reviews_rating_range" CHECK("rating" BETWEEN 2 AND 10)
 );
 --> statement-breakpoint
 CREATE TABLE `sessions` (
@@ -104,6 +104,7 @@ CREATE TABLE `sessions` (
 	`user_id` integer NOT NULL,
 	`secret_hash` blob NOT NULL,
 	`last_verified_at` integer NOT NULL,
+	`theme` text DEFAULT 'light' NOT NULL,
 	`updated_at` integer NOT NULL,
 	`created_at` integer NOT NULL,
 	CONSTRAINT `fk_sessions_user_id_users_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
@@ -111,9 +112,10 @@ CREATE TABLE `sessions` (
 --> statement-breakpoint
 CREATE TABLE `users` (
 	`id` integer PRIMARY KEY AUTOINCREMENT,
-	`username` text NOT NULL UNIQUE,
-	`email` text NOT NULL UNIQUE,
-	`google_id` text NOT NULL UNIQUE,
+	`fullname` text NOT NULL,
+	`username` text NOT NULL,
+	`email` text NOT NULL,
+	`google_id` text NOT NULL,
 	`profile_picture_id` integer,
 	`is_admin` integer DEFAULT false NOT NULL,
 	`bio` text,
@@ -139,11 +141,17 @@ CREATE INDEX `likes_review_id_idx` ON `likes` (`review_id`);--> statement-breakp
 CREATE INDEX `likes_user_id_review_id_idx` ON `likes` (`user_id`,`review_id`);--> statement-breakpoint
 CREATE INDEX `restaurants_location_id_idx` ON `restaurants` (`location_id`);--> statement-breakpoint
 CREATE INDEX `restaurants_suggested_by_idx` ON `restaurants` (`suggested_by`);--> statement-breakpoint
-CREATE INDEX `restaurants_google_place_id_idx` ON `restaurants` (`google_place_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `restaurants_google_place_id_unique` ON `restaurants` (`google_place_id`);--> statement-breakpoint
 CREATE INDEX `review_pictures_review_id_idx` ON `review_pictures` (`review_id`);--> statement-breakpoint
 CREATE INDEX `review_pictures_picture_id_idx` ON `review_pictures` (`picture_id`);--> statement-breakpoint
 CREATE INDEX `review_pictures_picture_id_review_id_idx` ON `review_pictures` (`picture_id`,`review_id`);--> statement-breakpoint
 CREATE INDEX `reviews_author_id_idx` ON `reviews` (`author_id`);--> statement-breakpoint
 CREATE INDEX `reviews_restaurant_id_idx` ON `reviews` (`restaurant_id`);--> statement-breakpoint
 CREATE INDEX `sessions_user_id_idx` ON `sessions` (`user_id`);--> statement-breakpoint
-CREATE INDEX `users_profile_picture_id_idx` ON `users` (`profile_picture_id`);
+CREATE INDEX `users_profile_picture_id_idx` ON `users` (`profile_picture_id`);--> statement-breakpoint
+CREATE INDEX `users_name_idx` ON `users` (`username`);--> statement-breakpoint
+CREATE INDEX `users_email_idx` ON `users` (`email`);--> statement-breakpoint
+CREATE INDEX `users_google_id_idx` ON `users` (`google_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `users_username_unique` ON `users` (`username`);--> statement-breakpoint
+CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);--> statement-breakpoint
+CREATE UNIQUE INDEX `users_google_id_unique` ON `users` (`google_id`);

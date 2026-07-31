@@ -1,0 +1,49 @@
+---
+import { getSessionAndUserFromCookie } from "@auth/session";
+import BaseLayout from "@layouts/BaseLayout.astro";
+
+const { username } = Astro.params
+
+if ( !username ) {
+  return Astro.rewrite("/404")
+}
+
+const session = await getSessionAndUserFromCookie(Astro.cookies, Astro.locals.db);
+
+// User is not authenticated
+if (!session) {
+  return Astro.redirect("/login");
+}
+
+const user = await Astro.locals.db.query.users.findFirst({
+  where: {
+    username: {
+      eq: username
+    }
+  }
+})
+
+// User does not exsist
+if (!user) {
+  return Astro.rewrite("/404")
+}
+
+// User not authorized
+
+if (session.user.isAdmin === false && session.user.id !== user.id ) {
+  return Astro.rewrite("/401")
+}
+
+
+---
+
+<BaseLayout
+  title="Home"
+  description="Homepage"
+  includeSidebar={true}
+  prefetchUrls={["/explore", "/reviews"]}
+  session={session}
+  user={session.user}
+>
+  <h1 class="text-4xl font-bold">{user.fullname} Settings</h1>
+</BaseLayout>

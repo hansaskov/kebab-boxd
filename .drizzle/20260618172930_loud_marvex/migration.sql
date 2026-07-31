@@ -1,1 +1,0 @@
-ALTER TABLE `sessions` ADD `theme` text DEFAULT 'light' NOT NULL;

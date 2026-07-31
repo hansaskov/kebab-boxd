@@ -10,7 +10,7 @@ interface Props extends ComponentProps<typeof ThemeSelector> {
 
 const { user } = Astro.props;
 
-const initials = user?.username
+const initials = user?.fullname
       .split(/\s+/)
       .map((p) => p[0])
       .filter(Boolean)
@@ -30,7 +30,7 @@ const initials = user?.username
         <div class="w-10 rounded-full bg-primary text-primary-content grid place-items-center font-bold">{initials}</div>
       </div>
       <div class="flex-1 text-left">
-        <div class="font-semibold text-sm">{user.username}</div>
+        <div class="font-semibold text-sm">{user.fullname}</div>
         <div class="text-xs opacity-60">@{user.username}</div>
       </div>
       <ChevronUp size={16} />
@@ -41,8 +41,8 @@ const initials = user?.username
       id="sidebar-user-menu"
       style="position-anchor:--sidebar-user-menu"
     >
-      <li><a href="/profile"><CircleUser size={16} />Profile</a></li>
-      <li><a href="/settings"><Settings size={16} />Settings</a></li>
+      <li><a href={`/${user.username}/settings`}><CircleUser size={16} />Profile</a></li>
+      <li><a href={`/${user.username}/settings`}><Settings size={16} />Settings</a></li>
       <ThemeSelector {...Astro.props} />
       <form method="post" action="api/logout/">
         <li>

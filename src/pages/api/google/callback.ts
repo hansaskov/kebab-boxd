@@ -3,6 +3,7 @@ import { createSession, setSessionTokenCookie } from "@auth/session";
 import { google, decodeIdToken } from "@auth/oauth";
 import type { GoogleTokenResponse } from "@auth/oauth";
 import { z } from "astro/zod";
+import { eq } from "drizzle-orm";
 
 import type { APIContext } from "astro";
 import { s } from "@db/index";
@@ -59,12 +60,12 @@ export async function GET(context: APIContext): Promise<Response> {
 	}
 
 	const googleId = claims.sub;
-	const username = claims.name;
+	const fullname = claims.name;
+	const firstName = fullname.split(" ")[0].toLowerCase();
 	const email = claims.email;
 
 	const db = context.locals.db;
 
-	// Verify that a user with id does not already exist
 	const existingUser = await db.query.users.findFirst({ where: { googleId: googleId } });
 
 	if (existingUser) {
@@ -73,15 +74,28 @@ export async function GET(context: APIContext): Promise<Response> {
 		return context.redirect("/");
 	}
 
-	const user = await db
-		.insert(s.users)
-		.values({
-			googleId: googleId,
-			username: username,
-			email: email,
-		})
-		.returning()
-		.then((v) => v.at(0));
+	const user = db.transaction((tx) => {
+		const inserted = tx
+			.insert(s.users)
+			.values({
+				googleId: googleId,
+				fullname: fullname,
+				username: googleId,
+				email: email,
+			})
+			.returning()
+			.get();
+
+		if (!inserted) {
+			tx.rollback();
+			return null;
+		}
+
+		const actualUsername = `${firstName}#${inserted.id}`;
+		tx.update(s.users).set({ username: actualUsername }).where(eq(s.users.id, inserted.id)).run();
+
+		return { ...inserted, username: actualUsername };
+	});
 
 	if (!user) {
 		return new Response("Database issue when inserting new", {
