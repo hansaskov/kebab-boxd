@@ -1,6 +1,9 @@
 ---
+import { UserRoundCog, Shield, Bell} from "@lucide/astro";
 import { getSessionAndUserFromCookie } from "@auth/session";
+import { defaultSidebarMenuSections } from "@data/sidebar-menu-sections";
 import BaseLayout from "@layouts/BaseLayout.astro";
+import { Settings } from "@lucide/astro";
 
 const { username } = Astro.params
 
@@ -34,16 +37,39 @@ if (session.user.isAdmin === false && session.user.id !== user.id ) {
   return Astro.rewrite("/401")
 }
 
+const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
+  {
+    title: "Settings",
+    items: [
+      {
+        name: "Account",
+        href: `/${username}/settings#account`,
+        icon: UserRoundCog
+      },
+      {
+        name: "Security",
+        href: `/${username}/settings#security`,
+        icon: Shield
+      },
+      {
+        name: "Notifications",
+        href: `/${username}/settings#notifications`,
+        icon: Bell
+      },
+    ]
+  }
+])
 
 ---
 
 <BaseLayout
-  title="Home"
-  description="Homepage"
+  title="Settings"
+  description={`Settings page for ${user.fullname}`}
   includeSidebar={true}
   prefetchUrls={["/explore", "/reviews"]}
   session={session}
   user={session.user}
+  sidebarMenuSections={settingsSidebarMenuSection}
 >
   <h1 class="text-4xl font-bold">{user.fullname} Settings</h1>
 </BaseLayout>

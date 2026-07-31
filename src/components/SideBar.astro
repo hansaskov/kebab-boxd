@@ -3,10 +3,12 @@ import SideBarFooter from "./SideBarFooter.astro";
 import SideBarMenu from "./SideBarMenu.astro";
 import type { ComponentProps } from "astro/types";
 
-interface Props extends ComponentProps<typeof SideBarFooter> {}
+interface Props extends 
+    ComponentProps<typeof SideBarFooter>,
+    ComponentProps<typeof SideBarMenu>
+    {}
 
 const props = Astro.props;
-const pathname = Astro.url.pathname;
 ---
 
 <div class="drawer-side z-40">
@@ -14,7 +16,7 @@ const pathname = Astro.url.pathname;
     <aside
         class="h-auto min-h-full w-80 bg-base-200 text-base-content flex flex-col border-r border-base-300"
     >
-        <SideBarMenu {pathname} />
+        <SideBarMenu {...props} />
         <SideBarFooter {...props} />
     </aside>
 </div>
