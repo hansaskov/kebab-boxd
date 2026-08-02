@@ -6,6 +6,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY . .
+COPY .env.example .env
 RUN node --run build
 
 ENV HOST=0.0.0.0
