@@ -1,7 +1,7 @@
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { describe, expect, it } from "vitest";
 import SettingsPage from "@src/pages/[username]/settings.astro";
-import { createSession, getSession } from "@src/auth/session";
+import { createSession } from "@src/auth/session";
 import { createDrizzleDatabase, migrateDrizzleDatabase } from "@src/db";
 import { users } from "@src/db/schema";
 
@@ -20,15 +20,11 @@ describe("SettingsPage", () => {
 			.returning()
 			.get();
 		const session = await createSession(user.id, db);
-		const sessionWithUser = await getSession(session.id, db);
 		const container = await AstroContainer.create();
 
 		const response = await container.renderToResponse(SettingsPage, {
-			locals: { db, session: sessionWithUser },
+			locals: { db, session: { ...session, user } },
 			params: { username: user.username },
-			request: new Request(`http://localhost/${user.username}/settings`, {
-				headers: { cookie: `session=${session.token}` },
-			}),
 		});
 		const html = await response.text();
 

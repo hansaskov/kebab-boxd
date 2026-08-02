@@ -3,7 +3,7 @@ import { describe, it, expect  } from "vitest";
 import Explore from "@src/pages/explore.astro"
 import { createDrizzleDatabase, migrateDrizzleDatabase } from '@src/db/index';
 import { seedDatabase } from '@src/db/seed';
-import { createSession, getSession } from '@src/auth/session';
+import { createSession } from '@src/auth/session';
 
 describe("GET /explore (unauthenticated)", () => {
 
@@ -25,18 +25,10 @@ describe("GET /explore (unauthenticated)", () => {
 
 		const user = await db.query.users.findFirst();
 		const session = await createSession(user!.id, db);
-		const sessionWithUser = await getSession(session.id, db);
 		const container = await AstroContainer.create();
 
-		const request = new Request("http://localhost/explore", {
-			headers: new Headers({
-				cookie: `session=${session.token}`,
-			}),
-		});
-		
 		const response = await container.renderToResponse(Explore, {
-			locals: { db, session: sessionWithUser },
-			request
+			locals: { db, session: { ...session, user: user! } },
 		});
 
 		expect(response.status).toBe(200);
