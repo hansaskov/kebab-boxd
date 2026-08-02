@@ -27,11 +27,11 @@
   --color-error: oklch(64% 0.246 16.439);
   --color-error-content: oklch(27% 0.105 12.094);
   --radius-selector: 1rem;
-  --radius-field: 2rem;
+  --radius-field: 1rem;
   --radius-box: 1rem;
   --size-selector: 0.25rem;
   --size-field: 0.25rem;
-  --border: 2px;
+  --border: 1px;
   --depth: 1;
   --noise: 0;
 }
@@ -59,11 +59,11 @@
   --color-error: oklch(62.795% 0.257 29.233);
   --color-error-content: oklch(12.559% 0.051 29.233);
   --radius-selector: 1rem;
-  --radius-field: 2rem;
+  --radius-field: 1rem;
   --radius-box: 1rem;
   --size-selector: 0.25rem;
   --size-field: 0.25rem;
-  --border: 2px;
+  --border: 1px;
   --depth: 1;
   --noise: 0;
 }

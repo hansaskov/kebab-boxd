@@ -43,7 +43,7 @@ importers:
         specifier: ^5.7.8
         version: 5.7.8
       node:
-        specifier: runtime:^26.5.1
+        specifier: runtime:^26.2.0
         version: runtime:26.5.1
       tailwindcss:
         specifier: ^4.3.3

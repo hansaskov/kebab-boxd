@@ -1,6 +1,7 @@
 ---
 import { UserRoundCog, Shield, Bell} from "@lucide/astro";
 import { getSessionAndUserFromCookie } from "@src/auth/session";
+import { pronouns } from "@src/data/pronouns";
 import { defaultSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 
@@ -62,6 +63,7 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
 ---
 
 <BaseLayout
+  class=""
   title="Settings"
   description={`Settings page for ${user.fullname}`}
   includeSidebar={true}
@@ -70,10 +72,57 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
   user={session.user}
   sidebarMenuSections={settingsSidebarMenuSection}
 >
-  <h1 class="text-4xl font-bold">{user.fullname} Settings</h1>
+  <h1 class="text-4xl font-bold">Settings</h1>
   <section id="account" class="mt-8">
     <h2 class="text-2xl font-bold">Account</h2>
-    <p class="mt-2 text-base-content/60">Placeholder for account settings.</p>
+    <form class="space-y-4">
+      <fieldset class="fieldset">
+        <legend class="fieldset-legend">User Settings</legend>
+        
+        <label class="fieldset-label" for="fullname">Full Name</label>
+        <input 
+          id="fullname"
+          type="text" 
+          class="input validator w-full" 
+          required 
+          value={user.fullname} 
+          minlength="3"
+          maxlength="30"
+          />
+        <p class="fieldset-label">The name that is shown on your profile page. Use your real name.</p>
+        <p class="hidden validator-hint">Must be 3 to 30 characters</p>
+        
+        <label class="fieldset-label" for="username">Username</label>
+        <input 
+          id="username"
+          type="text" 
+          class="input validator w-full" 
+          required 
+          value={user.username} 
+          minlength="3"
+          maxlength="30" />
+        <p class="label">Other users use this name to find you. It must be unique.</p>
+        <p class="hidden validator-hint">Must be 3 to 30 characters</p>
+        
+
+        <label class="fieldset-label" for="pronouns">Pronouns</label>
+        <select id="pronouns" class="select appearance-none w-full">
+          <option disabled selected>Select your pronoun</option>
+          {pronouns.map(pronoun => (
+            <option selected={user.pronoun === pronoun}>{pronoun}</option>
+          ))}
+        </select>
+        <p class="label">The words that other users use to refer to you. Example: They / their.</p>
+
+        <label class="fieldset-label" for="bio">Bio</label>
+        <textarea id="bio" class="textarea w-full" value={user.bio} ></textarea>
+        <p class="label">Write a short text about yourself. It is shown on your profile page.</p>
+    </fieldset>
+
+    <div class="flex justify-end">
+      <button class="btn btn-neutral">Submit</button>
+    </div>
+    </form>
   </section>
   <section id="security" class="mt-8">
     <h2 class="text-2xl font-bold">Security</h2>
