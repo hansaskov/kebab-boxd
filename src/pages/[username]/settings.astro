@@ -1,6 +1,7 @@
 ---
 import { UserRoundCog, Shield, Bell} from "@lucide/astro";
 import { actions, isInputError } from "astro:actions";
+import { updateSettingsInput } from "@src/actions";
 import { pronouns } from "@src/data/pronouns";
 import { defaultSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
@@ -11,7 +12,7 @@ if ( !encodedUsername ) {
   return Astro.rewrite("/404")
 }
 
-const userSettingsUpdateSchema = actions.updateSettings.__internalInfer
+const userSettingsUpdateSchema = updateSettingsInput
 
 const username = decodeURIComponent(encodedUsername);
 const actionResult = Astro.getActionResult(actions.updateSettings);
