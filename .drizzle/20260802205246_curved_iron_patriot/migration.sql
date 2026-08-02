@@ -1,0 +1,1 @@
+ALTER TABLE `sessions` ADD `action_data` blob;  

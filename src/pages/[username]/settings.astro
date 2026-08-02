@@ -1,9 +1,10 @@
 ---
 import { UserRoundCog, Shield, Bell} from "@lucide/astro";
-import { getSessionAndUserFromCookie } from "@src/auth/session";
+import { actions } from "astro:actions";
 import { pronouns } from "@src/data/pronouns";
 import { defaultSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
+import { userSettingsUpdateSchema } from "@src/actions/index";
 
 const { username: encodedUsername } = Astro.params
 
@@ -11,8 +12,14 @@ if ( !encodedUsername ) {
   return Astro.rewrite("/404")
 }
 const username = decodeURIComponent(encodedUsername);
+const actionResult = Astro.getActionResult(actions.updateSettings);
 
-const session = await getSessionAndUserFromCookie(Astro.cookies, Astro.locals.db);
+// Redirect to page using the new username
+if (actionResult && !actionResult.error && actionResult.data.username !== username) {
+  return Astro.redirect(`/${encodeURIComponent(actionResult.data.username)}/settings#account`);
+}
+
+const session = Astro.locals.session;
 
 // User is not authenticated
 if (!session) {
@@ -33,7 +40,6 @@ if (!user) {
 }
 
 // User not authorized
-
 if (session.user.isAdmin === false && session.user.id !== user.id ) {
   return Astro.rewrite("/401")
 }
@@ -72,56 +78,80 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
   session={session}
   user={session.user}
   sidebarMenuSections={settingsSidebarMenuSection}
->
+  >
   <h1 class="text-4xl font-bold">Settings</h1>
   <section id="account" class="mt-8">
     <h2 class="text-2xl font-bold">Account</h2>
-    <form class="space-y-4">
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">User Settings</legend>
-        
-        <label class="fieldset-label" for="fullname">Full Name</label>
-        <input 
-          id="fullname"
-          type="text" 
-          class="input validator w-full" 
-          required 
-          value={user.fullname} 
-          minlength="3"
-          maxlength="30"
+    <form class="mt-6 space-y-6" method="post" action={actions.updateSettings}>
+      <input type="hidden" name="currentUsername" value={user.username} />
+      {actionResult?.error && (
+        <p class="rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error" role="alert">
+          {actionResult.error.message || "Settings could not be updated."}
+        </p>
+      )}
+      {actionResult?.data && (
+        <p class="rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success" role="status">
+          Settings updated.
+        </p>
+      )}
+      <fieldset class="space-y-6">
+        <legend class="text-lg font-semibold">User Settings</legend>
+
+        <div class="space-y-2">
+          <label class="block text-sm font-medium" for="fullname">Full Name</label>
+          <input
+            id="fullname"
+            name="fullname"
+            type="text"
+            class="input validator w-full"
+            required
+            value={user.fullname}
+            minlength={userSettingsUpdateSchema.shape.fullname.minLength}
+            maxlength={userSettingsUpdateSchema.shape.fullname.maxLength}
+            autocomplete="name"
           />
-        <p class="fieldset-label">The name that is shown on your profile page. Use your real name.</p>
-        <p class="hidden validator-hint">Must be 3 to 30 characters</p>
-        
-        <label class="fieldset-label" for="username">Username</label>
-        <input 
-          id="username"
-          type="text" 
-          class="input validator w-full" 
-          required 
-          value={user.username} 
-          minlength="3"
-          maxlength="30" />
-        <p class="label">Other users use this name to find you. It must be unique.</p>
-        <p class="hidden validator-hint">Must be 3 to 30 characters</p>
-        
+          <p class="text-sm text-base-content/60">The name that is shown on your profile page. Use your real name.</p>
+          <p class="hidden validator-hint">Must be 3 to 30 characters</p>
+        </div>
 
-        <label class="fieldset-label" for="pronouns">Pronouns</label>
-        <select id="pronouns" class="select appearance-none w-full">
-          <option disabled selected>Select your pronoun</option>
-          {pronouns.map(pronoun => (
-            <option selected={user.pronoun === pronoun}>{pronoun}</option>
-          ))}
-        </select>
-        <p class="label">The words that other users use to refer to you. Example: They / their.</p>
+        <div class="space-y-2">
+          <label class="block text-sm font-medium" for="username">Username</label>
+          <input
+            id="username"
+            name="username"
+            type="text"
+            class="input validator w-full"
+            required
+            value={user.username}
+            minlength={userSettingsUpdateSchema.shape.username.minLength}
+            maxlength={userSettingsUpdateSchema.shape.username.maxLength}
+            autocomplete="username"
 
-        <label class="fieldset-label" for="bio">Bio</label>
-        <textarea id="bio" class="textarea w-full" value={user.bio} ></textarea>
-        <p class="label">Write a short text about yourself. It is shown on your profile page.</p>
-    </fieldset>
+          />
+          <p class="text-sm text-base-content/60">Other users use this name to find you. It must be unique.</p>
+          <p class="hidden validator-hint">Must be 3 to 30 characters</p>
+        </div>
+
+        <div class="space-y-2">
+          <label class="block text-sm font-medium" for="pronouns">Pronouns</label>
+          <select id="pronouns" name="pronoun" class="select appearance-none w-full">
+            <option value="" selected={!user.pronoun}>Select your pronoun</option>
+            {pronouns.map(pronoun => (
+              <option value={pronoun} selected={user.pronoun === pronoun}>{pronoun}</option>
+            ))}
+          </select>
+          <p class="text-sm text-base-content/60">The words that other users use to refer to you. Example: They / their.</p>
+        </div>
+
+        <div class="space-y-2">
+          <label class="block text-sm font-medium" for="bio">Bio</label>
+          <textarea id="bio" name="bio" class="textarea min-h-32 w-full" maxlength="500">{user.bio ?? ""}</textarea>
+          <p class="text-sm text-base-content/60">Write a short text about yourself. It is shown on your profile page.</p>
+        </div>
+      </fieldset>
 
     <div class="flex justify-end">
-      <button class="btn btn-neutral">Submit</button>
+      <button class="btn btn-neutral" type="submit">Save settings</button>
     </div>
     </form>
   </section>

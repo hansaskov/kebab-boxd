@@ -149,6 +149,7 @@ export const sessions = p.snakeCase.table("sessions", {
   secretHash: p.blob({mode: "buffer"}).notNull(),
   lastVerifiedAt: p.int({ mode: "timestamp" }).notNull(),
   theme: p.text({enum: ["light", "dark"]}).notNull().default("light"),
+  actionData: p.blob({mode: "buffer"}),
   updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(() => new Date),
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(() => new Date)
 }, (t) => [

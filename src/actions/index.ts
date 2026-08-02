@@ -1,129 +1,75 @@
 import { ActionError, defineAction } from "astro:actions";
-import type { ActionAPIContext } from "astro:actions";
 import { z } from "astro/zod";
 import { eq } from "drizzle-orm";
-import { getSessionAndUserFromCookie } from "@src/auth/session";
-import { s } from "@src/db";
 import { pronouns } from "@src/data/pronouns";
+import { s } from "@src/db";
 
-const fullnameSchema = z.object({
+export const userSettingsUpdateSchema = z.object({
+	currentUsername: z.string().trim().min(1, "The current username is required."),
 	fullname: z
 		.string()
 		.trim()
-		.min(1, "Full name is required.")
-		.max(100, "Full name must be 100 characters or fewer."),
-});
-
-const usernameSchema = z.object({
+		.min(3, "Full name must be at least 3 characters long.")
+		.max(30, "Full name must be 30 characters or fewer."),
 	username: z
 		.string()
 		.trim()
-		.min(2, "Username must be at least 2 characters long.")
-		.max(32, "Username must be 32 characters or fewer.")
-		.regex(
-			/^[a-zA-Z0-9_.-]+$/,
-			"Username may only contain letters, numbers, periods, underscores and hyphens.",
-		),
+		.min(3, "Username must be at least 3 characters long.")
+		.max(30, "Username must be 30 characters or fewer."),
+	pronoun: z.enum(pronouns).nullable(),
+	bio: z
+		.string()
+		.trim()
+		.max(500, "Bio must be 500 characters or fewer.")
+		.nullable(),
 });
-
-const bioSchema = z.object({
-	bio: z.string().trim().max(500, "Bio must be 500 characters or fewer."),
-});
-
-const pronounsSchema = z.object({
-	pronoun: z.union([z.enum(pronouns), z.literal("")]),
-});
-
-/**
- * Resolve the profile that is being edited and verify that the signed-in
- * user is allowed to edit it. Mirrors the authorization rules of the
- * settings page: the profile owner or an admin.
- */
-async function getAuthorizedTargetUser(context: ActionAPIContext) {
-	const session = await getSessionAndUserFromCookie(context.cookies, context.locals.db);
-
-	if (!session) {
-		throw new ActionError({ code: "UNAUTHORIZED", message: "You must be signed in." });
-	}
-
-	const username = context.params.username;
-
-	if (!username) {
-		throw new ActionError({ code: "NOT_FOUND", message: "User not found." });
-	}
-
-	const targetUser = await context.locals.db.query.users.findFirst({
-		where: { username: { eq: username } },
-	});
-
-	if (!targetUser) {
-		throw new ActionError({ code: "NOT_FOUND", message: "User not found." });
-	}
-
-	if (session.user.isAdmin === false && session.user.id !== targetUser.id) {
-		throw new ActionError({ code: "FORBIDDEN", message: "You are not allowed to change this profile." });
-	}
-
-	return { session, targetUser };
-}
 
 export const server = {
-	updateFullname: defineAction({
+	updateSettings: defineAction({
 		accept: "form",
-		input: fullnameSchema,
-		handler: async (input, context) => {
-			const { targetUser } = await getAuthorizedTargetUser(context);
+		input: userSettingsUpdateSchema,
+			handler: async (input, context) => {
 
-			await context.locals.db
-				.update(s.users)
-				.set({ fullname: input.fullname })
-				.where(eq(s.users.id, targetUser.id));
-		},
-	}),
-	updateUsername: defineAction({
-		accept: "form",
-		input: usernameSchema,
-		handler: async (input, context) => {
-			const { targetUser } = await getAuthorizedTargetUser(context);
+			const session = context.locals.session;
 
-			const existing = await context.locals.db.query.users.findFirst({
-				where: { username: { eq: input.username }, id: { ne: targetUser.id } },
+			if (!session) {
+				throw new ActionError({ code: "UNAUTHORIZED", message: "You must be signed in." });
+			}
+
+			if (session.user.isAdmin !== false && session.user.username !== input.username) {
+				throw new ActionError({ code: "UNAUTHORIZED", message: "Permission denied, you must to be that user or an admin to perform this action." });
+			}
+
+			const targetUser = await context.locals.db.query.users.findFirst({
+				where: { username: { eq: input.currentUsername } },
 			});
 
-			if (existing) {
-				throw new ActionError({ code: "CONFLICT", message: "That username is already taken." });
+			if (!targetUser) {
+				throw new ActionError({ code: "NOT_FOUND", message: "User not found." });
+			}
+
+			if (!session.user.isAdmin && session.user.id !== targetUser.id) {
+				throw new ActionError({
+					code: "FORBIDDEN",
+					message: "You are not allowed to change this profile.",
+				});
+			}
+
+			if (session.user.id !== targetUser.id) {
+				throw new ActionError({ code: "CONFLICT", message: "Username is already taken." });
 			}
 
 			await context.locals.db
 				.update(s.users)
-				.set({ username: input.username })
-				.where(eq(s.users.id, targetUser.id));
+				.set({
+					fullname: input.fullname,
+					username: input.username,
+					pronoun: input.pronoun,
+					bio: input.bio,
+				})
+				.where(eq(s.users.id, targetUser.id)).returning();
 
 			return { username: input.username };
-		},
-	}),
-	updateBio: defineAction({
-		accept: "form",
-		input: bioSchema,
-		handler: async (input, context) => {
-			const { targetUser } = await getAuthorizedTargetUser(context);
-
-			await context.locals.db
-				.update(s.users)
-				.set({ bio: input.bio === "" ? null : input.bio })
-				.where(eq(s.users.id, targetUser.id));
-		},
-	}),
-	updatePronouns: defineAction({
-		accept: "form",
-		input: pronounsSchema,
-		handler: async (input, context) => {
-			const { targetUser } = await getAuthorizedTargetUser(context);
-
-			await context.locals.db
-				.update(s.users)
-				.set({ pronoun: input.pronoun === "" ? null : input.pronoun })
-				.where(eq(s.users.id, targetUser.id));
 		},
 	}),
 };

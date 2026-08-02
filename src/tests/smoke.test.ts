@@ -3,7 +3,7 @@ import { describe, it, expect  } from "vitest";
 import Explore from "@src/pages/explore.astro"
 import { createDrizzleDatabase, migrateDrizzleDatabase } from '@src/db/index';
 import { seedDatabase } from '@src/db/seed';
-import { createSession } from '@src/auth/session';
+import { createSession, getSession } from '@src/auth/session';
 
 describe("GET /explore (unauthenticated)", () => {
 
@@ -12,7 +12,7 @@ describe("GET /explore (unauthenticated)", () => {
 		migrateDrizzleDatabase(db)
 
 		const container = await AstroContainer.create();
-		const response = await container.renderToResponse(Explore, {locals: { db }})
+		const response = await container.renderToResponse(Explore, {locals: { db, session: null }})
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toBe("/login");
@@ -25,6 +25,7 @@ describe("GET /explore (unauthenticated)", () => {
 
 		const user = await db.query.users.findFirst();
 		const session = await createSession(user!.id, db);
+		const sessionWithUser = await getSession(session.id, db);
 		const container = await AstroContainer.create();
 
 		const request = new Request("http://localhost/explore", {
@@ -34,7 +35,7 @@ describe("GET /explore (unauthenticated)", () => {
 		});
 		
 		const response = await container.renderToResponse(Explore, {
-			locals: { db },
+			locals: { db, session: sessionWithUser },
 			request
 		});
 
