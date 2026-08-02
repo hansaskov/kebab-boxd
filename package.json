@@ -12,7 +12,9 @@
     "db:migrate": "drizzle-kit migrate",
     "studio": "drizzle-kit studio",
     "check": "astro check",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix"
   },
   "dependencies": {
     "@astrojs/node": "^11.0.3",
@@ -28,6 +30,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.1.2",
     "daisyui": "^5.7.8",
+    "oxlint": "^1.76.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
     "vitest": "^4.1.10"
