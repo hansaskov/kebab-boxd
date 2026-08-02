@@ -1,6 +1,6 @@
 ---
 import { UserRoundCog, Shield, Bell} from "@lucide/astro";
-import { actions } from "astro:actions";
+import { actions, isInputError } from "astro:actions";
 import { pronouns } from "@src/data/pronouns";
 import { defaultSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
@@ -13,6 +13,16 @@ if ( !encodedUsername ) {
 }
 const username = decodeURIComponent(encodedUsername);
 const actionResult = Astro.getActionResult(actions.updateSettings);
+const isInputActionError = isInputError(actionResult?.error);
+const fieldErrors = isInputActionError
+  ? (actionResult.error as unknown as { fields: Record<string, string[] | undefined> }).fields
+  : {};
+const usernameErrors = actionResult?.error?.code === "CONFLICT"
+  ? [actionResult.error.message]
+  : fieldErrors.username;
+const generalError = actionResult?.error && !isInputActionError && actionResult.error.code !== "CONFLICT"
+  ? actionResult.error.message || "Settings could not be updated."
+  : undefined;
 
 // Redirect to page using the new username
 if (actionResult && !actionResult.error && actionResult.data.username !== username) {
@@ -84,9 +94,9 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
     <h2 class="text-2xl font-bold">Account</h2>
     <form class="mt-6 space-y-6" method="post" action={actions.updateSettings}>
       <input type="hidden" name="currentUsername" value={user.username} />
-      {actionResult?.error && (
+      {generalError && (
         <p class="rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error" role="alert">
-          {actionResult.error.message || "Settings could not be updated."}
+          {generalError}
         </p>
       )}
       {actionResult?.data && (
@@ -110,6 +120,9 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
             maxlength={userSettingsUpdateSchema.shape.fullname.maxLength}
             autocomplete="name"
           />
+          {fieldErrors.fullname && (
+            <p class="text-sm text-error" role="alert">{fieldErrors.fullname.join(", ")}</p>
+          )}
           <p class="text-sm text-base-content/60">The name that is shown on your profile page. Use your real name.</p>
           <p class="hidden validator-hint">Must be 3 to 30 characters</p>
         </div>
@@ -128,6 +141,9 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
             autocomplete="username"
 
           />
+          {usernameErrors && (
+            <p class="text-sm text-error" role="alert">{usernameErrors.join(", ")}</p>
+          )}
           <p class="text-sm text-base-content/60">Other users use this name to find you. It must be unique.</p>
           <p class="hidden validator-hint">Must be 3 to 30 characters</p>
         </div>
@@ -140,12 +156,18 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
               <option value={pronoun} selected={user.pronoun === pronoun}>{pronoun}</option>
             ))}
           </select>
+          {fieldErrors.pronoun && (
+            <p class="text-sm text-error" role="alert">{fieldErrors.pronoun.join(", ")}</p>
+          )}
           <p class="text-sm text-base-content/60">The words that other users use to refer to you. Example: They / their.</p>
         </div>
 
         <div class="space-y-2">
           <label class="block text-sm font-medium" for="bio">Bio</label>
           <textarea id="bio" name="bio" class="textarea min-h-32 w-full" maxlength="500">{user.bio ?? ""}</textarea>
+          {fieldErrors.bio && (
+            <p class="text-sm text-error" role="alert">{fieldErrors.bio.join(", ")}</p>
+          )}
           <p class="text-sm text-base-content/60">Write a short text about yourself. It is shown on your profile page.</p>
         </div>
       </fieldset>

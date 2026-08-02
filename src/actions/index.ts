@@ -24,20 +24,20 @@ export const userSettingsUpdateSchema = z.object({
 		.nullable(),
 });
 
+function isUniqueConstraintError(error: unknown) {
+	return error instanceof Error && /unique constraint/i.test(error.message);
+}
+
 export const server = {
 	updateSettings: defineAction({
 		accept: "form",
 		input: userSettingsUpdateSchema,
-			handler: async (input, context) => {
+		handler: async (input, context) => {
 
 			const session = context.locals.session;
 
 			if (!session) {
 				throw new ActionError({ code: "UNAUTHORIZED", message: "You must be signed in." });
-			}
-
-			if (session.user.isAdmin !== false && session.user.username !== input.username) {
-				throw new ActionError({ code: "UNAUTHORIZED", message: "Permission denied, you must to be that user or an admin to perform this action." });
 			}
 
 			const targetUser = await context.locals.db.query.users.findFirst({
@@ -55,19 +55,31 @@ export const server = {
 				});
 			}
 
-			if (session.user.id !== targetUser.id) {
+			const existingUsername = await context.locals.db.query.users.findFirst({
+				where: { username: { eq: input.username } },
+			});
+
+			if (existingUsername && existingUsername.id !== targetUser.id) {
 				throw new ActionError({ code: "CONFLICT", message: "Username is already taken." });
 			}
 
-			await context.locals.db
-				.update(s.users)
-				.set({
-					fullname: input.fullname,
-					username: input.username,
-					pronoun: input.pronoun,
-					bio: input.bio,
-				})
-				.where(eq(s.users.id, targetUser.id)).returning();
+			try {
+				await context.locals.db
+					.update(s.users)
+					.set({
+						fullname: input.fullname,
+						username: input.username,
+						pronoun: input.pronoun,
+						bio: input.bio,
+					})
+					.where(eq(s.users.id, targetUser.id)).returning();
+			} catch (error) {
+				if (isUniqueConstraintError(error)) {
+					throw new ActionError({ code: "CONFLICT", message: "Username is already taken." });
+				}
+
+				throw error;
+			}
 
 			return { username: input.username };
 		},
