@@ -3,13 +3,15 @@ import { createDrizzleDatabase, s } from "@src/db";
 import { getSessionAndUserFromCookie } from "@src/auth/session";
 import { defineMiddleware } from "astro:middleware";
 import { getActionContext } from "astro:actions";
-import { locales } from "astro:schema";
 import { eq } from "drizzle-orm";
 
 const db = createDrizzleDatabase(DB_FILE_NAME);
 
 export const onRequest = defineMiddleware(async (context, next) => {
-	void locales;
+
+	// Skip requests for prerendered pages
+  	if (context.isPrerendered) return next();
+
 	context.locals.db = db;
 	const session = await getSessionAndUserFromCookie(context.cookies, db);
 	context.locals.session = session;
@@ -34,6 +36,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 				.where(eq(s.sessions.id, session.id));
 		}
 
+		// Redirect back to the previous page on error
 		if (actionResult.error) {
 			const referer = context.request.headers.get("Referer");
 			if (!referer) {
@@ -42,6 +45,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 			return context.redirect(referer);
 		}
 
+		// Redirect to the destination page on success
 		return context.redirect(context.originPathname);
 	}
 
@@ -50,7 +54,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 		const { actionName, actionResult } = JSON.parse(session.actionData.toString());
 		const deserializedActionResult = deserializeActionResult(actionResult);
 
-		// Clear the flash result after reading it so it is available only once.
+		// Clear the action data so it is available only once.
 		await context.locals.db
 			.update(s.sessions)
 			.set({ actionData: null })
