@@ -61,7 +61,12 @@ export async function GET(context: APIContext): Promise<Response> {
 
 	const googleId = claims.sub;
 	const fullname = claims.name;
-	const firstName = fullname.split(" ")[0].toLowerCase();
+	const firstName = fullname.trim().split(/\s+/).at(0);
+	if (!firstName) {
+		return new Response("Invalid name claim.", {
+			status: 400,
+		});
+	}
 	const email = claims.email;
 
 	const db = context.locals.db;

@@ -11,17 +11,6 @@ const cityParam = Astro.url.searchParams.get("city");
 const city = cityParam && cityParam.trim() !== "" ? cityParam : 'Odense';
 
 
-const restaurants = await Astro.locals.db.query.restaurants.findMany({
-  where: {
-    status: "approved",
-    location: {
-      city: city
-    },
-  },
-  with: {
-    location: true
-  }
-})
 ---
 
 <BaseLayout

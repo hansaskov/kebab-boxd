@@ -23,9 +23,9 @@ export function generateSecureRandomString(): string {
   const bytes = randomBytes(24);
 
   let id = "";
-  for (let i = 0; i < bytes.length; i++) {
+  for (const byte of bytes) {
     // >> 3 "removes" the right-most 3 bits of the byte
-    id += alphabet[bytes[i] >> 3];
+    id += alphabet.charAt(byte >> 3);
   }
   return id;
 }
@@ -44,7 +44,12 @@ export function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
   }
   let c = 0;
   for (let i = 0; i < a.byteLength; i++) {
-    c |= a[i] ^ b[i];
+    const aByte = a[i];
+    const bByte = b[i];
+    if (aByte === undefined || bByte === undefined) {
+      return false;
+    }
+    c |= aByte ^ bByte;
   }
   return c === 0;
 }

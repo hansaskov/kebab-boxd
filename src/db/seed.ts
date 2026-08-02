@@ -61,6 +61,9 @@ function uniquePairs(
   while (result.length < n) {
     const l = leftPool[Math.floor(Math.random() * leftPool.length)];
     const r = rightPool[Math.floor(Math.random() * rightPool.length)];
+    if (l === undefined || r === undefined) {
+      break;
+    }
     const key = `${l}:${r}`;
     if (!seen.has(key)) {
       seen.add(key);

@@ -30,8 +30,10 @@ export async function validateSessionToken(token: string, db: DB) {
 	if (tokenParts.length !== 2) {
 		return null;
 	}
-	const sessionId = tokenParts[0];
-	const sessionSecret = tokenParts[1];
+	const [sessionId, sessionSecret] = tokenParts;
+	if (!sessionId || !sessionSecret) {
+		return null;
+	}
 
 	const session = await getSession(sessionId, db);
 	if (!session) {

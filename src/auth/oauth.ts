@@ -31,18 +31,20 @@ function createS256CodeChallenge(verifier: string): string {
 }
 
 export function decodeIdToken(idToken: string): unknown {
+  const parts = idToken.split(".");
+  const payloadPart = parts.at(1);
+  if (parts.length !== 3 || payloadPart === undefined) {
+    return null;
+  }
+
   try {
-    const parts = idToken.split(".");
-    if (parts.length !== 3) {
-      throw new Error("Invalid JWT");
-    }
-    const payload = JSON.parse(base64UrlDecode(parts[1]).toString("utf-8"));
+    const payload = JSON.parse(base64UrlDecode(payloadPart).toString("utf-8"));
     if (typeof payload !== "object" || payload === null) {
-      throw new Error("Invalid JWT payload");
+      return null;
     }
     return payload;
-  } catch (e) {
-    throw new Error("Invalid ID token", { cause: e });
+  } catch {
+    return null;
   }
 }
 
