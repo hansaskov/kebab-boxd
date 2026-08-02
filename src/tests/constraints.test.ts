@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { createDrizzleDatabase, migrateDrizzleDatabase } from "@src/db/index";
 import { users } from "@src/db/schema";
+import {
+  isBusyError,
+  isConstraintError,
+  isUniqueConstraintError,
+} from "@src/db/sqlite-errors";
 
 describe("users table constraints", () => {
   it("enforces unique constraint on username", () => {
@@ -14,13 +19,21 @@ describe("users table constraints", () => {
       googleId: "google-111",
     }).run();
 
-    expect(() =>
+    let error: unknown;
+    try {
       db.insert(users).values({
         username: "testuser",
         fullname: "Test User 2",
         email: "second@example.com",
         googleId: "google-222",
-      }).run()
-    ).toThrow();
+      }).run();
+    } catch (caughtError) {
+      error = caughtError;
+    }
+
+    expect(error).toBeDefined();
+    expect(isConstraintError(error)).toBe(true);
+    expect(isUniqueConstraintError(error)).toBe(true);
+    expect(isBusyError(error)).toBe(false);
   });
 });

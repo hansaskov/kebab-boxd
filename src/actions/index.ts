@@ -3,35 +3,30 @@ import { z } from "astro/zod";
 import { eq } from "drizzle-orm";
 import { pronouns } from "@src/data/pronouns";
 import { s } from "@src/db";
-
-export const userSettingsUpdateSchema = z.object({
-	currentUsername: z.string().trim().min(1, "The current username is required."),
-	fullname: z
-		.string()
-		.trim()
-		.min(3, "Full name must be at least 3 characters long.")
-		.max(30, "Full name must be 30 characters or fewer."),
-	username: z
-		.string()
-		.trim()
-		.min(3, "Username must be at least 3 characters long.")
-		.max(30, "Username must be 30 characters or fewer."),
-	pronoun: z.enum(pronouns).nullable(),
-	bio: z
-		.string()
-		.trim()
-		.max(500, "Bio must be 500 characters or fewer.")
-		.nullable(),
-});
-
-function isUniqueConstraintError(error: unknown) {
-	return error instanceof Error && /unique constraint/i.test(error.message);
-}
+import { isUniqueConstraintError } from "@src/db/sqlite-errors";
 
 export const server = {
 	updateSettings: defineAction({
 		accept: "form",
-		input: userSettingsUpdateSchema,
+		input: z.object({
+			currentUsername: z.string().trim().min(1, "The current username is required."),
+			fullname: z
+				.string()
+				.trim()
+				.min(3, "Full name must be at least 3 characters long.")
+				.max(30, "Full name must be 30 characters or fewer."),
+			username: z
+				.string()
+				.trim()
+				.min(3, "Username must be at least 3 characters long.")
+				.max(30, "Username must be 30 characters or fewer."),
+			pronoun: z.enum(pronouns).nullable(),
+			bio: z
+				.string()
+				.trim()
+				.max(500, "Bio must be 500 characters or fewer.")
+				.nullable(),
+		}),
 		handler: async (input, context) => {
 
 			const session = context.locals.session;
