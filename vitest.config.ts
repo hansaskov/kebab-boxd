@@ -7,11 +7,11 @@ export default defineConfig(async (env) => {
 	return {
 		...astroConfig,
 		test: {
-			globals: true,
 			environment: "node",
 			testTimeout: 60000,
 			isolate: false,
-			pool: "forks",
+			pool: "threads",
+			fileParallelism: true, 
 		},
 	};
 });

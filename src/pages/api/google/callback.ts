@@ -38,7 +38,7 @@ export async function GET(context: APIContext): Promise<Response> {
 		tokens = await google.validateAuthorizationCode(code, codeVerifier);
 		context.cookies.delete("google_oauth_state", { path: "/" });
 		context.cookies.delete("google_code_verifier", { path: "/" });
-	} catch (e) {
+	} catch {
 		return new Response("Please restart the process.", {
 			status: 400,
 		});

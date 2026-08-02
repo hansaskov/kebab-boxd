@@ -5,11 +5,12 @@ import { pronouns } from "@src/data/pronouns";
 import { defaultSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 
-const { username } = Astro.params
+const { username: encodedUsername } = Astro.params
 
-if ( !username ) {
+if ( !encodedUsername ) {
   return Astro.rewrite("/404")
 }
+const username = decodeURIComponent(encodedUsername);
 
 const session = await getSessionAndUserFromCookie(Astro.cookies, Astro.locals.db);
 
@@ -43,17 +44,17 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
     items: [
       {
         name: "Account",
-        href: `/${username}/settings#account`,
+        href: `/${encodeURIComponent(username)}/settings#account`,
         icon: UserRoundCog
       },
       {
         name: "Security",
-        href: `/${username}/settings#security`,
+        href: `/${encodeURIComponent(username)}/settings#security`,
         icon: Shield
       },
       {
         name: "Notifications",
-        href: `/${username}/settings#notifications`,
+        href: `/${encodeURIComponent(username)}/settings#notifications`,
         icon: Bell
       },
     ]

@@ -1,0 +1,24 @@
+---
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+
+interface Props {
+  error: unknown;
+}
+
+const { error } = Astro.props
+
+---
+
+<BaseLayout
+  title="500: Internal server error"
+  description="Something went wrong"
+  includeSidebar={false}
+  prefetchUrls={["/"]}
+>
+  <div class="text-center">
+    <h1 class="text-9xl font-bold mb-4">❌</h1>
+    <h1 class="text-9xl font-bold mb-2">500</h1>
+    <div>{error instanceof Error ? error.message : "Unknown error"}</div>
+    <a class="btn btn-accent mt-9" href="/">Home</a>
+  </div>
+</BaseLayout>
