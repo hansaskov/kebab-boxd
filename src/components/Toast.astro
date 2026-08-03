@@ -2,12 +2,24 @@
 import { X } from "@lucide/astro";
 import type { AstroComponent } from "@lucide/astro";
 
-export interface Toast {
-	title?: string;
-	text: string;
-	icon?: AstroComponent;
-	action?: AstroComponent;
-}
+export type Toast =
+	| {
+			kind: "text";
+			text: string;
+			action?: AstroComponent;
+	  }
+	| {
+			kind: "title";
+			title: string;
+			text: string;
+			action?: AstroComponent;
+	  }
+	| {
+			kind: "icon";
+			icon: AstroComponent;
+			text: string;
+			action?: AstroComponent;
+	  }
 
 interface Props {
 	toast?: Toast | undefined
@@ -30,10 +42,10 @@ const { toast } = Astro.props;
 				tabindex="-1"
 				aria-hidden="true"
 			/>
-			<div class="flex w-full items-start gap-3 rounded-box border border-base-300 bg-base-100 p-4 text-base-content shadow-xl pointer-events-auto sm:w-auto sm:max-w-md">
-				{toast.icon && <toast.icon class="mt-0.5 shrink-0" size={20} />}
+			<div class="flex w-full items-center gap-3 rounded-box border border-base-300 bg-base-100 p-4 text-base-content shadow-xl  pointer-events-auto sm:w-auto sm:max-w-md">
+				{toast.kind === "icon" && <toast.icon class="shrink-0" size={20} />}
 				<div class="min-w-0 flex-1">
-					{toast.title && <p class="text-sm font-semibold">{toast.title}</p>}
+					{toast.kind === "title" && <p class="text-sm font-semibold">{toast.title}</p>}
 					<p class="text-sm text-base-content/70">{toast.text}</p>
 				</div>
 				{toast.action && (

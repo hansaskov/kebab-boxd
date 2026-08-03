@@ -1,11 +1,12 @@
 ---
-import { UserRoundCog, Shield, Bell} from "@lucide/astro";
+
+
+import { UserRoundCog, Shield, Bell } from "@lucide/astro";
 import { actions, isInputError } from "astro:actions";
 import { updateSettingsInput } from "@src/actions";
 import { pronouns } from "@src/data/pronouns";
 import { defaultSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
-import type { Toast } from "@src/components/Toast.astro";
 
 const { username: encodedUsername } = Astro.params
 
@@ -54,7 +55,7 @@ if (session.user.isAdmin === false && session.user.id !== user.id ) {
 }
 
 const toast = actionResult && !actionResult.error
-  ? { title: "Settings updated", text: "Your profile changes have been saved." } as Toast
+  ? { kind: "title", title: "Settings updated", text: "Your profile changes have been saved." } as const
   : undefined;
 
 const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([

@@ -8,6 +8,7 @@ describe("Toast", () => {
 		const response = await container.renderToResponse(Toast, {
 			props: {
 				toast: {
+					kind: "title",
 					title: "Saved",
 					text: "Your profile was updated.",
 				},
