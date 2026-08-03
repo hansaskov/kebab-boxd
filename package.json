@@ -29,7 +29,7 @@
     "@astrojs/check": "^0.9.10",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.1.2",
-    "daisyui": "^5.7.8",
+    "daisyui": "^5.7.10",
     "oxlint": "^1.76.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
@@ -38,7 +38,7 @@
   "devEngines": {
     "runtime": {
       "name": "node",
-      "version": "^26.2.0",
+      "version": "^26.5.1",
       "onFail": "download"
     }
   }
