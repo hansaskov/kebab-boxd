@@ -42,7 +42,7 @@ const initials = user?.fullname
       style="position-anchor:--sidebar-user-menu"
     >
       <li><a href={`/${encodeURIComponent(user.username)}/profile`}><CircleUser size={16} />Profile</a></li>
-      <li><a href={`/${encodeURIComponent(user.username)}/settings#account`}><Settings size={16} />Settings</a></li>
+      <li><a href={`/${encodeURIComponent(user.username)}/settings`}><Settings size={16} />Settings</a></li>
       <ThemeSelector {...Astro.props} />
       <form method="post" action="api/logout/">
         <li>
