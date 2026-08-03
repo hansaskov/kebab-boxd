@@ -79,7 +79,7 @@ export const server = {
 			}
 
 			// Redirect to the settings page of the (possibly new) username.
-			return { redirect: `/${encodeURIComponent(input.username)}/settings#account` };
+			return { redirect: `/${encodeURIComponent(input.username)}/settings` };
 		},
 	}),
 };

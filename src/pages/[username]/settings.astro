@@ -5,6 +5,7 @@ import { updateSettingsInput } from "@src/actions";
 import { pronouns } from "@src/data/pronouns";
 import { defaultSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
+import type { Toast } from "@src/components/Toast.astro";
 
 const { username: encodedUsername } = Astro.params
 
@@ -52,6 +53,10 @@ if (session.user.isAdmin === false && session.user.id !== user.id ) {
   return Astro.rewrite("/401")
 }
 
+const toast = actionResult && !actionResult.error
+  ? { title: "Settings updated", text: "Your profile changes have been saved." } as Toast
+  : undefined;
+
 const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
   {
     title: "Settings",
@@ -86,6 +91,7 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
   session={session}
   user={session.user}
   sidebarMenuSections={settingsSidebarMenuSection}
+  toast={toast}
   >
   <h1 class="text-4xl font-bold">Settings</h1>
   <section id="account" class="mt-8">
@@ -95,11 +101,6 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
       {generalError && (
         <p class="rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error" role="alert">
           {generalError}
-        </p>
-      )}
-      {actionResult && !actionResult.error && (
-        <p class="rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success" role="status">
-          Settings updated.
         </p>
       )}
       <fieldset class="space-y-6">

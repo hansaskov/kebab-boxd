@@ -3,6 +3,7 @@ import BaseHead from "@src/components/BaseHead.astro";
 import Header from "@src/components/Header.astro";
 import Footer from "@src/components/Footer.astro";
 import SideBar from "@src/components/SideBar.astro";
+import Toast from "@src/components/Toast.astro";
 import type { ComponentProps } from "astro/types";
 import SpeculationsAPI from "@src/components/SpeculationsAPI.astro";
 
@@ -12,8 +13,9 @@ interface Props
     ComponentProps<typeof BaseHead>,
     ComponentProps<typeof SpeculationsAPI>,
     ComponentProps<typeof Header>,
-    ComponentProps<typeof SideBar> {
-    class?: string;
+    ComponentProps<typeof SideBar>,
+    ComponentProps<typeof Toast> {
+    class?: string
   }
 
 const props = Astro.props;
@@ -42,6 +44,7 @@ const props = Astro.props;
       </div>
       {props.includeSidebar && <SideBar {...props} />}
     </div>
+    {props.toast && <Toast {...props} />}
   </body>
 </html>
 

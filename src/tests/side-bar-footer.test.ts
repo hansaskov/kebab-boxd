@@ -29,7 +29,7 @@ describe("SideBarFooter", () => {
 		});
 		const html = await response.text();
 
-		expect(html).toContain('href="/First%231/settings#account"');
+		expect(html).toContain('href="/First%231/settings"');
 	});
 
 	it("loads settings for an encoded username containing a hash", async () => {

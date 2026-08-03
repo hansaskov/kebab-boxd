@@ -1,0 +1,82 @@
+---
+import { X } from "@lucide/astro";
+import type { AstroComponent } from "@lucide/astro";
+
+export interface Toast {
+	title?: string;
+	text: string;
+	icon?: AstroComponent;
+	action?: AstroComponent;
+}
+
+interface Props {
+	toast?: Toast | undefined
+}
+
+const { toast } = Astro.props;
+---
+
+{
+	toast && (
+		<div
+			class="animate-[toast-life_5.35s_forwards] fixed bottom-4 left-8 right-8 z-100 flex justify-center pointer-events-none has-checked:hidden motion-reduce:animate-[toast-life-static_5s_forwards] sm:right-4 sm:left-auto sm:justify-end"
+			role="status"
+			aria-live="polite"
+		>
+			<input
+				type="checkbox"
+				id="toast-dismiss"
+				class="absolute size-px opacity-0"
+				tabindex="-1"
+				aria-hidden="true"
+			/>
+			<div class="flex w-full items-start gap-3 rounded-box border border-base-300 bg-base-100 p-4 text-base-content shadow-xl pointer-events-auto sm:w-auto sm:max-w-md">
+				{toast.icon && <toast.icon class="mt-0.5 shrink-0" size={20} />}
+				<div class="min-w-0 flex-1">
+					{toast.title && <p class="text-sm font-semibold">{toast.title}</p>}
+					<p class="text-sm text-base-content/70">{toast.text}</p>
+				</div>
+				{toast.action && (
+					<div class="shrink-0">
+						<toast.action />
+					</div>
+				)}
+				<label
+					for="toast-dismiss"
+					class="shrink-0 cursor-pointer opacity-60 hover:opacity-100"
+					aria-label="Dismiss"
+				>
+					<X size={16} />
+				</label>
+			</div>
+		</div>
+	)
+}
+
+<style>
+	@keyframes toast-life {
+		0%,
+		93.46% {
+			opacity: 1;
+			transform: translateY(0);
+			visibility: visible;
+		}
+		100% {
+			opacity: 0;
+			transform: translateY(0.5rem);
+			visibility: hidden;
+		}
+	}
+
+	@keyframes toast-life-static {
+		0%,
+		99% {
+			opacity: 1;
+			visibility: visible;
+		}
+		100% {
+			opacity: 1;
+			visibility: hidden;
+		}
+	}
+</style>
