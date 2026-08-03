@@ -27,11 +27,6 @@ const generalError = actionResult?.error && !isInputActionError && actionResult.
   ? actionResult.error.message || "Settings could not be updated."
   : undefined;
 
-// Redirect to page using the new username
-if (actionResult && !actionResult.error && actionResult.data.username !== username) {
-  return Astro.redirect(`/${encodeURIComponent(actionResult.data.username)}/settings#account`);
-}
-
 const session = Astro.locals.session;
 
 // User is not authenticated
@@ -87,7 +82,7 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
   title="Settings"
   description={`Settings page for ${user.fullname}`}
   includeSidebar={true}
-  prefetchUrls={["/explore", "/reviews"]}
+  prefetchUrls={["/explore", "/reviews", "/"]}
   session={session}
   user={session.user}
   sidebarMenuSections={settingsSidebarMenuSection}
@@ -102,7 +97,7 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
           {generalError}
         </p>
       )}
-      {actionResult?.data && (
+      {actionResult && !actionResult.error && (
         <p class="rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success" role="status">
           Settings updated.
         </p>

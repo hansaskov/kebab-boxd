@@ -7,6 +7,10 @@ import { eq } from "drizzle-orm";
 
 const db = createDrizzleDatabase(DB_FILE_NAME);
 
+function isActionRedirect(data: unknown): data is { redirect: string } {
+	return typeof data === "object" && data !== null && "redirect" in data && typeof data.redirect === "string";
+}
+
 export const onRequest = defineMiddleware(async (context, next) => {
 
 	// Skip requests for prerendered pages
@@ -43,6 +47,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
 				throw new Error("Internal: Referer unexpectedly missing from Action POST request.");
 			}
 			return context.redirect(referer);
+		}
+
+		// The action asked for a redirect (e.g. a username change). The actionData
+		// stored above survives to the target page.
+		if (isActionRedirect(actionResult.data)) {
+			return context.redirect(actionResult.data.redirect);
 		}
 
 		// Redirect to the destination page on success
