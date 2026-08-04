@@ -1,17 +1,17 @@
 import { DB_FILE_NAME } from "astro:env/server";
 import { createDrizzleDatabase, s } from "@src/db";
 import { getSessionAndUserFromCookie } from "@src/auth/session";
-import { defineMiddleware } from "astro:middleware";
+import { defineMiddleware, sequence } from "astro:middleware";
 import { getActionContext } from "astro:actions";
 import { eq } from "drizzle-orm";
+import { compressMiddleware } from "@src/middleware/compress";
 
 const db = createDrizzleDatabase(DB_FILE_NAME);
 
-export const onRequest = defineMiddleware(async (context, next) => {
+const sessionMiddleware = defineMiddleware(async (context, next) => {
 
 	// Skip requests for prerendered pages
 	if (context.isPrerendered) return next();
-
 
 	// Set Locals. 
 	context.locals.db = db;
@@ -69,3 +69,6 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
 	return next();
 });
+
+// Compression wraps the other middleware so it runs after the final response is created.
+export const onRequest = sequence(compressMiddleware, sessionMiddleware);
