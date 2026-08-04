@@ -1,4 +1,4 @@
-// Heavily inspired by Hono's compression middleware: https://github.com/honojs/hono/blob/192768fbaf9aa99a45404dc2f171541227c11d20/src/middleware/compress/index.ts
+// Heavily inspired/copies from Hono's compression middleware: https://github.com/honojs/hono/blob/192768fbaf9aa99a45404dc2f171541227c11d20/src/middleware/compress/index.ts
 
 import { defineMiddleware } from "astro:middleware";
 
