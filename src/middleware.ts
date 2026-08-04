@@ -7,51 +7,47 @@ import { eq } from "drizzle-orm";
 
 const db = createDrizzleDatabase(DB_FILE_NAME);
 
-function isActionRedirect(data: unknown): data is { redirect: string } {
-	return typeof data === "object" && data !== null && "redirect" in data && typeof data.redirect === "string";
-}
-
 export const onRequest = defineMiddleware(async (context, next) => {
 
 	// Skip requests for prerendered pages
-  	if (context.isPrerendered) return next();
+	if (context.isPrerendered) return next();
 
+
+	// Set Locals. 
 	context.locals.db = db;
 	const session = await getSessionAndUserFromCookie(context.cookies, db);
 	context.locals.session = session;
 
-	// Form action request. 
-	const { action, setActionResult, serializeActionResult, deserializeActionResult } = getActionContext(context);
+
+	// Skip request if not authenticated. 
+	if (!session) return next()
+
+	// POST --> Redirect --> GET ... (1 / 2). 
+	const { action, setActionResult, serializeActionResult } = getActionContext(context);
 	if (action?.calledFrom === "form") {
 		const actionResult = await action.handler();
-		const serializedActionResult = serializeActionResult(actionResult);
 
-		if (session) {
-			await context.locals.db
-				.update(s.sessions)
-				.set({
-					actionData: Buffer.from(
-						JSON.stringify({
-							actionName: action.name,
-							actionResult: serializedActionResult,
-						}),
-					),
-				})
-				.where(eq(s.sessions.id, session.id));
-		}
+		// Save the actionData to user's session. 
+		await context.locals.db
+			.update(s.sessions)
+			.set({
+				actionData: {
+					actionName: action.name,
+					actionResult: serializeActionResult(actionResult),
+				},
+			})
+			.where(eq(s.sessions.id, session.id));
 
 		// Redirect back to the previous page on error
 		if (actionResult.error) {
 			const referer = context.request.headers.get("Referer");
-			if (!referer) {
-				throw new Error("Internal: Referer unexpectedly missing from Action POST request.");
+			if (referer) {
+				return context.redirect(referer);
 			}
-			return context.redirect(referer);
 		}
 
-		// The action asked for a redirect (e.g. a username change). The actionData
-		// stored above survives to the target page.
-		if (isActionRedirect(actionResult.data)) {
+		// Redirect to custom "Redirect" page.
+		if (actionResult.data !== null && typeof actionResult.data === "object" && "redirect" in actionResult.data && typeof actionResult.data.redirect === "string") {
 			return context.redirect(actionResult.data.redirect);
 		}
 
@@ -59,10 +55,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
 		return context.redirect(context.originPathname);
 	}
 
-	// Page after form action 
-	if (context.request.method === "GET" && session?.actionData) {
-		const { actionName, actionResult } = JSON.parse(session.actionData.toString());
-		const deserializedActionResult = deserializeActionResult(actionResult);
+	// POST --> Redirect --> GET ... (2 / 2).
+	if (context.request.method === "GET" && session.actionData) {
 
 		// Clear the action data so it is available only once.
 		await context.locals.db
@@ -70,7 +64,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 			.set({ actionData: null })
 			.where(eq(s.sessions.id, session.id));
 
-		setActionResult(actionName, serializeActionResult(deserializedActionResult));
+		setActionResult(session.actionData.actionName, session.actionData.actionResult);
 	}
 
 	return next();

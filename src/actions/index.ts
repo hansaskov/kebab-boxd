@@ -42,22 +42,14 @@ export const server = {
 			});
 
 			if (!targetUser) {
-				throw new ActionError({ code: "NOT_FOUND", message: "User not found." });
+				throw new ActionError({ code: "NOT_FOUND", message: `User "${input.currentUsername}" not found.` });
 			}
 
-			if (!session.user.isAdmin && session.user.id !== targetUser.id) {
+			if (session.user.isAdmin !== false && session.user.id !== targetUser.id) {
 				throw new ActionError({
 					code: "FORBIDDEN",
 					message: "You are not allowed to change this profile.",
 				});
-			}
-
-			const existingUsername = await context.locals.db.query.users.findFirst({
-				where: { username: { eq: input.username } },
-			});
-
-			if (existingUsername && existingUsername.id !== targetUser.id) {
-				throw new ActionError({ code: "CONFLICT", message: "Username is already taken." });
 			}
 
 			try {

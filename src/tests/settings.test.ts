@@ -3,7 +3,7 @@ import { isInputError } from "astro:actions";
 import { describe, expect, it } from "vitest";
 import SettingsPage from "@src/pages/[username]/settings.astro";
 import { server } from "@src/actions/index";
-import { createSession } from "@src/auth/session";
+import { createSession, getSession } from "@src/auth/session";
 import { createDrizzleDatabase, migrateDrizzleDatabase } from "@src/db";
 import { users } from "@src/db/schema";
 
@@ -22,10 +22,11 @@ describe("SettingsPage", () => {
 			.returning()
 			.get();
 		const session = await createSession(user.id, db);
+		const sessionWithUser = await getSession(session.id, db)
 		const container = await AstroContainer.create();
 
 		const response = await container.renderToResponse(SettingsPage, {
-			locals: { db, session: { ...session, user } },
+			locals: { db, session: sessionWithUser },
 			params: { username: user.username },
 		});
 		const html = await response.text();

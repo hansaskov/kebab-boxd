@@ -130,3 +130,4 @@ interface SessionWithToken extends Session {
 }
 
 export type Session = typeof s.sessions.$inferInsert;
+export type SessionWithUser = Awaited<ReturnType<typeof getSessionAndUserFromCookie>>

@@ -1,6 +1,7 @@
 import * as p from "drizzle-orm/sqlite-core";
 import { pronouns } from "@src/data/pronouns"
 import { sql } from "drizzle-orm";
+import type { getActionContext } from "astro:actions";
 
 export const users = p.snakeCase.table("users", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
@@ -149,9 +150,12 @@ export const sessions = p.snakeCase.table("sessions", {
   secretHash: p.blob({mode: "buffer"}).notNull(),
   lastVerifiedAt: p.int({ mode: "timestamp" }).notNull(),
   theme: p.text({enum: ["light", "dark"]}).notNull().default("light"),
-  actionData: p.blob({mode: "buffer"}),
+  actionData: p.text({mode: "json"}).$type<ActionData>(),
   updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(() => new Date),
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(() => new Date)
 }, (t) => [
   p.index("sessions_user_id_idx").on(t.userId)
 ])
+
+export type SerializedActionResult = ReturnType<ReturnType<typeof getActionContext>["serializeActionResult"]>
+export type ActionData = {actionName: string, actionResult: SerializedActionResult}
