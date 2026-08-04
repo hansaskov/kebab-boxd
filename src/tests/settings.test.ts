@@ -144,6 +144,6 @@ describe("SettingsPage", () => {
 		});
 		const html = await response.text();
 
-		expect(html).toContain('<p class="text-sm text-error" role="alert">Username is already taken.</p>');
+		expect(html).toContain('Username is already taken.');
 	});
 });

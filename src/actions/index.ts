@@ -10,18 +10,18 @@ export const updateSettingsInput = z.object({
 	fullname: z
 		.string()
 		.trim()
-		.min(3, "Full name must be at least 3 characters long.")
-		.max(30, "Full name must be 30 characters or fewer."),
+		.min(3)
+		.max(30),	
 	username: z
 		.string()
 		.trim()
-		.min(3, "Username must be at least 3 characters long.")
-		.max(30, "Username must be 30 characters or fewer."),
+		.min(3)
+		.max(30),
 	pronoun: z.enum(pronouns).nullable(),
 	bio: z
 		.string()
 		.trim()
-		.max(500, "Bio must be 500 characters or fewer.")
+		.max(500)
 		.nullable(),
 });
 

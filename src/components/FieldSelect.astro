@@ -1,0 +1,42 @@
+---
+import { ZodNullable, type ZodEnum } from "astro/zod";
+
+interface Props extends astroHTML.JSX.SelectHTMLAttributes {
+    zodField: ZodEnum | ZodNullable<ZodEnum>;
+    selected?: string | undefined | null;
+    title?: string;
+    description: string;
+    noneOption?: string;
+    errors?: string[] | undefined; 
+}
+
+const props = Astro.props
+const enumField = props.zodField instanceof ZodNullable
+    ? props.zodField.unwrap()
+    : props.zodField
+const options = enumField.options
+---
+
+<div class="space-y-2">
+    <label class="block text-sm font-medium" for={props.id}>{props.title}</label>    
+    <select   
+        class="select appearance-none w-full"
+        class:list={[
+            "input validator w-full",
+            props.class
+        ]}
+        {...props}
+    >
+        {options.map(opt => (
+            <option value={opt} selected={props.selected === opt}>{opt}</option>
+        ))}
+        {props.zodField instanceof ZodNullable && (
+            <option value="" selected={props.selected == null}>{props.noneOption ?? "None"}</option>
+        )}
+    </select>
+    <p class="text-sm text-base-content/60">{props.description}</p>
+    {props.errors && (
+        <p class="text-xs text-error" role="alert">{props.errors.join("\n")}</p>
+    )}  
+    
+</div>

@@ -1,33 +1,49 @@
 ---
-
-
 import { UserRoundCog, Shield, Bell } from "@lucide/astro";
 import { actions, isInputError } from "astro:actions";
 import { updateSettingsInput } from "@src/actions";
-import { pronouns } from "@src/data/pronouns";
 import { defaultSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
+import FieldInput from "@src/components/FieldInput.astro";
+import FieldSelect from "@src/components/FieldSelect.astro";
 
-const { username: encodedUsername } = Astro.params
+const { username: encodedUsername } = Astro.params;
 
-if ( !encodedUsername ) {
-  return Astro.rewrite("/404")
+if (!encodedUsername) {
+  return Astro.rewrite("/404");
 }
 
-const userSettingsUpdateSchema = updateSettingsInput
+const userSettingsUpdateSchema = updateSettingsInput;
 
 const username = decodeURIComponent(encodedUsername);
 const actionResult = Astro.getActionResult(actions.updateSettings);
+
 const isInputActionError = isInputError(actionResult?.error);
 const fieldErrors = isInputActionError
-  ? (actionResult.error as unknown as { fields: Record<string, string[] | undefined> }).fields
+  ? (
+      actionResult.error as unknown as {
+        fields: Record<string, string[] | undefined>;
+      }
+    ).fields
   : {};
-const usernameErrors = actionResult?.error?.code === "CONFLICT"
-  ? [actionResult.error.message]
-  : fieldErrors.username;
-const generalError = actionResult?.error && !isInputActionError && actionResult.error.code !== "CONFLICT"
-  ? actionResult.error.message || "Settings could not be updated."
-  : undefined;
+const usernameErrors =
+  actionResult?.error?.code === "CONFLICT"
+    ? [actionResult.error.message]
+    : fieldErrors.username;
+const generalError =
+  actionResult?.error &&
+  !isInputActionError &&
+  actionResult.error.code !== "CONFLICT"
+    ? actionResult.error.message || "Settings could not be updated."
+    : undefined;
+const toast =
+  actionResult && !actionResult.error
+    ? ({
+        kind: "title",
+        title: "Settings updated",
+        text: "Your profile changes have been saved.",
+      } as const)
+    : undefined;
 
 const session = Astro.locals.session;
 
@@ -39,24 +55,20 @@ if (!session) {
 const user = await Astro.locals.db.query.users.findFirst({
   where: {
     username: {
-      eq: username
-    }
-  }
-})
+      eq: username,
+    },
+  },
+});
 
 // User does not exsist
 if (!user) {
-  return Astro.rewrite("/404")
+  return Astro.rewrite("/404");
 }
 
 // User not authorized
-if (session.user.isAdmin === false && session.user.id !== user.id ) {
-  return Astro.rewrite("/401")
+if (session.user.isAdmin === false && session.user.id !== user.id) {
+  return Astro.rewrite("/401");
 }
-
-const toast = actionResult && !actionResult.error
-  ? { kind: "title", title: "Settings updated", text: "Your profile changes have been saved." } as const
-  : undefined;
 
 const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
   {
@@ -65,22 +77,21 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
       {
         name: "Account",
         href: `/${encodeURIComponent(username)}/settings#account`,
-        icon: UserRoundCog
+        icon: UserRoundCog,
       },
       {
         name: "Security",
         href: `/${encodeURIComponent(username)}/settings#security`,
-        icon: Shield
+        icon: Shield,
       },
       {
         name: "Notifications",
         href: `/${encodeURIComponent(username)}/settings#notifications`,
-        icon: Bell
+        icon: Bell,
       },
-    ]
-  }
-])
-
+    ],
+  },
+]);
 ---
 
 <BaseLayout
@@ -93,88 +104,77 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
   user={session.user}
   sidebarMenuSections={settingsSidebarMenuSection}
   toast={toast}
-  >
+>
   <h1 class="text-4xl font-bold">Settings</h1>
   <section id="account" class="mt-8">
     <h2 class="text-2xl font-bold">Account</h2>
     <form class="mt-6 space-y-6" method="post" action={actions.updateSettings}>
       <input type="hidden" name="currentUsername" value={user.username} />
-      {generalError && (
-        <p class="rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error" role="alert">
-          {generalError}
-        </p>
-      )}
+      {
+        generalError && (
+          <p
+            class="rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error"
+            role="alert"
+          >
+            {generalError}
+          </p>
+        )
+      }
       <fieldset class="space-y-6">
         <legend class="text-lg font-semibold">User Settings</legend>
 
-        <div class="space-y-2">
-          <label class="block text-sm font-medium" for="fullname">Full Name</label>
-          <input
-            id="fullname"
-            name="fullname"
-            type="text"
-            class="input validator w-full"
-            required
-            value={user.fullname}
-            minlength={userSettingsUpdateSchema.shape.fullname.minLength}
-            maxlength={userSettingsUpdateSchema.shape.fullname.maxLength}
-            autocomplete="name"
-          />
-          {fieldErrors.fullname && (
-            <p class="text-sm text-error" role="alert">{fieldErrors.fullname.join(", ")}</p>
-          )}
-          <p class="text-sm text-base-content/60">The name that is shown on your profile page. Use your real name.</p>
-          <p class="hidden validator-hint">Must be 3 to 30 characters</p>
-        </div>
+        <FieldInput
+          title="Full Name"
+          name="fullname"
+          description="The name that is shown on your profile page. Use your real name."
+          type="text"
+          value={user.fullname}
+          zodField={userSettingsUpdateSchema.shape.fullname}
+        />
 
-        <div class="space-y-2">
-          <label class="block text-sm font-medium" for="username">Username</label>
-          <input
-            id="username"
-            name="username"
-            type="text"
-            class="input validator w-full"
-            required
-            value={user.username}
-            minlength={userSettingsUpdateSchema.shape.username.minLength}
-            maxlength={userSettingsUpdateSchema.shape.username.maxLength}
-            autocomplete="username"
+        <FieldInput
+          title="Username"
+          name="username"
+          description="Other users use this name to find you. It must be unique"
+          type="text"
+          value={user.username}
+          zodField={userSettingsUpdateSchema.shape.username}
+          errors={usernameErrors}
+        />
 
-          />
-          {usernameErrors && (
-            <p class="text-sm text-error" role="alert">{usernameErrors.join(", ")}</p>
-          )}
-          <p class="text-sm text-base-content/60">Other users use this name to find you. It must be unique.</p>
-          <p class="hidden validator-hint">Must be 3 to 30 characters</p>
-        </div>
-
-        <div class="space-y-2">
-          <label class="block text-sm font-medium" for="pronouns">Pronouns</label>
-          <select id="pronouns" name="pronoun" class="select appearance-none w-full">
-            <option value="" selected={!user.pronoun}>Select your pronoun</option>
-            {pronouns.map(pronoun => (
-              <option value={pronoun} selected={user.pronoun === pronoun}>{pronoun}</option>
-            ))}
-          </select>
-          {fieldErrors.pronoun && (
-            <p class="text-sm text-error" role="alert">{fieldErrors.pronoun.join(", ")}</p>
-          )}
-          <p class="text-sm text-base-content/60">The words that other users use to refer to you. Example: They / their.</p>
-        </div>
+        <FieldSelect
+          title="Pronouns"
+          name="pronoun"
+          selected={user.pronoun}
+          description="The words that other users use to refer to you. Example: They / their."
+          zodField={userSettingsUpdateSchema.shape.pronoun}
+          errors={fieldErrors.pronoun}
+        />
 
         <div class="space-y-2">
           <label class="block text-sm font-medium" for="bio">Bio</label>
-          <textarea id="bio" name="bio" class="textarea min-h-32 w-full" maxlength="500">{user.bio ?? ""}</textarea>
-          {fieldErrors.bio && (
-            <p class="text-sm text-error" role="alert">{fieldErrors.bio.join(", ")}</p>
-          )}
-          <p class="text-sm text-base-content/60">Write a short text about yourself. It is shown on your profile page.</p>
+          <textarea
+            id="bio"
+            name="bio"
+            class="textarea min-h-32 w-full"
+            maxlength="500">{user.bio ?? ""}</textarea
+          >
+          {
+            fieldErrors.bio && (
+              <p class="text-sm text-error" role="alert">
+                {fieldErrors.bio.join(", ")}
+              </p>
+            )
+          }
+          <p class="text-sm text-base-content/60">
+            Write a short text about yourself. It is shown on your profile page.
+          </p>
         </div>
       </fieldset>
 
-    <div class="flex justify-end">
-      <button class="btn btn-neutral" type="submit">Save settings</button>
-    </div>
+      <div class="flex justify-end">
+        <button class="btn btn-neutral" type="submit">Save settings</button>
+      </div>
     </form>
   </section>
   <section id="security" class="mt-8">
@@ -183,6 +183,8 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
   </section>
   <section id="notifications" class="mt-8">
     <h2 class="text-2xl font-bold">Notifications</h2>
-    <p class="mt-2 text-base-content/60">Placeholder for notification settings.</p>
+    <p class="mt-2 text-base-content/60">
+      Placeholder for notification settings.
+    </p>
   </section>
 </BaseLayout>
