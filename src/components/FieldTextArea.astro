@@ -1,0 +1,40 @@
+---
+import { ZodNullable, ZodString } from "astro:schema";
+
+interface Props extends astroHTML.JSX.TextareaHTMLAttributes {
+    zodField: ZodString | ZodNullable<ZodString>;
+    title?: string;
+    description: string;
+    errors?: string[] | undefined;
+}
+
+const props = Astro.props;
+
+const zodField =
+    props.zodField instanceof ZodNullable
+        ? props.zodField.unwrap()
+        : props.zodField;
+
+const validationString = `Must be ${zodField.minLength} to ${zodField.maxLength} characters`;
+---
+
+<div class="space-y-2">
+    <label class="block text-sm font-medium" for={props.id}>{props.title}</label
+    >
+    <textarea
+        minlength={zodField.minLength}
+        maxlength={zodField.maxLength}
+        required={zodField.minLength !== null && zodField.minLength > 0}
+        class:list={["textarea input validator w-full", props.class]}
+        {...props}>{props.value}</textarea
+    >
+    <p class="text-sm text-base-content/60">{props.description}</p>
+    <p class="validator-hint hidden">{validationString}</p>
+    {
+        props.errors && (
+            <p class="text-xs text-error" role="alert">
+                {props.errors.join("\n")}
+            </p>
+        )
+    }
+</div>

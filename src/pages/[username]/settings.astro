@@ -6,6 +6,7 @@ import { defaultSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import FieldInput from "@src/components/FieldInput.astro";
 import FieldSelect from "@src/components/FieldSelect.astro";
+import FieldTextArea from "@src/components/FieldTextArea.astro";
 
 const { username: encodedUsername } = Astro.params;
 
@@ -26,16 +27,12 @@ const fieldErrors = isInputActionError
       }
     ).fields
   : {};
+  
 const usernameErrors =
   actionResult?.error?.code === "CONFLICT"
     ? [actionResult.error.message]
     : fieldErrors.username;
-const generalError =
-  actionResult?.error &&
-  !isInputActionError &&
-  actionResult.error.code !== "CONFLICT"
-    ? actionResult.error.message || "Settings could not be updated."
-    : undefined;
+
 const toast =
   actionResult && !actionResult.error
     ? ({
@@ -110,16 +107,6 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
     <h2 class="text-2xl font-bold">Account</h2>
     <form class="mt-6 space-y-6" method="post" action={actions.updateSettings}>
       <input type="hidden" name="currentUsername" value={user.username} />
-      {
-        generalError && (
-          <p
-            class="rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error"
-            role="alert"
-          >
-            {generalError}
-          </p>
-        )
-      }
       <fieldset class="space-y-6">
         <legend class="text-lg font-semibold">User Settings</legend>
 
@@ -151,25 +138,13 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
           errors={fieldErrors.pronoun}
         />
 
-        <div class="space-y-2">
-          <label class="block text-sm font-medium" for="bio">Bio</label>
-          <textarea
-            id="bio"
-            name="bio"
-            class="textarea min-h-32 w-full"
-            maxlength="500">{user.bio ?? ""}</textarea
-          >
-          {
-            fieldErrors.bio && (
-              <p class="text-sm text-error" role="alert">
-                {fieldErrors.bio.join(", ")}
-              </p>
-            )
-          }
-          <p class="text-sm text-base-content/60">
-            Write a short text about yourself. It is shown on your profile page.
-          </p>
-        </div>
+        <FieldTextArea
+          title="Bio"
+          name="bio"
+          description="Write a short text about yourself. It is shown on your profile page."
+          value={user.bio}
+          zodField={userSettingsUpdateSchema.shape.bio}
+        />
       </fieldset>
 
       <div class="flex justify-end">
