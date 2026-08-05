@@ -27,7 +27,7 @@ const fieldErrors = isInputActionError
       }
     ).fields
   : {};
-  
+
 const usernameErrors =
   actionResult?.error?.code === "CONFLICT"
     ? [actionResult.error.message]
@@ -63,7 +63,7 @@ if (!user) {
 }
 
 // User not authorized
-if (session.user.isAdmin === false && session.user.id !== user.id) {
+if (session.user.role !== "admin" && session.user.id !== user.id) {
   return Astro.rewrite("/401");
 }
 

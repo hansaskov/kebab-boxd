@@ -82,9 +82,9 @@ export async function seedDatabase(db: DB) {
         username: funcs.firstName({ isUnique: true }),
         email: funcs.email(),
         googleId: funcs.string({ isUnique: true }),
-        isAdmin: funcs.weightedRandom([
-          { weight: 0.9, value: funcs.default({ defaultValue: false }) },
-          { weight: 0.1, value: funcs.default({ defaultValue: true }) },
+        role: funcs.weightedRandom([
+          { weight: 0.9, value: funcs.default({ defaultValue: "user" }) },
+          { weight: 0.1, value: funcs.default({ defaultValue: "admin" }) },
         ]),
         bio: funcs.weightedRandom([
           { weight: 0.6, value: funcs.loremIpsum() },

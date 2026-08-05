@@ -50,7 +50,7 @@ const initials = user?.fullname
         </li>
       </form>
       {
-        user.isAdmin && (
+        user.role === "admin" && (
           <>
             <li class="menu-title text-xs">Admin</li>
             <li><a href="/admin" ><Shield size={16} />Admin console</a></li>

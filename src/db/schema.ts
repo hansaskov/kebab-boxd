@@ -10,7 +10,7 @@ export const users = p.snakeCase.table("users", {
   email: p.text().notNull(),
   googleId: p.text().notNull(),
   profilePictureId: p.int({ mode: "number" }).references(() => pictures.id, {onDelete: "set null"}),
-  isAdmin: p.int({ mode: "boolean" }).notNull().default(false),
+  role: p.text({ enum: ["user", "admin"] }).notNull().default("user"),
   bio: p.text(),
   pronoun: p.text({ enum: pronouns }),
   latitude: p.real(),

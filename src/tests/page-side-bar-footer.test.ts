@@ -15,7 +15,7 @@ describe("SideBarFooter", () => {
 			email: "first@example.com",
 			googleId: "google-1",
 			profilePictureId: null,
-			isAdmin: false,
+			role: "user",
 			bio: null,
 			pronoun: null,
 			latitude: null,
