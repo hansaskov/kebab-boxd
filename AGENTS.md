@@ -9,9 +9,9 @@ Single-context: root `CONTEXT.md`
 - No Client side javascript is allowed.
 - Forms should use Astro Actions. 
 - Each page needs to specify which sites can be pre-fetched immdiately. 
-- CSS-only UI with DaisyUI. Never reach for JS-dependent components.
+- CSS-only UI with DaisyUI.
 - Astro components must extend `ComponentProps<typeof Child>` (from `astro/types`) for every forwarded child and spread `{...props}` at the call site.
-- Verify with `pnpm check`, `pnpm lint` and `pnpm test`
+- Verify with `pnpm lint`, `pnpm check` and `pnpm test`
 - Write unit and integration tests under `@src/tests/`
 
 ## Response style
