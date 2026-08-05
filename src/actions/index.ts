@@ -45,7 +45,7 @@ export const server = {
 				throw new ActionError({ code: "NOT_FOUND", message: `User "${input.currentUsername}" not found.` });
 			}
 
-			if (session.user.isAdmin !== false && session.user.id !== targetUser.id) {
+			if (session.user.isAdmin === false && session.user.id !== targetUser.id) {
 				throw new ActionError({
 					code: "FORBIDDEN",
 					message: "You are not allowed to change this profile.",
