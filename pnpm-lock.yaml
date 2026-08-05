@@ -43,7 +43,7 @@ importers:
         specifier: ^5.7.15
         version: 5.7.15
       node:
-        specifier: runtime:^26.7.0
+        specifier: runtime:^26.2.0
         version: runtime:26.7.0
       oxlint:
         specifier: ^1.77.0
