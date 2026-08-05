@@ -1,4 +1,5 @@
 ---
+import { getConstraintsFromZodSchmea } from '@src/validation/constraint';
 import type { ZodString } from 'astro:schema';
 
 interface Props extends astroHTML.JSX.InputHTMLAttributes {
@@ -9,19 +10,18 @@ interface Props extends astroHTML.JSX.InputHTMLAttributes {
 }
 
 const props = Astro.props
-const validationString = `Must be ${props.zodField.minLength} to ${props.zodField.maxLength} characters`
+const constraints = getConstraintsFromZodSchmea(props.zodField)
+const validationString = `Must be ${constraints?.minlength} to ${constraints?.maxlength} characters`
 ---
 
 <div class="space-y-2">
     <label class="block text-sm font-medium" for={props.id}>{props.title}</label>
     <input
-        minlength={props.zodField.minLength}
-        maxlength={props.zodField.maxLength}
-        required={props.zodField.minLength !== null && props.zodField.minLength > 0}
         class:list={[
             "input validator w-full",
             props.class
         ]}
+        {...constraints}
         {...props}
     />
     <p class="text-sm text-base-content/60">{props.description}</p>

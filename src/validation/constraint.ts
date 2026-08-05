@@ -58,7 +58,7 @@ function zodInfo(schema: z.ZodType): ZodInfo {
 	}
 }
 
-export function constraint(schema: z.ZodType): InputConstraint | undefined {
+export function getConstraintsFromZodSchmea(schema: z.ZodType): InputConstraint | undefined {
 	const output: InputConstraint = {};
 	const { def, checks, isNullable, isOptional } = zodInfo(schema);
 

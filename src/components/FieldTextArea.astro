@@ -1,4 +1,5 @@
 ---
+import { getConstraintsFromZodSchmea } from "@src/validation/constraint";
 import { ZodNullable, ZodString } from "astro:schema";
 
 interface Props extends astroHTML.JSX.TextareaHTMLAttributes {
@@ -10,22 +11,18 @@ interface Props extends astroHTML.JSX.TextareaHTMLAttributes {
 
 const props = Astro.props;
 
-const zodField =
-    props.zodField instanceof ZodNullable
-        ? props.zodField.unwrap()
-        : props.zodField;
-
-const validationString = `Must be ${zodField.minLength} to ${zodField.maxLength} characters`;
+const constraints = getConstraintsFromZodSchmea(props.zodField)
+const validationString = `Must be ${constraints?.minlength} to ${constraints?.maxlength} characters`;
 ---
 
 <div class="space-y-2">
-    <label class="block text-sm font-medium" for={props.id}>{props.title}</label
-    >
+    <label class="block text-sm font-medium" for={props.id}>{props.title}</label>
     <textarea
-        minlength={zodField.minLength}
-        maxlength={zodField.maxLength}
-        required={zodField.minLength !== null && zodField.minLength > 0}
-        class:list={["textarea input validator w-full", props.class]}
+        class:list={[
+            "textarea input validator w-full", 
+            props.class
+        ]}
+        {...constraints}
         {...props}>{props.value}</textarea
     >
     <p class="text-sm text-base-content/60">{props.description}</p>

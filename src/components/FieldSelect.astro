@@ -1,4 +1,5 @@
 ---
+import { getConstraintsFromZodSchmea } from "@src/validation/constraint";
 import { ZodNullable, type ZodEnum } from "astro/zod";
 
 interface Props extends astroHTML.JSX.SelectHTMLAttributes {
@@ -14,6 +15,7 @@ const props = Astro.props
 const enumField = props.zodField instanceof ZodNullable
     ? props.zodField.unwrap()
     : props.zodField
+const constraints = getConstraintsFromZodSchmea(props.zodField)
 const options = enumField.options
 ---
 
@@ -25,6 +27,7 @@ const options = enumField.options
             "input validator w-full",
             props.class
         ]}
+        {...constraints}
         {...props}
     >
         {options.map(opt => (
