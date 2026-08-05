@@ -7,7 +7,7 @@ import FieldInput from "@src/components/FieldInput.astro";
 import FieldSelect from "@src/components/FieldSelect.astro";
 import FieldTextArea from "@src/components/FieldTextArea.astro";
 import type { Toast } from "@src/components/Toast.astro";
-import { updateSettingsInput } from "@src/actions";
+import { updateAccountSchema } from "@src/actions";
 
 const { username: encodedUsername } = Astro.params;
 
@@ -24,8 +24,25 @@ if (!session) {
   return Astro.redirect("/login");
 }
 
+const user = await Astro.locals.db.query.users.findFirst({
+  where: {
+    username: {
+      eq: username,
+    },
+  },
+});
+
+// User does not exsist
+if (!user) {
+  return Astro.rewrite("/404");
+}
+
+// User not authorized
+if (session.user.role !== "admin" && session.user.id !== user.id) {
+  return Astro.rewrite("/401");
+}
+
 const actionResult = Astro.getActionResult(actions.updateSettings);
-const accountSettingsUpdateSchema = updateSettingsInput;
 
 let usernameErrors: string[] | undefined;
 let toast: Toast | undefined;
@@ -52,23 +69,6 @@ if (actionResult) {
   }
 }
 
-const user = await Astro.locals.db.query.users.findFirst({
-  where: {
-    username: {
-      eq: username,
-    },
-  },
-});
-
-// User does not exsist
-if (!user) {
-  return Astro.rewrite("/404");
-}
-
-// User not authorized
-if (session.user.role !== "admin" && session.user.id !== user.id) {
-  return Astro.rewrite("/401");
-}
 
 const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
   {
@@ -119,7 +119,7 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
           description="The name that is shown on your profile page. Use your real name."
           type="text"
           value={user.fullname}
-          zodField={accountSettingsUpdateSchema.shape.fullname}
+          zodField={updateAccountSchema.shape.fullname}
         />
 
         <FieldInput
@@ -128,7 +128,7 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
           description="Other users use this name to find you. It must be unique"
           type="text"
           value={user.username}
-          zodField={accountSettingsUpdateSchema.shape.username}
+          zodField={updateAccountSchema.shape.username}
           errors={usernameErrors}
         />
 
@@ -137,7 +137,7 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
           name="pronoun"
           selected={user.pronoun}
           description="The words that other users use to refer to you. Example: They / their."
-          zodField={accountSettingsUpdateSchema.shape.pronoun}
+          zodField={updateAccountSchema.shape.pronoun}
         />
 
         <FieldTextArea
@@ -145,7 +145,7 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
           name="bio"
           description="Write a short text about yourself. It is shown on your profile page."
           value={user.bio}
-          zodField={accountSettingsUpdateSchema.shape.bio}
+          zodField={updateAccountSchema.shape.bio}
         />
       </fieldset>
       <div class="flex justify-end">

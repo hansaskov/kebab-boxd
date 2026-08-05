@@ -5,7 +5,7 @@ import { pronouns } from "@src/data/pronouns";
 import { s } from "@src/db";
 import { isUniqueConstraintError } from "@src/db/sqlite-errors";
 
-export const updateSettingsInput = z.object({
+export const updateAccountSchema = z.object({
   currentUsername: z.string().trim().min(1).max(50),
   fullname: z.string().trim().min(3).max(50),
   username: z.string().trim().min(3).max(30),
@@ -16,7 +16,7 @@ export const updateSettingsInput = z.object({
 export const server = {
   updateSettings: defineAction({
     accept: "form",
-    input: updateSettingsInput,
+    input: updateAccountSchema,
     handler: async (input, context) => {
       const session = context.locals.session;
 
