@@ -9,7 +9,9 @@
     "correctness": "error",
     "suspicious": "error"
   },
-  "rules": {},
+  "rules": {
+    "no-underscore-dangle": ["error", { "allow": ["_zod"] }]
+  },
   "env": {
     "builtin": true
   }
