@@ -3,7 +3,7 @@ import { z } from "astro/zod";
 import { eq } from "drizzle-orm";
 import { pronouns } from "@src/data/pronouns";
 import { s } from "@src/db";
-import { isUniqueConstraintError } from "@src/db/sqlite-errors";
+import { getSQLiteError, isUniqueConstraintError } from "@src/db/sqlite-errors";
 
 export const updateAccountSchema = z.object({
   currentUsername: z.string().trim().min(1).max(50),
@@ -55,7 +55,7 @@ export const server = {
         })
         .where(eq(s.users.id, targetUser.id))
         .catch((error) => {
-          if (isUniqueConstraintError(error)) {
+          if (isUniqueConstraintError(getSQLiteError(error))) {
             throw new ActionError({
               code: "CONFLICT",
               message: "Username is already taken.",

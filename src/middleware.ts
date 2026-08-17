@@ -5,6 +5,7 @@ import { defineMiddleware, sequence } from "astro:middleware";
 import { getActionContext } from "astro:actions";
 import { eq } from "drizzle-orm";
 import { compressMiddleware } from "@src/middleware/compress";
+import { hasStringRedirect } from "@src/validation/type-guards";
 
 const db = createDrizzleDatabase(DB_FILE_NAME);
 
@@ -47,7 +48,7 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 		}
 
 		// Redirect to custom "Redirect" page.
-		if (actionResult.data !== null && typeof actionResult.data === "object" && "redirect" in actionResult.data && typeof actionResult.data.redirect === "string") {
+		if (hasStringRedirect(actionResult.data)) {
 			return context.redirect(actionResult.data.redirect);
 		}
 

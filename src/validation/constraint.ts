@@ -2,6 +2,8 @@
 
 import type { z } from "astro/zod";
 
+import { isCheckDef, isNumber, isWrapperDef } from "@src/validation/type-guards";
+
 export type InputConstraint = Partial<{
 	pattern: string; // RegExp
 	min: number | string; // Date
@@ -12,7 +14,7 @@ export type InputConstraint = Partial<{
 	maxlength: number;
 }>;
 
-type CheckDef =
+export type CheckDef =
 	| z.core.$ZodCheckMinLengthDef
 	| z.core.$ZodCheckMaxLengthDef
 	| z.core.$ZodCheckLengthEqualsDef
@@ -21,8 +23,6 @@ type CheckDef =
 	| z.core.$ZodCheckMultipleOfDef
 	| z.core.$ZodCheckNumberFormatDef
 	| z.core.$ZodCheckStringFormatDef;
-
-type WrapperDef = z.core.$ZodOptionalDef | z.core.$ZodNullableDef | z.core.$ZodDefaultDef;
 
 type ZodInfo = {
 	def: z.core.$ZodTypeDef;
@@ -40,21 +40,31 @@ function zodInfo(schema: z.ZodType): ZodInfo {
 		const def = schema.def;
 
 		if ("check" in def) {
-			checks.push(def as unknown as CheckDef);
+			// SAFETY: a top-level `check` on a schema def means it extends $ZodCheckDef.
+			const checkDef = def as z.core.$ZodCheckDef;
+			if (isCheckDef(checkDef)) {
+				checks.push(checkDef);
+			}
 		}
 		for (const check of def.checks ?? []) {
-			checks.push(check._zod.def as CheckDef);
+			const checkDef = check._zod.def;
+			if (isCheckDef(checkDef)) {
+				checks.push(checkDef);
+			}
 		}
 
 		if (def.type === "optional" || def.type === "default") {
 			isOptional = true;
 		} else if (def.type === "nullable") {
 			isNullable = true;
-		} else {
+		}
+
+		if (!isWrapperDef(def)) {
 			return { def, isNullable, isOptional, checks };
 		}
 
-		schema = (def as WrapperDef).innerType as z.ZodType;
+		// SAFETY: def is a wrapper (optional/nullable/default) whose innerType is the wrapped schema.
+		schema = def.innerType as z.ZodType;
 	}
 }
 
@@ -94,27 +104,27 @@ export function getConstraintsFromZodSchmea(schema: z.ZodType): InputConstraint 
 		for (const check of checks) {
 			switch (check.check) {
 				case "greater_than":
-					if (typeof check.value === "number") {
+					if (isNumber(check.value)) {
 						const min = check.inclusive
 							? check.value
 							: check.value + (isInt ? 1 : Number.MIN_VALUE);
-						if (typeof output.min !== "number" || min > output.min) {
+						if (!isNumber(output.min) || min > output.min) {
 							output.min = min;
 						}
 					}
 					break;
 				case "less_than":
-					if (typeof check.value === "number") {
+					if (isNumber(check.value)) {
 						const max = check.inclusive
 							? check.value
 							: check.value - (isInt ? 1 : Number.MIN_VALUE);
-						if (typeof output.max !== "number" || max < output.max) {
+						if (!isNumber(output.max) || max < output.max) {
 							output.max = max;
 						}
 					}
 					break;
 				case "multiple_of":
-					if (typeof check.value === "number") {
+					if (isNumber(check.value)) {
 						output.step = check.value;
 					}
 					break;
@@ -139,12 +149,12 @@ export function getConstraintsFromZodSchmea(schema: z.ZodType): InputConstraint 
 		for (const check of checks) {
 			switch (check.check) {
 				case "min_length":
-					if (typeof output.min !== "number" || check.minimum > output.min) {
+					if (!isNumber(output.min) || check.minimum > output.min) {
 						output.min = check.minimum;
 					}
 					break;
 				case "max_length":
-					if (typeof output.max !== "number" || check.maximum < output.max) {
+					if (!isNumber(output.max) || check.maximum < output.max) {
 						output.max = check.maximum;
 					}
 					break;

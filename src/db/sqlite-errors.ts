@@ -1,3 +1,5 @@
+import { isErrorContainer, isSQLiteError } from "@src/validation/type-guards";
+
 const SQLITE_BUSY = 5;
 const SQLITE_LOCKED = 6;
 const SQLITE_READONLY = 8;
@@ -8,79 +10,64 @@ const SQLITE_CONSTRAINT_NOT_NULL = 1299;
 const SQLITE_CONSTRAINT_PRIMARY_KEY = 1555;
 const SQLITE_CONSTRAINT_UNIQUE = 2067;
 
-type SQLiteError = Error & {
+export type SQLiteError = Error & {
 	code: "ERR_SQLITE_ERROR";
 	errcode: number;
 	errstr: string;
 };
 
-function getSQLiteError(error: unknown) {
-	const visited = new Set<unknown>();
-	let current = error;
+/** Walk the cause chain of an untrusted error and return the nearest SQLite error. */
+export function getSQLiteError(cause: unknown) {
+	const visited = new Set<object>();
+	let current: unknown = cause;
 
-	while (
-		typeof current === "object" &&
-		current !== null &&
-		!visited.has(current)
-	) {
+	while (isErrorContainer(current) && !visited.has(current)) {
 		visited.add(current);
-		const candidate = current as Partial<SQLiteError>;
-
-		if (
-			candidate.code === "ERR_SQLITE_ERROR" &&
-			typeof candidate.errcode === "number" &&
-			typeof candidate.errstr === "string"
-		) {
-			return current as SQLiteError;
+		if (isSQLiteError(current)) {
+			return current;
 		}
-
-		current = (current as { cause?: unknown }).cause;
+		current = current.cause;
 	}
 
 	return undefined;
 }
 
-export function isSQLiteError(error: unknown) {
-	return getSQLiteError(error) !== undefined;
+function hasSQLiteCode(sqlite: SQLiteError | undefined, code: number) {
+	return sqlite !== undefined && (sqlite.errcode & 0xff) === code;
 }
 
-function hasSQLiteCode(error: unknown, code: number) {
-	const sqliteError = getSQLiteError(error);
-	return sqliteError !== undefined && (sqliteError.errcode & 0xff) === code;
+export function isConstraintError(sqlite: SQLiteError | undefined) {
+	return hasSQLiteCode(sqlite, SQLITE_CONSTRAINT);
 }
 
-export function isConstraintError(error: unknown) {
-	return hasSQLiteCode(error, SQLITE_CONSTRAINT);
+export function isUniqueConstraintError(sqlite: SQLiteError | undefined) {
+	return sqlite?.errcode === SQLITE_CONSTRAINT_UNIQUE;
 }
 
-export function isUniqueConstraintError(error: unknown) {
-	return getSQLiteError(error)?.errcode === SQLITE_CONSTRAINT_UNIQUE;
+export function isPrimaryKeyConstraintError(sqlite: SQLiteError | undefined) {
+	return sqlite?.errcode === SQLITE_CONSTRAINT_PRIMARY_KEY;
 }
 
-export function isPrimaryKeyConstraintError(error: unknown) {
-	return getSQLiteError(error)?.errcode === SQLITE_CONSTRAINT_PRIMARY_KEY;
+export function isNotNullConstraintError(sqlite: SQLiteError | undefined) {
+	return sqlite?.errcode === SQLITE_CONSTRAINT_NOT_NULL;
 }
 
-export function isNotNullConstraintError(error: unknown) {
-	return getSQLiteError(error)?.errcode === SQLITE_CONSTRAINT_NOT_NULL;
+export function isCheckConstraintError(sqlite: SQLiteError | undefined) {
+	return sqlite?.errcode === SQLITE_CONSTRAINT_CHECK;
 }
 
-export function isCheckConstraintError(error: unknown) {
-	return getSQLiteError(error)?.errcode === SQLITE_CONSTRAINT_CHECK;
+export function isForeignKeyConstraintError(sqlite: SQLiteError | undefined) {
+	return sqlite?.errcode === SQLITE_CONSTRAINT_FOREIGN_KEY;
 }
 
-export function isForeignKeyConstraintError(error: unknown) {
-	return getSQLiteError(error)?.errcode === SQLITE_CONSTRAINT_FOREIGN_KEY;
+export function isBusyError(sqlite: SQLiteError | undefined) {
+	return hasSQLiteCode(sqlite, SQLITE_BUSY);
 }
 
-export function isBusyError(error: unknown) {
-	return hasSQLiteCode(error, SQLITE_BUSY);
+export function isLockedError(sqlite: SQLiteError | undefined) {
+	return hasSQLiteCode(sqlite, SQLITE_LOCKED);
 }
 
-export function isLockedError(error: unknown) {
-	return hasSQLiteCode(error, SQLITE_LOCKED);
-}
-
-export function isReadonlyError(error: unknown) {
-	return hasSQLiteCode(error, SQLITE_READONLY);
+export function isReadonlyError(sqlite: SQLiteError | undefined) {
+	return hasSQLiteCode(sqlite, SQLITE_READONLY);
 }

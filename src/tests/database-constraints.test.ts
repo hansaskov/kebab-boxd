@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { createDrizzleDatabase, migrateDrizzleDatabase } from "@src/db/index";
 import { users } from "@src/db/schema";
 import {
+  getSQLiteError,
   isBusyError,
   isConstraintError,
   isUniqueConstraintError,
@@ -32,8 +33,9 @@ describe("users table constraints", () => {
     }
 
     expect(error).toBeDefined();
-    expect(isConstraintError(error)).toBe(true);
-    expect(isUniqueConstraintError(error)).toBe(true);
-    expect(isBusyError(error)).toBe(false);
+    const sqlite = getSQLiteError(error);
+    expect(isConstraintError(sqlite)).toBe(true);
+    expect(isUniqueConstraintError(sqlite)).toBe(true);
+    expect(isBusyError(sqlite)).toBe(false);
   });
 });

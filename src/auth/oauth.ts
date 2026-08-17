@@ -30,7 +30,7 @@ function createS256CodeChallenge(verifier: string): string {
   return base64UrlEncode(hashSecret(verifier));
 }
 
-export function decodeIdToken(idToken: string): unknown {
+export function decodeIdToken(idToken: string) {
   const parts = idToken.split(".");
   const payloadPart = parts.at(1);
   if (parts.length !== 3 || payloadPart === undefined) {
@@ -38,10 +38,9 @@ export function decodeIdToken(idToken: string): unknown {
   }
 
   try {
-    const payload = JSON.parse(base64UrlDecode(payloadPart).toString("utf-8"));
-    if (typeof payload !== "object" || payload === null) {
-      return null;
-    }
+    const payload = JSON.parse(
+      base64UrlDecode(payloadPart).toString("utf-8"),
+    );
     return payload;
   } catch {
     return null;
@@ -91,6 +90,7 @@ class GoogleOAuthClient {
       throw new Error(`Token endpoint returned status ${response.status}`);
     }
 
+    // SAFETY: Google's token endpoint returns the documented token shape once HTTP 200 is confirmed above.
     return (await response.json()) as GoogleTokenResponse;
   }
 }
