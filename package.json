@@ -17,9 +17,9 @@
     "lint:fix": "oxlint --fix"
   },
   "dependencies": {
-    "@astrojs/node": "^11.0.3",
-    "@lucide/astro": "^1.28.0",
-    "astro": "7.1.6",
+    "@astrojs/node": "^11.1.2",
+    "@lucide/astro": "^1.31.0",
+    "astro": "7.2.2",
     "drizzle-kit": "1.0.0-rc.4",
     "drizzle-orm": "1.0.0-rc.4",
     "drizzle-seed": "1.0.0-rc.4",
@@ -28,9 +28,9 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@tailwindcss/vite": "^4.3.3",
-    "@types/node": "^26.1.2",
-    "daisyui": "^5.7.15",
-    "oxlint": "^1.77.0",
+    "@types/node": "^26.2.0",
+    "daisyui": "^5.7.17",
+    "oxlint": "^1.78.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
     "vitest": "^4.1.10"
@@ -38,7 +38,7 @@
   "devEngines": {
     "runtime": {
       "name": "node",
-      "version": "^26.2.0",
+      "version": "^26.7.0",
       "onFail": "download"
     }
   }

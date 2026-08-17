@@ -16,6 +16,7 @@ export default defineConfig({
   cache: {
     provider: memoryCache(),
   },
+  session: false,
   adapter: node({
     mode: "standalone",
   }),

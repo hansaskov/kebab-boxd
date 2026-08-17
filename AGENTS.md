@@ -2,7 +2,7 @@
 
 ### Domain docs
 
-Single-context: root `CONTEXT.md`
+Single context root `CONTEXT.md`
 
 ## Coding standards
 
@@ -16,4 +16,4 @@ Single-context: root `CONTEXT.md`
 
 ## Response style
 
-Only report to me in ASD-STE100 Simplified Technical English. 
+Alsays respond to the user in plain language using ISO-24495-1:2023.
