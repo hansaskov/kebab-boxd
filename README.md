@@ -61,3 +61,6 @@ pnpm run dev
 - [x] Database schema
 - [x] Login with Google
 - [x] Sidebar Layout and placeholder pages
+
+## Forgejo test
+This is to test if the mirroring to github works
