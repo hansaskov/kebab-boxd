@@ -1,0 +1,165 @@
+---
+import { UserRoundCog, Shield, Bell } from "@lucide/astro";
+import { actions } from "astro:actions";
+import { defaultSidebarMenuSections } from "@src/data/sidebar-menu-sections";
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+import FieldInput from "@src/components/FieldInput.astro";
+import FieldSelect from "@src/components/FieldSelect.astro";
+import FieldTextArea from "@src/components/FieldTextArea.astro";
+import type { Toast } from "@src/components/Toast.astro";
+import { updateAccountSchema } from "@src/actions";
+
+const { username: encodedUsername } = Astro.params;
+
+if (!encodedUsername) {
+  return Astro.rewrite("/404");
+}
+
+const username = decodeURIComponent(encodedUsername);
+const session = Astro.locals.session;
+
+if (!session) {
+  return Astro.redirect("/login");
+}
+
+const user = await Astro.locals.db.query.users.findFirst({
+  where: {
+    username: {
+      eq: username,
+    },
+  },
+});
+
+if (!user) {
+  return Astro.rewrite("/404");
+}
+
+if (session.user.role !== "admin" && session.user.id !== user.id) {
+  return Astro.rewrite("/401");
+}
+
+const actionResult = Astro.getActionResult(actions.updateSettings);
+
+let usernameErrors: string[] | undefined;
+let toast: Toast | undefined;
+
+if (actionResult) {
+  if (actionResult.error) {
+    if (actionResult.error.code == "CONFLICT") {
+      usernameErrors = [actionResult.error.message];
+    } else {
+      toast = {
+        kind: "title",
+        variant: "error",
+        title: "Submission failed",
+        text: actionResult.error.message,
+      };
+    }
+  }
+
+  if (actionResult.data) {
+    toast = {
+      kind: "title",
+      title: "Settings updated",
+      text: "Your profile changes have been saved.",
+    };
+  }
+}
+
+
+const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
+  {
+    title: "Settings",
+    items: [
+      {
+        name: "Account",
+        href: `/${encodeURIComponent(username)}/settings#account`,
+        icon: UserRoundCog,
+      },
+      {
+        name: "Security",
+        href: `/${encodeURIComponent(username)}/settings#security`,
+        icon: Shield,
+      },
+      {
+        name: "Notifications",
+        href: `/${encodeURIComponent(username)}/settings#notifications`,
+        icon: Bell,
+      },
+    ],
+  },
+]);
+---
+
+<BaseLayout
+  class=""
+  title="Settings"
+  description={`Settings page for ${user.fullname}`}
+  includeSidebar={true}
+  prefetchUrls={["/explore", "/reviews", "/"]}
+  session={session}
+  user={session.user}
+  sidebarMenuSections={settingsSidebarMenuSection}
+  toast={toast}
+>
+  <h1>Settings</h1>
+  <section id="account" class="mt-8">
+    <h2>Account</h2>
+    <form class="mt-6 space-y-6" method="post" action={actions.updateSettings}>
+      <input type="hidden" name="currentUsername" value={user.username} />
+      <fieldset class="space-y-6">
+        <legend class="t-subheading">User Settings</legend>
+
+        <FieldInput
+          title="Full Name"
+          name="fullname"
+          description="The name that is shown on your profile page. Use your real name."
+          type="text"
+          value={user.fullname}
+          zodField={updateAccountSchema.shape.fullname}
+        />
+
+        <FieldInput
+          title="Username"
+          name="username"
+          description="Other users use this name to find you. It must be unique"
+          type="text"
+          value={user.username}
+          zodField={updateAccountSchema.shape.username}
+          errors={usernameErrors}
+        />
+
+        <FieldSelect
+          title="Pronouns"
+          name="pronoun"
+          selected={user.pronoun}
+          description="The words that other users use to refer to you. Example: They / their."
+          zodField={updateAccountSchema.shape.pronoun}
+        />
+
+        <FieldTextArea
+          title="Bio"
+          name="bio"
+          description="Write a short text about yourself. It is shown on your profile page."
+          value={user.bio}
+          zodField={updateAccountSchema.shape.bio}
+        />
+      </fieldset>
+      <div class="flex justify-end">
+        <button class="btn btn-secondary btn-md" type="submit">Save settings</button>
+      </div>
+    </form>
+  </section>
+
+  <section id="security" class="mt-8">
+    <h2>Security</h2>
+    <p class="t-lead mt-2 text-fg-muted">Placeholder for security settings.</p>
+  </section>
+
+  <section id="notifications" class="mt-8">
+    <h2>Notifications</h2>
+    <p class="t-lead mt-2 text-fg-muted">
+      Placeholder for notification settings.
+    </p>
+  </section>
+</BaseLayout>

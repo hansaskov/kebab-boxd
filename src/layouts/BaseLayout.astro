@@ -1,0 +1,68 @@
+---
+import BaseHead from "@src/components/BaseHead.astro";
+import Header from "@src/components/Header.astro";
+import Footer from "@src/components/Footer.astro";
+import SideBar from "@src/components/SideBar.astro";
+import Toast from "@src/components/Toast.astro";
+import type { ComponentProps } from "astro/types";
+import SpeculationsAPI from "@src/components/SpeculationsAPI.astro";
+
+
+interface Props
+  extends
+    ComponentProps<typeof BaseHead>,
+    ComponentProps<typeof SpeculationsAPI>,
+    ComponentProps<typeof Header>,
+    ComponentProps<typeof SideBar>,
+    ComponentProps<typeof Toast> {
+    class?: string
+  }
+
+const props = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" data-theme={props.session?.theme ?? "light"}>
+  <head>
+    <BaseHead {...props} />
+    <slot name="head" />
+  </head>
+  <body>
+    <a href="#main-content" class="skip-link">Skip to content</a>
+    <div class:list={["flex min-h-dvh", { "lg:flex-row": props.includeSidebar }]}>
+      {
+        props.includeSidebar && (
+          <>
+            <input
+              id="site-nav"
+              type="checkbox"
+              class="sr-only"
+              aria-label="Toggle navigation menu"
+            />
+            <SideBar {...props} />
+            <label for="site-nav" class="nav-scrim" aria-hidden="true"></label>
+          </>
+        )
+      }
+
+      <div class="flex min-w-0 flex-1 flex-col bg-page">
+        <Header {...props} />
+        <div class="flex justify-center">
+          <main
+            id="main-content"
+            class:list={[
+              "w-full max-w-225 px-gutter pt-5 pb-16",
+              Astro.props.class,
+            ]}
+          >
+            <slot />
+          </main>
+        </div>
+        <Footer />
+      </div>
+    </div>
+    {props.toast && <Toast {...props} />}
+  </body>
+</html>
+
+<SpeculationsAPI {...props} />

@@ -1,0 +1,44 @@
+{
+  "name": "kebab-boxd",
+  "private": true,
+  "packageManager": "pnpm@12.0.0",
+  "description": "KEBAB MMMMMMMMMMHH",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "studio": "drizzle-kit studio",
+    "check": "astro check",
+    "test": "vitest run",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix"
+  },
+  "dependencies": {
+    "@astrojs/node": "^11.1.4",
+    "@lucide/astro": "^1.38.0",
+    "astro": "7.2.9",
+    "drizzle-kit": "1.0.0-rc.4",
+    "drizzle-orm": "1.0.0-rc.4",
+    "drizzle-seed": "1.0.0-rc.4"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@oxlint/plugins": "1.80.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.4.0",
+    "oxlint": "^1.80.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.11"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "^26.8.1",
+      "onFail": "download"
+    }
+  }
+}

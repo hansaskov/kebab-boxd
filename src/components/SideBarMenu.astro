@@ -1,0 +1,44 @@
+---
+import {
+  defaultSidebarMenuSections,
+  type SidebarMenuSection,
+} from "@src/data/sidebar-menu-sections";
+
+interface Props {
+  sidebarMenuSections?: SidebarMenuSection[];
+}
+
+const { sidebarMenuSections = defaultSidebarMenuSections } = Astro.props;
+const { pathname } = Astro.url;
+
+const isActive = (href: string) =>
+  href === "/" ? pathname === "/" : pathname.startsWith(href);
+---
+
+<nav class="flex-1 overflow-y-auto px-3 pb-3">
+  <ul class="flex flex-col gap-1" aria-label="Main navigation">
+    {
+      sidebarMenuSections.map((section) => (
+        <>
+          <li class="t-overline px-3 pt-4 pb-1" aria-hidden="true">{section.title}</li>
+          {section.items.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
+            return (
+              <li>
+                <a
+                  href={item.href}
+                  class="nav-link"
+                  aria-current={active ? "page" : undefined}
+                >
+                  <Icon size={20} aria-hidden="true" />
+                  {item.name}
+                </a>
+              </li>
+            );
+          })}
+        </>
+      ))
+    }
+  </ul>
+</nav>

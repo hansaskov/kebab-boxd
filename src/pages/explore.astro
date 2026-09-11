@@ -1,0 +1,46 @@
+---
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+
+const session = Astro.locals.session;
+if (!session) {
+	return Astro.redirect("/login");
+}
+
+const cityParam = Astro.url.searchParams.get("city");
+const city = cityParam && cityParam.trim() !== "" ? cityParam : 'Odense';
+
+---
+
+<BaseLayout
+	title="Explore"
+	description="Browse and search kebab spots"
+	includeSidebar={true}
+	prefetchUrls={["/", "/reviews"]}
+	session={session}
+	user={session.user}
+	class="max-w-none! lg:max-w-none!"
+>
+	<div data-city={city} class="flex flex-col gap-6">
+		<header>
+			<h1>Explore</h1>
+			<p class="t-lead mt-2 text-fg-muted">
+				Viewing <span class="font-semibold text-fg">{city}</span>
+			</p>
+		</header>
+
+		<div class="grid grid-cols-1 lg:grid-cols-[1fr_16rem] gap-6">
+			<section
+				data-explore-map
+				class="relative min-h-80 w-full rounded-box border-2 border-line-strong bg-subtle overflow-hidden"
+				aria-label={`Map of ${city}`}
+			>
+			</section>
+
+			<aside data-nearby-cities class="min-h-24 rounded-box border-2 border-line-strong bg-subtle p-4">
+			</aside>
+		</div>
+
+		<section data-city-timeline class="min-h-24 rounded-box border-2 border-line-strong bg-subtle p-4">
+		</section>
+	</div>
+</BaseLayout>

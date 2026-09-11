@@ -1,0 +1,10 @@
+{
+  "extends": "astro/tsconfigs/strictest",
+  "compilerOptions": {
+    "verbatimModuleSyntax": true,
+    "paths": {
+      "@src/*": ["./src/*"],
+    }
+  },
+  "exclude": ["tools"]
+}

@@ -1,0 +1,18 @@
+---
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+Astro.response.status = 401 
+---
+
+<BaseLayout
+  title="401: Not Authorized"
+  description="You do not have sufficient authorization to acces this page"
+  includeSidebar={false}
+  prefetchUrls={["/"]}
+>
+  <div class="text-center">
+    <h1 class="mb-4">🫤</h1>
+    <h1 class="mb-2">401</h1>
+    <h3 class="t-subheading">You do not have sufficient permissions to acces this page</h3>
+    <a class="btn btn-primary btn-md mt-9" href="/">Home</a>
+  </div>
+</BaseLayout>

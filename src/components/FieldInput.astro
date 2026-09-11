@@ -1,0 +1,33 @@
+---
+import { getConstraintsFromZodSchmea } from '@src/validation/constraint';
+import type { ZodString } from 'astro:schema';
+
+interface Props extends astroHTML.JSX.InputHTMLAttributes {
+    zodField: ZodString;
+    title?: string;
+    description: string;
+    errors?: string[] | undefined; 
+}
+
+const props = Astro.props
+const constraints = getConstraintsFromZodSchmea(props.zodField)
+const fieldId = props.id ?? props.name
+---
+
+<div class="space-y-2">
+    <label class="field-label" for={fieldId}>{props.title}</label>
+    <input
+        id={fieldId}
+        class:list={[
+            "input",
+            props.class
+        ]}
+        {...constraints}
+        {...props}
+    />
+    <p class="t-body-sm text-fg-muted">{props.description}</p>
+    {props.errors && (
+        <p class="t-caption text-danger" role="alert">{props.errors.join("\n")}</p>
+    )}  
+    
+</div>

@@ -1,0 +1,21 @@
+---
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+
+const session = Astro.locals.session;
+
+if (!session) {
+  return Astro.redirect("/login");
+}
+---
+
+<BaseLayout
+  title="Home"
+  description="Homepage"
+  includeSidebar={true}
+  prefetchUrls={["/explore", "/reviews"]}
+  session={session}
+  user={session.user}
+>
+  <h1>Feed</h1>
+  <p class="t-lead mt-2 text-fg-muted">Recent reviews and activity from people you follow.</p>
+</BaseLayout>

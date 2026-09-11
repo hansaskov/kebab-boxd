@@ -1,0 +1,19 @@
+x-base: &base
+  build: .
+  env_file: .env
+  volumes:
+    - ./${DB_FILE_NAME}:/app/${DB_FILE_NAME}
+
+services:
+  migrate:
+    <<: *base
+    command: ["node", "--run", "db:migrate"]
+
+  app:
+    <<: *base
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "4321:4321"
