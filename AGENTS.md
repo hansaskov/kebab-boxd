@@ -12,7 +12,7 @@ Single context root `CONTEXT.md`
 - Three tier design system: tokens `--pr-*`, primitives `--ds-*`, semantics, `@theme inline`. Use semantic tokens and the component classes already defined.
 - Astro components must extend `ComponentProps<typeof Child>` (from `astro/types`) for every forwarded child and spread `{...props}` at the call site.
 - Verify with `pnpm lint`, `pnpm check` and `pnpm test`
-- Write unit and integration tests under `@src/tests/`
+- Write unit and integration tests under `@src/tests/`, mocking is forbidden. 
 
 ## Response style
 
