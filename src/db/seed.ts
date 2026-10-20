@@ -81,7 +81,6 @@ export async function seedDatabase(db: DB) {
       columns: {
         username: funcs.firstName({ isUnique: true }),
         email: funcs.email(),
-        googleId: funcs.string({ isUnique: true }),
         role: funcs.weightedRandom([
           { weight: 0.9, value: funcs.default({ defaultValue: "user" }) },
           { weight: 0.1, value: funcs.default({ defaultValue: "admin" }) },
@@ -163,7 +162,18 @@ export async function seedDatabase(db: DB) {
 
   const now = new Date();
 
-  userIds.slice(10).forEach(async id => { await createSession(id, db) })
+  const accountRows = userIds.map((userId) => ({
+    userId,
+    providerId: "google",
+    accountId: `seed-google-${userId}`,
+  }));
+  if (accountRows.length > 0) {
+    await db.insert(schema.accounts).values(accountRows);
+  }
+
+  for (const id of userIds.slice(10)) {
+    await createSession(id, db);
+  }
    
   const favoritesRows = uniquePairs(250, userIds, restaurantIds).map(([userId, restaurantId]) => ({
     userId,

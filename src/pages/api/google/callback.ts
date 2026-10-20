@@ -1,113 +1,67 @@
+import { google, googleCookieNames, InvalidIdTokenError } from "@src/auth/providers/google";
+import { oauthCookieOptions } from "@src/auth/oauth";
+import {
+	EmailAlreadyRegisteredError,
+	signInWithProviderAccount,
+} from "@src/auth/sign-in";
+import type { ProviderAccount } from "@src/auth/provider-account";
 import { createSession, setSessionTokenCookie } from "@src/auth/session";
-import { google, decodeIdToken } from "@src/auth/oauth";
-import type { GoogleTokenResponse } from "@src/auth/oauth";
-import { z } from "astro/zod";
-import { eq } from "drizzle-orm";
+import type { User } from "@src/db/schema";
 
 import type { APIContext } from "astro";
-import { s } from "@src/db/index";
 
-export const GoogleClaimsSchema = z.object({
-	sub: z.string().min(1),
-	name: z.string().min(1),
-	picture: z.url(),
-	email: z.email(),
-	email_verified: z.boolean(),
-});
+function restartResponse(): Response {
+	return new Response("Please restart the process.", { status: 400 });
+}
 
 export async function GET(context: APIContext): Promise<Response> {
-	const storedState = context.cookies.get("google_oauth_state")?.value ?? null;
-	const codeVerifier = context.cookies.get("google_code_verifier")?.value ?? null;
+	const storedState = context.cookies.get(googleCookieNames.state)?.value ?? null;
+	const codeVerifier = context.cookies.get(googleCookieNames.codeVerifier)?.value ?? null;
 	const code = context.url.searchParams.get("code");
 	const state = context.url.searchParams.get("state");
 
+	// The state and verifier are single use, whether or not the callback succeeds.
+	context.cookies.delete(googleCookieNames.state, { path: oauthCookieOptions.path });
+	context.cookies.delete(googleCookieNames.codeVerifier, { path: oauthCookieOptions.path });
+
 	if (storedState === null || codeVerifier === null || code === null || state === null) {
-		return new Response("Please restart the process.", {
-			status: 400,
-		});
+		return restartResponse();
 	}
+
 	if (storedState !== state) {
-		return new Response("Please restart the process.", {
-			status: 400,
-		});
+		return restartResponse();
 	}
 
-	let tokens: GoogleTokenResponse;
+	let providerAccount: ProviderAccount;
 	try {
-		tokens = await google.validateAuthorizationCode(code, codeVerifier);
-		context.cookies.delete("google_oauth_state", { path: "/" });
-		context.cookies.delete("google_code_verifier", { path: "/" });
-	} catch {
-		return new Response("Please restart the process.", {
-			status: 400,
-		});
-	}
-
-	let claims: z.infer<typeof GoogleClaimsSchema>;
-	try {
-		const raw = decodeIdToken(tokens.id_token);
-		claims = GoogleClaimsSchema.parse(raw);
-	} catch (e) {
-		if (e instanceof z.ZodError) {
-			return new Response(e.message, {
-				status: 400,
-			});
+		providerAccount = await google.authorize(code, codeVerifier);
+	} catch (error) {
+		// A rejected ID token usually means the client id or issuer is misconfigured.
+		if (error instanceof InvalidIdTokenError) {
+			console.error("Google sign-in returned an invalid ID token:", error.message);
 		}
-		return new Response("Failed to parse claim", {
-			status: 400,
-		});
-	}
 
-	const googleId = claims.sub;
-	const fullname = claims.name;
-	const firstName = fullname.trim().split(/\s+/).at(0);
-	if (!firstName) {
-		return new Response("Invalid name claim.", {
-			status: 400,
-		});
+		return restartResponse();
 	}
-	const email = claims.email;
 
 	const db = context.locals.db;
 
-	const existingUser = await db.query.users.findFirst({ where: { googleId: googleId } });
-
-	if (existingUser) {
-		const session = await createSession(existingUser.id, db);
-		setSessionTokenCookie(context.cookies, session.token, session.lastVerifiedAt);
-		return context.redirect("/");
-	}
-
-	const user = db.transaction((tx) => {
-		const inserted = tx
-			.insert(s.users)
-			.values({
-				googleId: googleId,
-				fullname: fullname,
-				username: googleId,
-				email: email,
-			})
-			.returning()
-			.get();
-
-		if (!inserted) {
-			tx.rollback();
-			return null;
+	let user: User;
+	try {
+		user = await signInWithProviderAccount(db, providerAccount);
+	} catch (error) {
+		if (error instanceof EmailAlreadyRegisteredError) {
+			return new Response(
+				"An account with this email already exists. Sign in with the method you used before.",
+				{ status: 409 },
+			);
 		}
 
-		const actualUsername = `${firstName}#${inserted.id}`;
-		tx.update(s.users).set({ username: actualUsername }).where(eq(s.users.id, inserted.id)).run();
-
-		return { ...inserted, username: actualUsername };
-	});
-
-	if (!user) {
-		return new Response("Database issue when inserting new", {
-			status: 500,
-		});
+		throw error;
 	}
 
 	const session = await createSession(user.id, db);
 	setSessionTokenCookie(context.cookies, session.token, session.lastVerifiedAt);
+
 	return context.redirect("/");
 }

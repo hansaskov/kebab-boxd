@@ -13,7 +13,7 @@ describe("SideBarFooter", () => {
 			fullname: "First User",
 			username: "First#1",
 			email: "first@example.com",
-			googleId: "google-1",
+			emailVerified: false,
 			profilePictureId: null,
 			role: "user",
 			bio: null,
@@ -41,7 +41,6 @@ describe("SideBarFooter", () => {
 				fullname: "First User",
 				username: "First#1",
 				email: "first@example.com",
-				googleId: "google-1",
 			})
 			.returning()
 			.get();

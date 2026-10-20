@@ -49,8 +49,16 @@ A social signal from one user on another user's Review. Counted in LikeCount:c o
 _Avoid_: Upvote, ThumbsUp, Heart
 
 **User**:
-A person with a Kebab-Boxd account. Authenticated via Google OAuth. Has a profile (picture, bio, pronouns) and optional coordinates for the nearby-Restaurants feature. May have the Admin role.
+A person with a Kebab-Boxd account. Signs in through one or more Accounts. Has a profile (picture, bio, pronouns) and optional coordinates for the nearby-Restaurants feature. May have the Admin role.
 _Avoid_: Member, Account, Person
+
+**Account**:
+One authentication method linked to a User, identified by the Provider and the Provider's stable subject id rather than by email. Holds the Provider's tokens once the app needs them, and the password hash once local sign-in exists. A User may have several.
+_Avoid_: Identity, Login, Credential
+
+**Provider**:
+An external service that vouches for an Account, named by a stable id such as `google`. Google is the only Provider configured today.
+_Avoid_: IdP, OAuth client, Issuer
 
 **Username**:
 The unique, case-sensitive handle identifying a User. `KebabKing` and `kebabking` are treated as distinct. Used for profile URLs and search. Enforced as unique at the database level.

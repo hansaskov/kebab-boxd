@@ -14,6 +14,7 @@ describe("seedDatabase", () => {
     const counts = {
       pictures: await db.$count(s.pictures),
       users: await db.$count(s.users),
+      accounts: await db.$count(s.accounts),
       locations: await db.$count(s.locations),
       restaurants: await db.$count(s.restaurants),
       reviews: await db.$count(s.reviews),
@@ -26,6 +27,7 @@ describe("seedDatabase", () => {
 
     expect(counts.pictures).toBeGreaterThan(0);
     expect(counts.users).toBeGreaterThan(0);
+    expect(counts.accounts).toBe(counts.users);
     expect(counts.locations).toBeGreaterThan(0);
     expect(counts.restaurants).toBeGreaterThan(0);
     expect(counts.reviews).toBeGreaterThan(0);

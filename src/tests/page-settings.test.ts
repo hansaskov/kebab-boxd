@@ -17,7 +17,6 @@ describe("SettingsPage", () => {
 				fullname: "First User",
 				username: "firstuser",
 				email: "first@example.com",
-				googleId: "google-1",
 			})
 			.returning()
 			.get();
@@ -71,7 +70,6 @@ describe("SettingsPage", () => {
 				fullname: "First User",
 				username: "firstuser",
 				email: "first@example.com",
-				googleId: "google-1",
 			})
 			.returning()
 			.get();
@@ -80,7 +78,6 @@ describe("SettingsPage", () => {
 				fullname: "Second User",
 				username: "seconduser",
 				email: "second@example.com",
-				googleId: "google-2",
 			})
 			.run();
 		const session = await createSession(user.id, db);
@@ -114,7 +111,6 @@ describe("SettingsPage", () => {
 				fullname: "First User",
 				username: "firstuser",
 				email: "first@example.com",
-				googleId: "google-1",
 			})
 			.returning()
 			.get();

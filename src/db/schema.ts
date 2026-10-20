@@ -8,7 +8,7 @@ export const users = p.snakeCase.table("users", {
   fullname: p.text().notNull(),
   username: p.text().notNull(),
   email: p.text().notNull(),
-  googleId: p.text().notNull(),
+  emailVerified: p.int({mode: "boolean"}).notNull().$default(() => false),
   profilePictureId: p.int({ mode: "number" }).references(() => pictures.id, {onDelete: "set null"}),
   role: p.text({ enum: ["user", "admin"] }).notNull().default("user"),
   bio: p.text(),
@@ -21,14 +21,25 @@ export const users = p.snakeCase.table("users", {
   p.index("users_profile_picture_id_idx").on(t.profilePictureId),
   p.index("users_name_idx").on(t.username),
   p.index("users_email_idx").on(t.email),
-  p.index("users_google_id_idx").on(t.googleId),
   p.uniqueIndex("users_username_unique").on(t.username),
-  p.uniqueIndex("users_email_unique").on(t.email),
-  p.uniqueIndex("users_google_id_unique").on(t.googleId),
+  p.uniqueIndex("users_email_unique").on(sql`lower(${t.email})`),
 ]);
 
 export type User = typeof users.$inferSelect
 
+export const accounts = p.snakeCase.table("accounts", {
+  id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
+  userId: p.int({ mode: "number" }).notNull().references(() => users.id, {onDelete: "cascade"}),
+  accountId: p.text().notNull(),
+  providerId: p.text().notNull(),
+  updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(() => new Date),
+  createdAt: p.int({ mode: "timestamp" }).notNull().$default(() => new Date)
+}, (t) => [
+  p.index("accounts_user_id_idx").on(t.userId),
+  p.uniqueIndex("accounts_provider_id_account_id_unique").on(t.providerId, t.accountId),
+]);
+
+export type Account = typeof accounts.$inferSelect
 
 export const locations = p.snakeCase.table("locations", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
