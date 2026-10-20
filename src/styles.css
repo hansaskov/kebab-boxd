@@ -380,18 +380,6 @@
     color: var(--ds-color-fg-default);
   }
 
-  .settings-heading {
-    font-size: var(--pr-fs-600);
-    line-height: 1.4;
-    font-weight: 600;
-  }
-
-  .settings-section-title {
-    font-size: var(--pr-fs-500);
-    line-height: 1.4;
-    font-weight: 600;
-  }
-
   .settings-card {
     padding-inline: 1.5rem;
     border: 1px solid var(--ds-color-border-subtle);
@@ -507,25 +495,6 @@
     color: var(--ds-color-fg-muted);
   }
 
-  .skip-link {
-    position: fixed;
-    top: 0.75rem;
-    left: 0.75rem;
-    z-index: 100;
-    padding: 0.625rem 1rem;
-    border-radius: var(--ds-radius-field);
-    background: var(--ds-color-bg-surface);
-    color: var(--ds-color-fg-default);
-    box-shadow: var(--ds-shadow-panel);
-    font-size: var(--pr-fs-400);
-    font-weight: 550;
-    transform: translateY(-200%);
-    transition: transform 120ms ease;
-  }
-  .skip-link:focus-visible {
-    transform: none;
-  }
-
   .nav-panel {
     position: fixed;
     inset-block: 0;
@@ -622,16 +591,14 @@
   }
 
   h1 {
-    font-size: clamp(2rem, 1.5rem + 2vw, 2.75rem);
-    line-height: 1.05;
-    letter-spacing: -0.022em;
-    font-weight: 700;
+    font-size: var(--pr-fs-600);
+    line-height: 1.4;
+    font-weight: 600;
   }
   h2 {
-    font-size: var(--pr-fs-900);
-    line-height: 1.15;
-    letter-spacing: -0.014em;
-    font-weight: 700;
+    font-size: var(--pr-fs-500);
+    line-height: 1.4;
+    font-weight: 600;
   }
   h3 {
     font-size: var(--pr-fs-800);

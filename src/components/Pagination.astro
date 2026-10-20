@@ -1,0 +1,49 @@
+---
+import { ChevronDown, ChevronLeft, ChevronRight } from "@lucide/astro";
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends HTMLAttributes<"nav"> {
+  /** Unique on the page; names the rows-per-page menu. */
+  id: string;
+  previousHref?: string | undefined;
+  nextHref?: string | undefined;
+  rows: number;
+  /** One link per choice of rows per page. */
+  rowsOptions: { rows: number; href: string }[];
+}
+
+const { id, previousHref, nextHref, rows, rowsOptions, class: className, ...props } = Astro.props;
+const menuId = `${id}-rows`;
+const anchor = `--${menuId}`;
+---
+
+<nav id={id} class:list={["t-body-sm flex items-center justify-end gap-3 sm:gap-6", className]} {...props}>
+  <div class="flex items-center gap-2 sm:gap-3">
+    <span id={`${menuId}-label`} class="whitespace-nowrap">Rows per page</span>
+    <button
+      type="button"
+      class="input flex w-20 items-center justify-between gap-2 px-3"
+      popovertarget={menuId}
+      aria-labelledby={`${menuId}-label`}
+      style={`anchor-name:${anchor}`}
+    >
+      {rows}
+      <ChevronDown size={16} aria-hidden="true" class="text-fg-muted" />
+    </button>
+    <ul class="popover-panel menu-list w-20" popover id={menuId} style={`position-anchor:${anchor}`}>
+      {rowsOptions.map((option) => (
+        <li>
+          <a href={option.href} aria-current={option.rows === rows ? "true" : undefined}>{option.rows}</a>
+        </li>
+      ))}
+    </ul>
+  </div>
+  <div class="flex items-center gap-1">
+    <a class="btn btn-md px-2 hover:bg-active" rel="prev" href={previousHref} aria-disabled={previousHref ? undefined : "true"}>
+      <ChevronLeft size={16} aria-hidden="true" /><span class="max-sm:sr-only">Previous</span>
+    </a>
+    <a class="btn btn-md px-2 hover:bg-active" rel="next" href={nextHref} aria-disabled={nextHref ? undefined : "true"}>
+      <span class="max-sm:sr-only">Next</span><ChevronRight size={16} aria-hidden="true" />
+    </a>
+  </div>
+</nav>

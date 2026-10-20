@@ -104,10 +104,10 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
   sidebarMenuSections={settingsSidebarMenuSection}
   toast={toast}
 >
-  <h1 class="settings-heading">Settings</h1>
+  <h1>Settings</h1>
 
   <section id="account" class="mt-8">
-    <h2 class="settings-section-title">Account</h2>
+    <h2>Account</h2>
     <form class="mt-3" method="post" action={actions.updateSettings}>
       <input type="hidden" name="currentUsername" value={user.username} />
       <fieldset class="settings-card">
@@ -153,14 +153,14 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
   </section>
 
   <section id="security" class="mt-8">
-    <h2 class="settings-section-title">Security</h2>
+    <h2>Security</h2>
     <div class="settings-card mt-3">
       <p class="settings-row t-body-sm text-fg-muted">Placeholder for security settings.</p>
     </div>
   </section>
 
   <section id="devices" class="mt-8">
-    <h2 class="settings-section-title">Devices</h2>
+    <h2>Devices</h2>
     <div class="settings-card mt-3">
       {activeSessions.length === 0 ? (
         <p class="settings-row t-body-sm text-fg-muted">There are no signed-in devices.</p>
@@ -172,7 +172,7 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                 class="settings-row -mx-3 rounded-field px-3 py-3 hover:bg-active"
                 href={`/${encodeURIComponent(user.username)}/settings/sessions/${encodeURIComponent(activeSession.id)}`}
               >
-                <span class="field-label">{deviceName(activeSessions, activeSession.id, session.id)}</span>
+                <span class="field-label">{deviceName(activeSession, session.id)}</span>
                 <span class="t-body-sm truncate text-fg-muted">
                   Last used{" "}
                   {activeSession.lastRequestAt ? (
@@ -195,14 +195,14 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
   </section>
 
   <section id="notifications" class="mt-8">
-    <h2 class="settings-section-title">Notifications</h2>
+    <h2>Notifications</h2>
     <div class="settings-card mt-3">
       <p class="settings-row t-body-sm text-fg-muted">Placeholder for notification settings.</p>
     </div>
   </section>
 
   <section id="danger-zone" class="mt-8">
-    <h2 class="settings-section-title text-danger">Danger zone</h2>
+    <h2 class="text-danger">Danger zone</h2>
     <div class="settings-card settings-card-danger mt-3">
       <form class="settings-row" method="post" action={actions.signOutEverywhere}>
         <input type="hidden" name="currentUsername" value={user.username} />

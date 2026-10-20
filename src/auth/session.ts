@@ -1,4 +1,5 @@
-import { and, asc, count, desc, eq, gt, lt, max } from "drizzle-orm";
+import { and, count, desc, eq, gt, lt, max, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/sqlite-core";
 import { s } from "@src/db";
 import type { DB } from "@src/db";
 import { constantTimeEqual, generateSecureRandomString, hashSecret } from "@src/auth/hash";
@@ -111,6 +112,7 @@ export async function deleteUserSessions(userId: number, db: DB): Promise<void> 
 /**
  * Lists the sessions of a user that have not timed out, most recently used first. Sessions used at
  * the same time are listed newest sign-in first; the id settles sign-ins in the same second.
+ * `signInOrder` numbers the sessions in the order they signed in, starting at 1.
  */
 export async function listActiveUserSessions(userId: number, db: DB) {
 	const cutoff = new Date(Date.now() - inactivityTimeoutSeconds * 1000);
@@ -123,6 +125,7 @@ export async function listActiveUserSessions(userId: number, db: DB) {
 			lastVerifiedAt: s.sessions.lastVerifiedAt,
 			lastRequestAt,
 			requestCount: count(s.history.requestedAt),
+			signInOrder: sql<number>`row_number() over (order by ${s.sessions.createdAt}, ${s.sessions.id})`,
 		})
 		.from(s.sessions)
 		.leftJoin(s.history, eq(s.history.sessionId, s.sessions.id))
@@ -131,85 +134,88 @@ export async function listActiveUserSessions(userId: number, db: DB) {
 		.orderBy(desc(lastRequestAt), desc(s.sessions.createdAt), desc(s.sessions.id));
 }
 
-/**
- * Lists the id and sign-in time of each active session of a user, without reading the history.
- * Oldest sign-in first; the id settles sign-ins in the same second, as in `deviceName`.
- */
-export async function listActiveUserSessionIds(userId: number, db: DB) {
-	const cutoff = new Date(Date.now() - inactivityTimeoutSeconds * 1000);
-
-	return db
-		.select({ id: s.sessions.id, createdAt: s.sessions.createdAt })
-		.from(s.sessions)
-		.where(and(eq(s.sessions.userId, userId), gt(s.sessions.lastVerifiedAt, cutoff)))
-		.orderBy(asc(s.sessions.createdAt), asc(s.sessions.id));
-}
-
-/** Returns one active session of a user with its request totals, or undefined if the user has no such session. */
-export async function getActiveUserSession(sessionId: string, userId: number, db: DB) {
-	const cutoff = new Date(Date.now() - inactivityTimeoutSeconds * 1000);
-
-	const [session] = await db
-		.select({
-			id: s.sessions.id,
-			createdAt: s.sessions.createdAt,
-			lastVerifiedAt: s.sessions.lastVerifiedAt,
-			lastRequestAt: max(s.history.requestedAt),
-			requestCount: count(s.history.requestedAt),
-		})
-		.from(s.sessions)
-		.leftJoin(s.history, eq(s.history.sessionId, s.sessions.id))
-		.where(
-			and(
-				eq(s.sessions.id, sessionId),
-				eq(s.sessions.userId, userId),
-				gt(s.sessions.lastVerifiedAt, cutoff),
-			),
-		)
-		.groupBy(s.sessions.id);
-
-	return session;
-}
-
-export const sessionHistoryPageSize = 50;
+export const sessionHistoryPageSizes = [10, 25, 50, 100] as const;
+export const sessionHistoryPageSize = 25;
 
 /**
- * Returns one page of the requests recorded for a session, newest first. Only sessions owned by
- * the user match. Pass `before` (the time of the oldest request already shown) to get the next,
- * older page. `older` is the value to pass as `before` for the page after this one, or null if
- * there are no older requests.
+ * Where a page of session history starts. `before` gives the requests older than that time,
+ * `after` the requests newer than it. Neither gives the newest requests.
  */
-export async function getUserSessionHistory(
+export type SessionHistoryCursor = { before: Date } | { after: Date } | Record<string, never>;
+
+/**
+ * Returns one active session of the user with this username, with its request totals and one page
+ * of its requests, newest first. Returns undefined if the user has no such session.
+ *
+ * The page is found from the time of a request (keyset pagination), so requests recorded while the
+ * user reads the history do not move the pages. `newer` and `older` are the cursors for the pages
+ * on either side, or null if there are no requests on that side.
+ *
+ * Everything comes from one database query.
+ */
+export async function getActiveUserSessionHistory(
 	sessionId: string,
-	userId: number,
+	username: string,
 	db: DB,
-	{ before, limit = sessionHistoryPageSize }: { before?: Date | undefined; limit?: number } = {},
+	cursor: SessionHistoryCursor = {},
+	limit = sessionHistoryPageSize,
 ) {
-	// One extra row tells us whether an older page exists.
-	const rows = await db
-		.select({
-			requestedAt: s.history.requestedAt,
-			method: s.history.method,
-			path: s.history.path,
-			action: s.history.action,
-			status: s.history.status,
-		})
-		.from(s.history)
-		.innerJoin(s.sessions, eq(s.sessions.id, s.history.sessionId))
-		.where(
-			and(
-				eq(s.history.sessionId, sessionId),
-				eq(s.sessions.userId, userId),
-				before ? lt(s.history.requestedAt, before) : undefined,
-			),
-		)
-		.orderBy(desc(s.history.requestedAt))
-		.limit(limit + 1);
+	const cutoff = new Date(Date.now() - inactivityTimeoutSeconds * 1000);
+	const earlier = alias(s.sessions, "earlier_sessions");
+	const after = "after" in cursor ? cursor.after : undefined;
+	const before = "before" in cursor ? cursor.before : undefined;
 
-	const entries = rows.slice(0, limit);
-	const older = rows.length > limit ? (entries.at(-1)?.requestedAt ?? null) : null;
+	const session = await db.query.sessions.findFirst({
+		columns: { id: true, createdAt: true },
+		where: { id: sessionId, lastVerifiedAt: { gt: cutoff }, user: { username } },
+		extras: {
+			requestCount: (t) => db.$count(s.history, eq(s.history.sessionId, t.id)),
+			firstRequestAt: (t) =>
+				sql<Date | null>`(select min(${s.history.requestedAt}) from ${s.history} where ${s.history.sessionId} = ${t.id})`.mapWith(
+					s.history.requestedAt,
+				),
+			lastRequestAt: (t) =>
+				sql<Date | null>`(select max(${s.history.requestedAt}) from ${s.history} where ${s.history.sessionId} = ${t.id})`.mapWith(
+					s.history.requestedAt,
+				),
+			// The active sessions of the same user that signed in first, as in `listActiveUserSessions`.
+			signInOrder: (t) =>
+				sql<number>`(${db
+					.select({ count: count() })
+					.from(earlier)
+					.where(
+						and(
+							eq(earlier.userId, t.userId),
+							gt(earlier.lastVerifiedAt, cutoff),
+							or(lt(earlier.createdAt, t.createdAt), and(eq(earlier.createdAt, t.createdAt), lt(earlier.id, t.id))),
+						),
+					)}) + 1`.mapWith(Number),
+		},
+		with: {
+			user: { columns: { username: true, fullname: true } },
+			history: {
+				columns: { requestedAt: true, method: true, path: true, action: true, status: true },
+				where: after ? { requestedAt: { gt: after } } : before ? { requestedAt: { lt: before } } : undefined,
+				// Newer pages are read from the oldest request up, then turned around.
+				orderBy: { requestedAt: after ? "asc" : "desc" },
+				limit,
+			},
+		},
+	});
 
-	return { entries, older };
+	if (!session) return undefined;
+
+	const { history, ...rest } = session;
+	const entries = after ? history.toReversed() : history;
+	const newest = entries.at(0)?.requestedAt;
+	const oldest = entries.at(-1)?.requestedAt;
+
+	return {
+		...rest,
+		entries,
+		newer: newest && session.lastRequestAt && newest < session.lastRequestAt ? newest : null,
+		older: oldest && session.firstRequestAt && oldest > session.firstRequestAt ? oldest : null,
+	};
 }
 
 export function setSessionTokenCookie(

@@ -28,7 +28,6 @@ const props = Astro.props;
     <slot name="head" />
   </head>
   <body>
-    <a href="#main-content" class="skip-link">Skip to content</a>
     <div class:list={["flex min-h-dvh", { "lg:flex-row": props.includeSidebar }]}>
       {
         props.includeSidebar && (
