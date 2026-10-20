@@ -1,13 +1,15 @@
 ---
-import { UserRoundCog, Shield, Bell, MonitorSmartphone } from "@lucide/astro";
 import { actions, isInputError } from "astro:actions";
-import { defaultSidebarMenuSections } from "@src/data/sidebar-menu-sections";
+import { settingsSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import FieldInput from "@src/components/FieldInput.astro";
 import FieldSelect from "@src/components/FieldSelect.astro";
 import FieldTextArea from "@src/components/FieldTextArea.astro";
 import type { Toast } from "@src/components/Toast.astro";
 import { updateAccountSchema } from "@src/actions";
+import { listActiveUserSessions } from "@src/auth/session";
+import { deviceName } from "@src/format/device-name";
+import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
 
 // Astro has already decoded the route parameter.
 const { username } = Astro.params;
@@ -41,6 +43,8 @@ if (session.user.role !== "admin" && session.user.id !== user.id) {
 const actionResult = Astro.getActionResult(actions.updateSettings);
 const signOutResult = Astro.getActionResult(actions.signOutEverywhere);
 const isOwnAccount = session.user.id === user.id;
+
+const activeSessions = await listActiveUserSessions(user.id, Astro.locals.db);
 
 let usernameErrors: string[] | undefined;
 let toast: Toast | undefined;
@@ -86,33 +90,7 @@ if (signOutResult) {
 }
 
 
-const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
-  {
-    title: "Settings",
-    items: [
-      {
-        name: "Account",
-        href: `/${encodeURIComponent(username)}/settings#account`,
-        icon: UserRoundCog,
-      },
-      {
-        name: "Security",
-        href: `/${encodeURIComponent(username)}/settings#security`,
-        icon: Shield,
-      },
-      {
-        name: "Sessions",
-        href: `/${encodeURIComponent(username)}/settings#sessions`,
-        icon: MonitorSmartphone,
-      },
-      {
-        name: "Notifications",
-        href: `/${encodeURIComponent(username)}/settings#notifications`,
-        icon: Bell,
-      },
-    ],
-  },
-]);
+const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
 ---
 
 <BaseLayout
@@ -126,18 +104,17 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
   sidebarMenuSections={settingsSidebarMenuSection}
   toast={toast}
 >
-  <h1>Settings</h1>
-  <section id="account" class="mt-8">
-    <h2>Account</h2>
-    <form class="mt-6 space-y-6" method="post" action={actions.updateSettings}>
-      <input type="hidden" name="currentUsername" value={user.username} />
-      <fieldset class="space-y-6">
-        <legend class="t-subheading">User Settings</legend>
+  <h1 class="settings-heading">Settings</h1>
 
+  <section id="account" class="mt-8">
+    <h2 class="settings-section-title">Account</h2>
+    <form class="mt-3" method="post" action={actions.updateSettings}>
+      <input type="hidden" name="currentUsername" value={user.username} />
+      <fieldset class="settings-card">
         <FieldInput
-          title="Full Name"
+          title="Full name"
           name="fullname"
-          description="The name that is shown on your profile page. Use your real name."
+          description="Shown on your profile. Use your real name."
           type="text"
           value={user.fullname}
           zodField={updateAccountSchema.shape.fullname}
@@ -146,7 +123,7 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
         <FieldInput
           title="Username"
           name="username"
-          description="Other users use this name to find you. It must be unique"
+          description="Others use it to find you. It must be unique."
           type="text"
           value={user.username}
           zodField={updateAccountSchema.shape.username}
@@ -157,48 +134,88 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
           title="Pronouns"
           name="pronoun"
           selected={user.pronoun}
-          description="The words that other users use to refer to you. Example: They / their."
+          description="How others refer to you."
           zodField={updateAccountSchema.shape.pronoun}
         />
 
         <FieldTextArea
           title="Bio"
           name="bio"
-          description="Write a short text about yourself. It is shown on your profile page."
+          description="A short text about you on your profile."
           value={user.bio}
           zodField={updateAccountSchema.shape.bio}
         />
+        <div class="settings-card-footer">
+          <button class="btn btn-secondary btn-md" type="submit">Save settings</button>
+        </div>
       </fieldset>
-      <div class="flex justify-end">
-        <button class="btn btn-secondary btn-md" type="submit">Save settings</button>
-      </div>
     </form>
   </section>
 
   <section id="security" class="mt-8">
-    <h2>Security</h2>
-    <p class="t-lead mt-2 text-fg-muted">Placeholder for security settings.</p>
+    <h2 class="settings-section-title">Security</h2>
+    <div class="settings-card mt-3">
+      <p class="settings-row t-body-sm text-fg-muted">Placeholder for security settings.</p>
+    </div>
   </section>
 
-  <section id="sessions" class="mt-8">
-    <h2>Sessions</h2>
-    <form class="mt-6 space-y-6" method="post" action={actions.signOutEverywhere}>
-      <input type="hidden" name="currentUsername" value={user.username} />
-      <p class="t-body text-fg-muted">
-        {isOwnAccount
-          ? "Sign out on every device and browser, including this one. Use this if you lost a device or signed in on a shared computer."
-          : `Sign ${user.fullname} out on every device and browser.`}
-      </p>
-      <div class="flex justify-end">
-        <button class="btn btn-danger btn-md" type="submit">Sign out everywhere</button>
-      </div>
-    </form>
+  <section id="devices" class="mt-8">
+    <h2 class="settings-section-title">Devices</h2>
+    <div class="settings-card mt-3">
+      {activeSessions.length === 0 ? (
+        <p class="settings-row t-body-sm text-fg-muted">There are no signed-in devices.</p>
+      ) : (
+        <ul>
+          {activeSessions.map((activeSession) => (
+            <li class="py-2">
+              <a
+                class="settings-row -mx-3 rounded-field px-3 py-3 hover:bg-active"
+                href={`/${encodeURIComponent(user.username)}/settings/sessions/${encodeURIComponent(activeSession.id)}`}
+              >
+                <span class="field-label">{deviceName(activeSessions, activeSession.id, session.id)}</span>
+                <span class="t-body-sm truncate text-fg-muted">
+                  Last used{" "}
+                  {activeSession.lastRequestAt ? (
+                    <time
+                      datetime={activeSession.lastRequestAt.toISOString()}
+                      title={formatExactTime(activeSession.lastRequestAt)}
+                    >
+                      {formatRelativeTime(activeSession.lastRequestAt)}
+                    </time>
+                  ) : (
+                    "never"
+                  )}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   </section>
 
   <section id="notifications" class="mt-8">
-    <h2>Notifications</h2>
-    <p class="t-lead mt-2 text-fg-muted">
-      Placeholder for notification settings.
-    </p>
+    <h2 class="settings-section-title">Notifications</h2>
+    <div class="settings-card mt-3">
+      <p class="settings-row t-body-sm text-fg-muted">Placeholder for notification settings.</p>
+    </div>
+  </section>
+
+  <section id="danger-zone" class="mt-8">
+    <h2 class="settings-section-title text-danger">Danger zone</h2>
+    <div class="settings-card settings-card-danger mt-3">
+      <form class="settings-row" method="post" action={actions.signOutEverywhere}>
+        <input type="hidden" name="currentUsername" value={user.username} />
+        <div class="settings-row-text">
+          <p class="field-label">Sign out everywhere</p>
+          <p class="t-body-sm text-fg-muted">
+            {isOwnAccount
+              ? "Sign out on all devices, including this one."
+              : `Sign ${user.fullname} out on all devices.`}
+          </p>
+        </div>
+        <button class="btn btn-danger btn-md self-end sm:self-auto" type="submit">Sign out everywhere</button>
+      </form>
+    </div>
   </section>
 </BaseLayout>

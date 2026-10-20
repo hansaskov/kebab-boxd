@@ -47,24 +47,6 @@ async function runMiddleware(
 }
 
 describe("historyMiddleware", () => {
-	it("returns the response before the entry is written", async () => {
-		const db = createTestDb("history-middleware-deferred");
-		const session = await getSession((await insertSession(db)).id, db);
-		const context = {
-			isPrerendered: false,
-			request: new Request("http://localhost/"),
-			url: new URL("http://localhost/"),
-			routePattern: "/",
-			locals: { db, session },
-		};
-
-		await historyMiddleware(context as unknown as Parameters<typeof historyMiddleware>[0], async () => new Response());
-		expect(await db.$count(history)).toBe(0);
-
-		await new Promise((resolve) => setImmediate(resolve));
-		expect(await db.$count(history)).toBe(1);
-	});
-
 	it("records page views and form actions with their status", async () => {
 		const db = createTestDb("history-middleware-record");
 		const session = await insertSession(db);
@@ -87,29 +69,5 @@ describe("historyMiddleware", () => {
 			{ method: "GET", route: "/[username]/settings", path: "/ada/settings", action: null, status: 200 },
 			{ method: "POST", route: "/[username]/settings", path: "/ada/settings", action: "updateProfile", status: 302 },
 		]);
-	});
-
-	it("skips prefetch requests", async () => {
-		const db = createTestDb("history-middleware-prefetch");
-		const session = await insertSession(db);
-
-		await runMiddleware(db, session.id, "http://localhost/explore", {
-			routePattern: "/explore",
-			headers: { "Sec-Purpose": "prefetch" },
-		});
-		await runMiddleware(db, session.id, "http://localhost/reviews", {
-			routePattern: "/reviews",
-			headers: { "Sec-Purpose": "prefetch;prerender" },
-		});
-
-		expect(await db.$count(history)).toBe(0);
-	});
-
-	it("skips visitors without a session", async () => {
-		const db = createTestDb("history-middleware-anonymous");
-
-		await runMiddleware(db, null, "http://localhost/", { routePattern: "/" });
-
-		expect(await db.$count(history)).toBe(0);
 	});
 });

@@ -380,6 +380,72 @@
     color: var(--ds-color-fg-default);
   }
 
+  .settings-heading {
+    font-size: var(--pr-fs-600);
+    line-height: 1.4;
+    font-weight: 600;
+  }
+
+  .settings-section-title {
+    font-size: var(--pr-fs-500);
+    line-height: 1.4;
+    font-weight: 600;
+  }
+
+  .settings-card {
+    padding-inline: 1.5rem;
+    border: 1px solid var(--ds-color-border-subtle);
+    border-radius: var(--ds-radius-box);
+    background: var(--ds-color-bg-surface);
+    box-shadow: var(--ds-shadow-card);
+  }
+  .settings-card-danger {
+    border-color: color-mix(in oklab, var(--ds-color-danger-default) 45%, transparent);
+  }
+  .settings-card > * + *,
+  .settings-card > ul > li + li {
+    border-top: 1px solid var(--ds-color-border-subtle);
+  }
+
+  .settings-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-inline: -1.5rem;
+    padding: 1rem 1.5rem;
+    background: var(--ds-color-bg-subtle);
+    border-radius: 0 0 calc(var(--ds-radius-box) - 1px) calc(var(--ds-radius-box) - 1px);
+  }
+
+  .settings-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-block: 1.25rem;
+  }
+  @media (min-width: 40rem) {
+    .settings-row {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+    }
+  }
+
+  .settings-row-text {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .settings-row-field {
+    width: 100%;
+  }
+  @media (min-width: 40rem) {
+    .settings-row-field {
+      width: 18rem;
+      flex-shrink: 0;
+    }
+  }
+
   .popover-panel {
     border: 1px solid var(--ds-color-border-subtle);
     background: var(--ds-color-bg-surface);

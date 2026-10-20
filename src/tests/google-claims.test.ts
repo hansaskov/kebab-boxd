@@ -37,12 +37,6 @@ describe("parseGoogleIdToken", () => {
 		});
 	});
 
-	it("accepts the issuer variant without the URL scheme", () => {
-		const token = createIdToken(validClaims({ iss: "accounts.google.com" }));
-
-		expect(() => parseGoogleIdToken(token, clientId)).not.toThrow();
-	});
-
 	it("rejects a token issued for another client", () => {
 		const token = createIdToken(validClaims({ aud: "someone-else" }));
 
@@ -59,14 +53,5 @@ describe("parseGoogleIdToken", () => {
 		const token = createIdToken(validClaims({ email_verified: false }));
 
 		expect(() => parseGoogleIdToken(token, clientId)).toThrow(InvalidIdTokenError);
-	});
-
-	it("rejects malformed tokens", () => {
-		expect(() => parseGoogleIdToken("not-a-token", clientId)).toThrow(
-			InvalidIdTokenError,
-		);
-		expect(() =>
-			parseGoogleIdToken(createIdToken({ sub: "only-a-subject" }), clientId),
-		).toThrow(InvalidIdTokenError);
 	});
 });

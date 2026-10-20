@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, lt, max } from "drizzle-orm";
 import { s } from "@src/db";
 import type { DB } from "@src/db";
 import { constantTimeEqual, generateSecureRandomString, hashSecret } from "@src/auth/hash";
@@ -106,6 +106,110 @@ export async function deleteSession(sessionId: string, db: DB): Promise<void> {
 
 export async function deleteUserSessions(userId: number, db: DB): Promise<void> {
 	await db.delete(s.sessions).where(eq(s.sessions.userId, userId));
+}
+
+/**
+ * Lists the sessions of a user that have not timed out, most recently used first. Sessions used at
+ * the same time are listed newest sign-in first; the id settles sign-ins in the same second.
+ */
+export async function listActiveUserSessions(userId: number, db: DB) {
+	const cutoff = new Date(Date.now() - inactivityTimeoutSeconds * 1000);
+	const lastRequestAt = max(s.history.requestedAt);
+
+	return db
+		.select({
+			id: s.sessions.id,
+			createdAt: s.sessions.createdAt,
+			lastVerifiedAt: s.sessions.lastVerifiedAt,
+			lastRequestAt,
+			requestCount: count(s.history.requestedAt),
+		})
+		.from(s.sessions)
+		.leftJoin(s.history, eq(s.history.sessionId, s.sessions.id))
+		.where(and(eq(s.sessions.userId, userId), gt(s.sessions.lastVerifiedAt, cutoff)))
+		.groupBy(s.sessions.id)
+		.orderBy(desc(lastRequestAt), desc(s.sessions.createdAt), desc(s.sessions.id));
+}
+
+/**
+ * Lists the id and sign-in time of each active session of a user, without reading the history.
+ * Oldest sign-in first; the id settles sign-ins in the same second, as in `deviceName`.
+ */
+export async function listActiveUserSessionIds(userId: number, db: DB) {
+	const cutoff = new Date(Date.now() - inactivityTimeoutSeconds * 1000);
+
+	return db
+		.select({ id: s.sessions.id, createdAt: s.sessions.createdAt })
+		.from(s.sessions)
+		.where(and(eq(s.sessions.userId, userId), gt(s.sessions.lastVerifiedAt, cutoff)))
+		.orderBy(asc(s.sessions.createdAt), asc(s.sessions.id));
+}
+
+/** Returns one active session of a user with its request totals, or undefined if the user has no such session. */
+export async function getActiveUserSession(sessionId: string, userId: number, db: DB) {
+	const cutoff = new Date(Date.now() - inactivityTimeoutSeconds * 1000);
+
+	const [session] = await db
+		.select({
+			id: s.sessions.id,
+			createdAt: s.sessions.createdAt,
+			lastVerifiedAt: s.sessions.lastVerifiedAt,
+			lastRequestAt: max(s.history.requestedAt),
+			requestCount: count(s.history.requestedAt),
+		})
+		.from(s.sessions)
+		.leftJoin(s.history, eq(s.history.sessionId, s.sessions.id))
+		.where(
+			and(
+				eq(s.sessions.id, sessionId),
+				eq(s.sessions.userId, userId),
+				gt(s.sessions.lastVerifiedAt, cutoff),
+			),
+		)
+		.groupBy(s.sessions.id);
+
+	return session;
+}
+
+export const sessionHistoryPageSize = 50;
+
+/**
+ * Returns one page of the requests recorded for a session, newest first. Only sessions owned by
+ * the user match. Pass `before` (the time of the oldest request already shown) to get the next,
+ * older page. `older` is the value to pass as `before` for the page after this one, or null if
+ * there are no older requests.
+ */
+export async function getUserSessionHistory(
+	sessionId: string,
+	userId: number,
+	db: DB,
+	{ before, limit = sessionHistoryPageSize }: { before?: Date | undefined; limit?: number } = {},
+) {
+	// One extra row tells us whether an older page exists.
+	const rows = await db
+		.select({
+			requestedAt: s.history.requestedAt,
+			method: s.history.method,
+			path: s.history.path,
+			action: s.history.action,
+			status: s.history.status,
+		})
+		.from(s.history)
+		.innerJoin(s.sessions, eq(s.sessions.id, s.history.sessionId))
+		.where(
+			and(
+				eq(s.history.sessionId, sessionId),
+				eq(s.sessions.userId, userId),
+				before ? lt(s.history.requestedAt, before) : undefined,
+			),
+		)
+		.orderBy(desc(s.history.requestedAt))
+		.limit(limit + 1);
+
+	const entries = rows.slice(0, limit);
+	const older = rows.length > limit ? (entries.at(-1)?.requestedAt ?? null) : null;
+
+	return { entries, older };
 }
 
 export function setSessionTokenCookie(

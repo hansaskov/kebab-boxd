@@ -14,20 +14,23 @@ const constraints = getConstraintsFromZodSchmea(props.zodField)
 const fieldId = props.id ?? props.name
 ---
 
-<div class="space-y-2">
-    <label class="field-label" for={fieldId}>{props.title}</label>
-    <input
-        id={fieldId}
-        class:list={[
-            "input",
-            props.class
-        ]}
-        {...constraints}
-        {...props}
-    />
-    <p class="t-body-sm text-fg-muted">{props.description}</p>
-    {props.errors && (
-        <p class="t-caption text-danger" role="alert">{props.errors.join("\n")}</p>
-    )}  
-    
+<div class="settings-row">
+    <div class="settings-row-text">
+        <label class="field-label" for={fieldId}>{props.title}</label>
+        <p class="t-body-sm text-fg-muted">{props.description}</p>
+    </div>
+    <div class="settings-row-field space-y-2">
+        <input
+            id={fieldId}
+            class:list={[
+                "input",
+                props.class
+            ]}
+            {...constraints}
+            {...props}
+        />
+        {props.errors && (
+            <p class="t-caption text-danger" role="alert">{props.errors.join("\n")}</p>
+        )}
+    </div>
 </div>

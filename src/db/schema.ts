@@ -27,6 +27,19 @@ export const users = p.snakeCase.table("users", {
 
 export type User = typeof users.$inferSelect
 
+export const sessions = p.snakeCase.table("sessions", {
+  id: p.text().primaryKey(),
+  userId: p.int({ mode: "number" }).notNull().references(() => users.id, {onDelete: "cascade"}),
+  secretHash: p.blob({mode: "buffer"}).notNull(),
+  lastVerifiedAt: p.int({ mode: "timestamp" }).notNull(),
+  theme: p.text({enum: ["light", "dark"]}).notNull().default("light"),
+  actionData: p.text({mode: "json"}).$type<ActionData>(),
+  updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(() => new Date),
+  createdAt: p.int({ mode: "timestamp" }).notNull().$default(() => new Date)
+}, (t) => [
+  p.index("sessions_user_id_idx").on(t.userId)
+])
+
 export const accounts = p.snakeCase.table("accounts", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
   userId: p.int({ mode: "number" }).notNull().references(() => users.id, {onDelete: "cascade"}),
@@ -153,19 +166,6 @@ export const reviewPictures = p.snakeCase.table("review_pictures", {
   p.index("review_pictures_review_id_idx").on(t.reviewId),
   p.index("review_pictures_picture_id_idx").on(t.pictureId),
   p.index("review_pictures_picture_id_review_id_idx").on(t.pictureId, t.reviewId),
-])
-
-export const sessions = p.snakeCase.table("sessions", {
-  id: p.text().primaryKey(),
-  userId: p.int({ mode: "number" }).notNull().references(() => users.id, {onDelete: "cascade"}),
-  secretHash: p.blob({mode: "buffer"}).notNull(),
-  lastVerifiedAt: p.int({ mode: "timestamp" }).notNull(),
-  theme: p.text({enum: ["light", "dark"]}).notNull().default("light"),
-  actionData: p.text({mode: "json"}).$type<ActionData>(),
-  updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(() => new Date),
-  createdAt: p.int({ mode: "timestamp" }).notNull().$default(() => new Date)
-}, (t) => [
-  p.index("sessions_user_id_idx").on(t.userId)
 ])
 
 export const history = p.snakeCase.table("history", {

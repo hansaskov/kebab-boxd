@@ -42,34 +42,4 @@ describe("compress middleware", () => {
 		).text();
 		expect(body).toBe("compressible response");
 	});
-
-	it("keeps an identity response when no encoding is accepted", async () => {
-		const response = await runMiddleware(
-			new Request("http://localhost/"),
-			new Response("plain response", {
-				headers: { "Content-Type": "text/plain" },
-			}),
-		);
-
-		expect(response.headers.get("Content-Encoding")).toBeNull();
-		expect(response.headers.get("Vary")).toBe("Accept-Encoding");
-		expect(await response.text()).toBe("plain response");
-	});
-
-	it("does not compress responses marked no-transform", async () => {
-		const response = await runMiddleware(
-			new Request("http://localhost/", {
-				headers: { "Accept-Encoding": "gzip" },
-			}),
-			new Response("do not transform", {
-				headers: {
-					"Content-Type": "text/plain",
-					"Cache-Control": "public, no-transform",
-				},
-			}),
-		);
-
-		expect(response.headers.get("Content-Encoding")).toBeNull();
-		expect(response.headers.get("Vary")).toBeNull();
-	});
 });

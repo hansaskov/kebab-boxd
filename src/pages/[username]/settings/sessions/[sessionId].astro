@@ -1,0 +1,131 @@
+---
+import { settingsSidebarMenuSections } from "@src/data/sidebar-menu-sections";
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+import { getActiveUserSession, getUserSessionHistory, listActiveUserSessionIds } from "@src/auth/session";
+import { deviceName } from "@src/format/device-name";
+import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
+
+// Astro has already decoded the route parameters.
+const { username, sessionId } = Astro.params;
+
+if (!username || !sessionId) {
+  return Astro.rewrite("/404");
+}
+
+const session = Astro.locals.session;
+
+if (!session) {
+  return Astro.redirect("/login");
+}
+
+const user = await Astro.locals.db.query.users.findFirst({
+  where: {
+    username: {
+      eq: username,
+    },
+  },
+});
+
+if (!user) {
+  return Astro.rewrite("/404");
+}
+
+if (session.user.role !== "admin" && session.user.id !== user.id) {
+  return Astro.rewrite("/401");
+}
+
+// Only active sessions that belong to this user can be opened.
+const selectedSession = await getActiveUserSession(sessionId, user.id, Astro.locals.db);
+
+if (!selectedSession) {
+  return Astro.rewrite("/404");
+}
+
+const activeSessions = await listActiveUserSessionIds(user.id, Astro.locals.db);
+const name = deviceName(activeSessions, selectedSession.id, session.id);
+
+// ?before=<ms> shows the requests older than that time. Anything else shows the newest ones.
+const beforeParam = Number(Astro.url.searchParams.get("before"));
+const before = Number.isSafeInteger(beforeParam) && beforeParam > 0 ? new Date(beforeParam) : undefined;
+const { entries: history, older } = await getUserSessionHistory(selectedSession.id, user.id, Astro.locals.db, {
+  before,
+});
+const pageHref = Astro.url.pathname;
+const olderHref = older ? `${pageHref}?before=${older.getTime()}` : undefined;
+const settingsHref = `/${encodeURIComponent(user.username)}/settings`;
+---
+
+<BaseLayout
+  title={name}
+  description={`History for ${name.toLowerCase()} of ${user.fullname}`}
+  includeSidebar={true}
+  prefetchUrls={[settingsHref, "/explore", "/reviews", "/"]}
+  session={session}
+  user={session.user}
+  sidebarMenuSections={settingsSidebarMenuSections(user.username)}
+>
+  <h1>{name}</h1>
+
+  <dl class="t-body-sm mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+    <div class="rounded-box border border-line bg-surface p-3">
+      <dt class="text-fg-muted">Signed in</dt>
+      <dd class="t-body font-medium">
+        <time datetime={selectedSession.createdAt.toISOString()} title={formatExactTime(selectedSession.createdAt)}>
+          {formatRelativeTime(selectedSession.createdAt)}
+        </time>
+      </dd>
+    </div>
+    <div class="rounded-box border border-line bg-surface p-3">
+      <dt class="text-fg-muted">Last used</dt>
+      <dd class="t-body font-medium">
+        {selectedSession.lastRequestAt ? (
+          <time
+            datetime={selectedSession.lastRequestAt.toISOString()}
+            title={formatExactTime(selectedSession.lastRequestAt)}
+          >
+            {formatRelativeTime(selectedSession.lastRequestAt)}
+          </time>
+        ) : (
+          "Never"
+        )}
+      </dd>
+    </div>
+    <div class="col-span-2 rounded-box border border-line bg-surface p-3 sm:col-span-1">
+      <dt class="text-fg-muted">Requests</dt>
+      <dd class="t-body font-medium">{selectedSession.requestCount}</dd>
+    </div>
+  </dl>
+
+  <section class="mt-8">
+    <h2>History</h2>
+    {history.length === 0 ? (
+      <p class="t-body mt-2 text-fg-muted">{before ? "There are no older requests." : "This session has not made any requests yet."}</p>
+    ) : (
+      <ol class="mt-4 divide-y divide-line rounded-box border border-line bg-surface">
+        {history.map((entry) => (
+          <li class="flex items-center gap-3 px-4 py-3">
+            <span class="tag shrink-0">{entry.method}</span>
+            <span class:list={["t-body-sm shrink-0 text-fg-muted", { "text-danger": entry.status >= 400 }]}>{entry.status}</span>
+            <span class="flex min-w-0 flex-1 items-center gap-2">
+              <span class="t-body min-w-0 truncate">{entry.path}</span>
+              {entry.action && <span class="t-body-sm min-w-0 truncate text-fg-muted">{entry.action}</span>}
+            </span>
+            <time
+              class="t-body-sm shrink-0 text-right text-fg-muted"
+              datetime={entry.requestedAt.toISOString()}
+              title={formatExactTime(entry.requestedAt)}
+            >
+              {formatRelativeTime(entry.requestedAt, new Date(), "narrow")}
+            </time>
+          </li>
+        ))}
+      </ol>
+    )}
+    {(before || olderHref) && (
+      <nav class="t-body mt-4 flex justify-between gap-4" aria-label="History pages">
+        {before ? <a class="link" href={pageHref}>Newest requests</a> : <span />}
+        {olderHref && <a class="link" href={olderHref}>Older requests</a>}
+      </nav>
+    )}
+  </section>
+</BaseLayout>
