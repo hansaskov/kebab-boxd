@@ -1,6 +1,6 @@
 ---
-import { UserRoundCog, Shield, Bell } from "@lucide/astro";
-import { actions } from "astro:actions";
+import { UserRoundCog, Shield, Bell, MonitorSmartphone } from "@lucide/astro";
+import { actions, isInputError } from "astro:actions";
 import { defaultSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import FieldInput from "@src/components/FieldInput.astro";
@@ -9,13 +9,13 @@ import FieldTextArea from "@src/components/FieldTextArea.astro";
 import type { Toast } from "@src/components/Toast.astro";
 import { updateAccountSchema } from "@src/actions";
 
-const { username: encodedUsername } = Astro.params;
+// Astro has already decoded the route parameter.
+const { username } = Astro.params;
 
-if (!encodedUsername) {
+if (!username) {
   return Astro.rewrite("/404");
 }
 
-const username = decodeURIComponent(encodedUsername);
 const session = Astro.locals.session;
 
 if (!session) {
@@ -39,6 +39,8 @@ if (session.user.role !== "admin" && session.user.id !== user.id) {
 }
 
 const actionResult = Astro.getActionResult(actions.updateSettings);
+const signOutResult = Astro.getActionResult(actions.signOutEverywhere);
+const isOwnAccount = session.user.id === user.id;
 
 let usernameErrors: string[] | undefined;
 let toast: Toast | undefined;
@@ -47,6 +49,8 @@ if (actionResult) {
   if (actionResult.error) {
     if (actionResult.error.code == "CONFLICT") {
       usernameErrors = [actionResult.error.message];
+    } else if (isInputError(actionResult.error) && actionResult.error.fields.username) {
+      usernameErrors = actionResult.error.fields.username;
     } else {
       toast = {
         kind: "title",
@@ -66,6 +70,21 @@ if (actionResult) {
   }
 }
 
+if (signOutResult) {
+  toast = signOutResult.error
+    ? {
+        kind: "title",
+        variant: "error",
+        title: "Sign-out failed",
+        text: signOutResult.error.message,
+      }
+    : {
+        kind: "title",
+        title: "Signed out everywhere",
+        text: `${user.fullname} must sign in again on every device.`,
+      };
+}
+
 
 const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
   {
@@ -80,6 +99,11 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
         name: "Security",
         href: `/${encodeURIComponent(username)}/settings#security`,
         icon: Shield,
+      },
+      {
+        name: "Sessions",
+        href: `/${encodeURIComponent(username)}/settings#sessions`,
+        icon: MonitorSmartphone,
       },
       {
         name: "Notifications",
@@ -154,6 +178,21 @@ const settingsSidebarMenuSection = defaultSidebarMenuSections.concat([
   <section id="security" class="mt-8">
     <h2>Security</h2>
     <p class="t-lead mt-2 text-fg-muted">Placeholder for security settings.</p>
+  </section>
+
+  <section id="sessions" class="mt-8">
+    <h2>Sessions</h2>
+    <form class="mt-6 space-y-6" method="post" action={actions.signOutEverywhere}>
+      <input type="hidden" name="currentUsername" value={user.username} />
+      <p class="t-body text-fg-muted">
+        {isOwnAccount
+          ? "Sign out on every device and browser, including this one. Use this if you lost a device or signed in on a shared computer."
+          : `Sign ${user.fullname} out on every device and browser.`}
+      </p>
+      <div class="flex justify-end">
+        <button class="btn btn-danger btn-md" type="submit">Sign out everywhere</button>
+      </div>
+    </form>
   </section>
 
   <section id="notifications" class="mt-8">

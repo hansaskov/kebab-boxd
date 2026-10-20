@@ -3,6 +3,8 @@ import * as schema from "@src/db/schema";
 import type { DB } from "@src/db/index";
 import { pronouns } from "@src/data/pronouns";
 import { createSession } from "@src/auth/session";
+import { buildUsername } from "@src/auth/sign-in";
+import { eq } from "drizzle-orm";
 
 const imageUrls = [
   "https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?w=800",
@@ -155,7 +157,19 @@ export async function seedDatabase(db: DB) {
 
   }));
 
-  const userIds = (await db.select({ id: schema.users.id }).from(schema.users)).map((r) => r.id);
+  // Seeded first names are capitalized, so turn them into valid lowercase
+  // usernames the same way a real sign-in does. The id suffix keeps them unique.
+  const seededUsers = await db
+    .select({ id: schema.users.id, username: schema.users.username })
+    .from(schema.users);
+  for (const { id, username } of seededUsers) {
+    await db
+      .update(schema.users)
+      .set({ username: buildUsername(username, id) })
+      .where(eq(schema.users.id, id));
+  }
+
+  const userIds = seededUsers.map((r) => r.id);
   const restaurantIds = (await db.select({ id: schema.restaurants.id }).from(schema.restaurants)).map((r) => r.id);
   const reviewIds = (await db.select({ id: schema.reviews.id }).from(schema.reviews)).map((r) => r.id);
   const pictureIds = (await db.select({ id: schema.pictures.id }).from(schema.pictures)).map((r) => r.id);

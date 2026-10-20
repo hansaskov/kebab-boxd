@@ -21,7 +21,10 @@ export const POST = (async ({ redirect, locals: {db, session}, request }) => {
 		headers: {
 			Location: referer ?? "/",
 			"Cache-Control": "no-store",
-			"Clear-Site-Data": "\"cache\"",
+			// Only the speculatively loaded pages still show the old theme. Clearing
+			// all of "cache" makes the browser hold this response while it wipes
+			// the whole HTTP cache and back/forward cache, which is slow.
+			"Clear-Site-Data": "\"prefetchCache\", \"prerenderCache\"",
 		},
 	});
 

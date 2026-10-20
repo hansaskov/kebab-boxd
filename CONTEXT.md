@@ -61,7 +61,7 @@ An external service that vouches for an Account, named by a stable id such as `g
 _Avoid_: IdP, OAuth client, Issuer
 
 **Username**:
-The unique, case-sensitive handle identifying a User. `KebabKing` and `kebabking` are treated as distinct. Used for profile URLs and search. Enforced as unique at the database level.
+The unique handle identifying a User. 3–30 characters from `A–Z`, `a–z`, `0–9` and `_`, stored in lowercase, so `KebabKing` and `kebabking` are the same Username. Route names and names that suggest speaking for the site (such as `admin`) are reserved. Used for profile URLs and search. Enforced as unique, ignoring letter case, at the database level.
 _Avoid_: Handle, DisplayName, Nickname
 
 **Admin**:

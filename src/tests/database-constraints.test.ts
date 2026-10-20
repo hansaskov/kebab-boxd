@@ -55,6 +55,21 @@ describe("users table constraints", () => {
     expect(isBusyError(sqlite)).toBe(false);
   });
 
+  it("enforces unique usernames regardless of letter case", () => {
+    const db = createTestDb("constraint-username-case");
+
+    insertUser(db, { username: "kebabking", email: "first@example.com" });
+
+    let error: unknown;
+    try {
+      insertUser(db, { username: "KebabKing", email: "second@example.com" });
+    } catch (caughtError) {
+      error = caughtError;
+    }
+
+    expect(isUniqueConstraintError(getSQLiteError(error))).toBe(true);
+  });
+
   it("enforces unique emails regardless of letter case", () => {
     const db = createTestDb("constraint-email-case");
 

@@ -6,6 +6,7 @@ import {
 	signInWithProviderAccount,
 } from "@src/auth/sign-in";
 import type { ProviderAccount } from "@src/auth/provider-account";
+import { usernameSchema } from "@src/validation/username";
 
 function createTestDb(name: string) {
 	const db = createDrizzleDatabase(`file:${name}?mode=memory`);
@@ -133,8 +134,8 @@ describe("signInWithProviderAccount", () => {
 			googleAccount({ accountId: "google-sub-2", email: "ada2@example.com" }),
 		);
 
-		expect(first.username).toMatch(/^Ada#\d+$/);
-		expect(second.username).toMatch(/^Ada#\d+$/);
+		expect(first.username).toMatch(/^ada_\d+$/);
+		expect(second.username).toMatch(/^ada_\d+$/);
 		expect(second.username).not.toBe(first.username);
 	});
 
@@ -147,7 +148,7 @@ describe("signInWithProviderAccount", () => {
 		);
 
 		expect(result.username.length).toBeLessThanOrEqual(30);
-		expect(result.username).toMatch(/#\d+$/);
+		expect(result.username).toMatch(/_\d+$/);
 	});
 
 	it("falls back to a usable username when the provider name is blank", async () => {
@@ -158,6 +159,32 @@ describe("signInWithProviderAccount", () => {
 			googleAccount({ fullname: "   " }),
 		);
 
-		expect(result.username).toMatch(/^kebab#\d+$/);
+		expect(result.username).toMatch(/^kebab_\d+$/);
+	});
+
+	it("generates a username that passes the settings validation", async () => {
+		const db = createTestDb("sign-in-valid-username");
+
+		const result = await signInWithProviderAccount(
+			db,
+			googleAccount({ fullname: "Søren-Émile O'Brien" }),
+		);
+
+		expect(result.username).toMatch(/^[a-z0-9_]+$/);
+		expect(usernameSchema.safeParse(result.username).success).toBe(true);
+	});
+
+	it("picks another username when the id-based one is already taken", async () => {
+		const db = createTestDb("sign-in-username-taken");
+		db.insert(users)
+			.values({ fullname: "Squatter", username: "ada_2", email: "squatter@example.com" })
+			.run();
+
+		const result = await signInWithProviderAccount(db, googleAccount());
+
+		expect(result.id).toBe(2);
+		expect(result.username).not.toBe("ada_2");
+		expect(result.username).toMatch(/^ada_[a-z0-9]+$/);
+		expect(result.username.length).toBeLessThanOrEqual(30);
 	});
 });

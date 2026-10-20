@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { createDrizzleDatabase, migrateDrizzleDatabase } from "@src/db/index";
 import { seedDatabase } from "@src/db/seed";
 import * as s from "@src/db/schema";
+import { usernameSchema } from "@src/validation/username";
 
 describe("seedDatabase", () => {
 
@@ -36,5 +37,22 @@ describe("seedDatabase", () => {
     expect(counts.likes).toBeGreaterThan(0);
     expect(counts.bucketList).toBeGreaterThan(0);
     expect(counts.reviewPictures).toBeGreaterThan(0);
+  });
+
+  it("only creates valid lowercase usernames", async () => {
+    const db = createDrizzleDatabase("file:seed-usernames?mode=memory");
+    migrateDrizzleDatabase(db);
+
+    await seedDatabase(db);
+
+    const usernames = (await db.select({ username: s.users.username }).from(s.users)).map(
+      (row) => row.username,
+    );
+
+    expect(usernames.length).toBeGreaterThan(0);
+    for (const username of usernames) {
+      expect(username).toBe(username.toLowerCase());
+      expect(usernameSchema.safeParse(username)).toMatchObject({ success: true, data: username });
+    }
   });
 });

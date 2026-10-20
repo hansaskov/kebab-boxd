@@ -4,8 +4,8 @@ import type { DB } from "@src/db";
 import type { User } from "@src/db/schema";
 import { generateSecureRandomString } from "@src/auth/hash";
 import type { ProviderAccount } from "@src/auth/provider-account";
+import { USERNAME_MAX_LENGTH } from "@src/validation/username";
 
-const USERNAME_MAX_LENGTH = 30;
 const FALLBACK_USERNAME = "kebab";
 
 
@@ -16,24 +16,29 @@ export class EmailAlreadyRegisteredError extends Error {
 	}
 }
 
-function truncateToLength(value: string, maxLength: number): string {
-	return [...value].slice(0, maxLength).join("");
-}
-
 function firstNameOf(fullname: string): string {
 	return fullname.trim().split(/\s+/).at(0) ?? "";
 }
 
-/**
- * Usernames are derived from the first name and made unique with the row id.
- * The id is only known after the insert, so callers update the placeholder.
- */
-export function buildUsername(fullname: string, userId: number): string {
-	const suffix = `#${userId}`;
-	const maxBaseLength = Math.max(0, USERNAME_MAX_LENGTH - suffix.length);
-	const base = truncateToLength(firstNameOf(fullname), maxBaseLength).trim();
+/** Drops accents and every character a username may not contain, then lowercases. */
+function toUsernameCharacters(value: string): string {
+	return value
+		.normalize("NFKD")
+		.replace(/[^A-Za-z0-9_]/g, "")
+		.toLowerCase();
+}
 
-	return `${base || FALLBACK_USERNAME}${suffix}`;
+/**
+ * Usernames are derived from the first name and made unique with a suffix,
+ * normally the row id. The id is only known after the insert, so callers
+ * update the placeholder.
+ */
+export function buildUsername(fullname: string, suffix: number | string): string {
+	const separatedSuffix = `_${suffix}`;
+	const maxBaseLength = Math.max(0, USERNAME_MAX_LENGTH - separatedSuffix.length);
+	const base = toUsernameCharacters(firstNameOf(fullname)).slice(0, maxBaseLength);
+
+	return `${base || FALLBACK_USERNAME}${separatedSuffix}`;
 }
 
 /**
@@ -95,7 +100,16 @@ export async function signInWithProviderAccount(
 			throw new Error("Failed to create a user for the authenticated provider account.");
 		}
 
-		const username = buildUsername(fullname, inserted.id);
+		// Someone may already have picked the id-based name in settings.
+		const preferredUsername = buildUsername(fullname, inserted.id);
+		const usernameTaken = tx
+			.select({ id: s.users.id })
+			.from(s.users)
+			.where(sql`lower(${s.users.username}) = ${preferredUsername}`)
+			.get();
+		const username = usernameTaken
+			? buildUsername(fullname, generateSecureRandomString())
+			: preferredUsername;
 
 		tx.update(s.users).set({ username }).where(eq(s.users.id, inserted.id)).run();
 

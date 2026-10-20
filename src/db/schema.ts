@@ -21,7 +21,7 @@ export const users = p.snakeCase.table("users", {
   p.index("users_profile_picture_id_idx").on(t.profilePictureId),
   p.index("users_name_idx").on(t.username),
   p.index("users_email_idx").on(t.email),
-  p.uniqueIndex("users_username_unique").on(t.username),
+  p.uniqueIndex("users_username_lower_unique").on(sql`lower(${t.username})`),
   p.uniqueIndex("users_email_unique").on(sql`lower(${t.email})`),
 ]);
 

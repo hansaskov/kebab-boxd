@@ -7,6 +7,9 @@ interface Props {
 
 const { error } = Astro.props
 
+// The details stay in the server log. Error messages can describe the database
+// or other internals that visitors should not see.
+console.error(error)
 ---
 
 <BaseLayout
@@ -18,7 +21,7 @@ const { error } = Astro.props
   <div class="text-center">
     <h1 class="mb-4">❌</h1>
     <h1 class="mb-2">500</h1>
-    <div class="t-body text-fg-muted">{error instanceof Error ? error.message : "Unknown error"}</div>
+    <div class="t-body text-fg-muted">Something went wrong on our side. Please try again later.</div>
     <a class="btn btn-primary btn-md mt-9" href="/">Home</a>
   </div>
 </BaseLayout>

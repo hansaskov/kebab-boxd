@@ -7,8 +7,12 @@ import type { AstroCookies } from "astro";
 const inactivityTimeoutSeconds = 60 * 60 * 24 * 30; // 30 days
 const activityCheckIntervalSeconds = 60 * 60 * 24; // 24 hours
 
+// The __Host- prefix makes browsers reject the cookie unless it is Secure, has
+// Path=/ and no Domain, so a subdomain or a plain HTTP page cannot plant it.
+export const sessionCookieName = "__Host-session";
+
 export async function getSessionAndUserFromCookie(cookies: AstroCookies, db: DB) {
-	const token = cookies.get("session")?.value ?? null;
+	const token = cookies.get(sessionCookieName)?.value ?? null;
 
 	if (!token) return null;
 
@@ -100,25 +104,29 @@ export async function deleteSession(sessionId: string, db: DB): Promise<void> {
 	await db.delete(s.sessions).where(eq(s.sessions.id, sessionId));
 }
 
+export async function deleteUserSessions(userId: number, db: DB): Promise<void> {
+	await db.delete(s.sessions).where(eq(s.sessions.userId, userId));
+}
+
 export function setSessionTokenCookie(
 	cookies: AstroCookies,
 	token: string,
 	lastVerifiedAt: Date,
 ): void {
-	cookies.set("session", token, {
+	cookies.set(sessionCookieName, token, {
 		httpOnly: true,
 		path: "/",
-		secure: import.meta.env.PROD,
+		secure: true,
 		sameSite: "lax",
 		expires: new Date(lastVerifiedAt.getTime() + inactivityTimeoutSeconds * 1000),
 	});
 }
 
 export function deleteSessionTokenCookie(cookies: AstroCookies): void {
-	cookies.set("session", "", {
+	cookies.set(sessionCookieName, "", {
 		httpOnly: true,
 		path: "/",
-		secure: import.meta.env.PROD,
+		secure: true,
 		sameSite: "lax",
 		maxAge: 0,
 	});
