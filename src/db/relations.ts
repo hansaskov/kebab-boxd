@@ -76,6 +76,15 @@ export const relations = defineRelations(s, (r) => ({
       to: r.users.id,
       optional: false,
     }),
+    history: r.many.history(),
+  },
+
+  history: {
+    session: r.one.sessions({
+      from: r.history.sessionId,
+      to: r.sessions.id,
+      optional: false,
+    }),
   },
 
   accounts: {

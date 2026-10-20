@@ -5,6 +5,7 @@ import { defineMiddleware, sequence } from "astro:middleware";
 import { getActionContext } from "astro:actions";
 import { eq } from "drizzle-orm";
 import { compressMiddleware } from "@src/middleware/compress";
+import { historyMiddleware } from "@src/middleware/history";
 import { hasStringRedirect } from "@src/validation/type-guards";
 
 const db = createDrizzleDatabase(DB_FILE_NAME);
@@ -61,4 +62,4 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 	return next();
 });
 
-export const onRequest = sequence(compressMiddleware, sessionMiddleware);
+export const onRequest = sequence(compressMiddleware, historyMiddleware, sessionMiddleware);

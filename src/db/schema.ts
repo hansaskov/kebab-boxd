@@ -168,5 +168,17 @@ export const sessions = p.snakeCase.table("sessions", {
   p.index("sessions_user_id_idx").on(t.userId)
 ])
 
+export const history = p.snakeCase.table("history", {
+  sessionId: p.text().notNull().references(() => sessions.id, {onDelete: "cascade"}),
+  requestedAt: p.int({ mode: "timestamp_ms" }).notNull(),
+  method: p.text().notNull(),
+  route: p.text().notNull(),
+  path: p.text().notNull(),
+  action: p.text(),
+  status: p.int({ mode: "number" }).notNull(),
+}, (t) => [
+  p.primaryKey({ columns: [t.sessionId, t.requestedAt] }),
+])
+
 export type SerializedActionResult = ReturnType<ReturnType<typeof getActionContext>["serializeActionResult"]>
 export type ActionData = {actionName: string, actionResult: SerializedActionResult}
