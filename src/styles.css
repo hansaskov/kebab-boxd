@@ -12,6 +12,7 @@
   --pr-ink-500: oklch(46% 0.024 272);
   --pr-ink-800: oklch(25% 0.032 285);
   --pr-ink-900: oklch(17% 0.026 285);
+  --pr-ink-950: oklch(5% 0.020 305);
 
   --pr-night-50: oklch(0.985 0 0);
   --pr-night-100: oklch(0.922 0 0);
@@ -21,16 +22,30 @@
   --pr-night-600: oklch(0.323 0 0);
   --pr-night-700: oklch(0.269 0 0);
   --pr-night-800: oklch(0.205 0 0);
+  --pr-night-850: oklch(0.18 0 0);
   --pr-night-900: oklch(0.155 0 0);
   --pr-night-950: oklch(0.122 0 0);
+
+  --pr-ink-a5: oklch(25% 0.032 285 / 5%);
+  --pr-white-a5: oklch(1 0 0 / 5%);
+  --pr-white-a10: oklch(1 0 0 / 10%);
+  --pr-white-a15: oklch(1 0 0 / 15%);
+  --pr-black-a60: oklch(0 0 0 / 60%);
+  --pr-ink-a45: oklch(20% 0.02 260 / 45%);
+
+  --pr-jade-100: oklch(93% 0.04 162);
   --pr-jade-300: oklch(84% 0.08 162);
   --pr-jade-400: oklch(78% 0.095 162);
   --pr-jade-500: oklch(72% 0.11 162);
   --pr-jade-700: oklch(56% 0.095 163);
   --pr-jade-800: oklch(43% 0.08 164);
   --pr-jade-900: oklch(32% 0.06 164);
+  --pr-jade-950: oklch(27% 0.055 162);
+
+  --pr-tomato-100: oklch(94% 0.035 28);
   --pr-tomato-300: oklch(74% 0.14 28);
   --pr-tomato-600: oklch(54% 0.21 28);
+  --pr-tomato-950: oklch(27% 0.07 28);
 
   --pr-fs-300: 0.8125rem;
   --pr-fs-400: 0.875rem;
@@ -43,38 +58,7 @@
   --pr-ease-out: cubic-bezier(0.32, 0.72, 0.35, 1);
 }
 
-:root,
-[data-theme="light"] {
-  color-scheme: light;
-
-  --ds-color-bg-page: var(--pr-paper-50);
-  --ds-color-bg-surface: var(--pr-paper-0);
-  --ds-color-bg-subtle: var(--pr-paper-100);
-  --ds-color-bg-active: var(--pr-paper-150);
-
-  --ds-color-fg-default: var(--pr-ink-800);
-  --ds-color-fg-muted: var(--pr-ink-500);
-  --ds-color-fg-subtle: var(--pr-ink-400);
-  --ds-color-fg-on-brand: var(--pr-jade-900);
-  --ds-color-brand-default: var(--pr-jade-400);
-  --ds-color-brand-hover: var(--pr-jade-500);
-  --ds-color-brand-text: var(--pr-jade-800);
-  --ds-color-brand-subtle: oklch(93% 0.04 162);
-
-  --ds-color-danger-default: var(--pr-tomato-600);
-  --ds-color-danger-subtle: oklch(94% 0.035 28);
-
-  --ds-color-border-subtle: var(--pr-paper-150);
-  --ds-color-border-strong: var(--pr-paper-200);
-
-  --ds-color-focus: var(--pr-jade-700);
-  --ds-color-scrim: oklch(20% 0.02 260 / 0.45);
-
-  --ds-shadow-card: 0 1px 2px oklch(25% 0.03 285 / 0.05);
-  --ds-shadow-lift:
-    0 2px 4px oklch(25% 0.03 285 / 0.05), 0 12px 32px -12px oklch(25% 0.03 285 / 0.18);
-  --ds-shadow-panel: 0 16px 48px -12px oklch(20% 0.03 260 / 0.35);
-
+:root {
   --ds-space-gutter: clamp(1.25rem, 4vw, 2.5rem);
   --ds-space-section: clamp(2.75rem, 6vw, 4rem);
 
@@ -85,13 +69,51 @@
   --ds-radius-box: 1rem;
 }
 
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  --ds-color-bg-page: var(--pr-paper-50);
+  --ds-color-bg-surface: var(--pr-paper-0);
+  --ds-color-bg-subtle: var(--pr-paper-100);
+  --ds-color-bg-active: var(--pr-paper-150);
+  /* Translucent, so a field is sunk into any background it sits on. */
+  --ds-color-bg-field: var(--pr-ink-a5);
+
+  --ds-color-fg-default: var(--pr-ink-800);
+  --ds-color-fg-muted: var(--pr-ink-500);
+  --ds-color-fg-subtle: var(--pr-ink-400);
+  --ds-color-fg-on-brand: var(--pr-paper-0);
+  --ds-color-brand-default: var(--pr-ink-900);
+  --ds-color-brand-hover: var(--pr-ink-950);
+  --ds-color-brand-text: var(--pr-jade-800);
+  --ds-color-brand-subtle: var(--pr-jade-100);
+
+  --ds-color-danger-default: var(--pr-tomato-600);
+  --ds-color-danger-subtle: var(--pr-tomato-100);
+
+  --ds-color-border-subtle: var(--pr-paper-150);
+  --ds-color-border-strong: var(--pr-paper-200);
+
+  --ds-color-focus: var(--pr-jade-700);
+  --ds-color-scrim: var(--pr-ink-a45);
+
+  --ds-shadow-card: 0 1px 2px oklch(25% 0.03 285 / 0.05);
+  --ds-shadow-lift:
+    0 2px 4px oklch(25% 0.03 285 / 0.05), 0 12px 32px -12px oklch(25% 0.03 285 / 0.18);
+  --ds-shadow-panel: 0 16px 48px -12px oklch(20% 0.03 260 / 0.35);
+}
+
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --ds-color-bg-page: var(--pr-night-800);
-  --ds-color-bg-surface: var(--pr-night-700);
-  --ds-color-bg-subtle: var(--pr-night-900);
-  --ds-color-bg-active: var(--pr-night-600);
+  /* Lightness rises with elevation. Recessed areas stay above the page. */
+  --ds-color-bg-page: var(--pr-night-900);
+  --ds-color-bg-surface: var(--pr-night-800);
+  --ds-color-bg-subtle: var(--pr-night-850);
+  --ds-color-bg-active: var(--pr-night-700);
+  /* Translucent, so a field is lifted on any background it sits on. */
+  --ds-color-bg-field: var(--pr-white-a5);
 
   --ds-color-fg-default: var(--pr-night-50);
   --ds-color-fg-muted: var(--pr-night-300);
@@ -101,16 +123,16 @@
   --ds-color-brand-default: var(--pr-night-100);
   --ds-color-brand-hover: var(--pr-night-150);
   --ds-color-brand-text: var(--pr-jade-300);
-  --ds-color-brand-subtle: oklch(27% 0.055 162);
+  --ds-color-brand-subtle: var(--pr-jade-950);
 
   --ds-color-danger-default: var(--pr-tomato-300);
-  --ds-color-danger-subtle: oklch(27% 0.07 28);
+  --ds-color-danger-subtle: var(--pr-tomato-950);
 
-  --ds-color-border-subtle: oklch(1 0 0 / 10%);
-  --ds-color-border-strong: oklch(1 0 0 / 5%);
+  --ds-color-border-subtle: var(--pr-white-a10);
+  --ds-color-border-strong: var(--pr-white-a15);
 
   --ds-color-focus: var(--pr-night-300);
-  --ds-color-scrim: oklch(0 0 0 / 0.6);
+  --ds-color-scrim: var(--pr-black-a60);
 
   --ds-shadow-card: 0 1px 2px oklch(0 0 0 / 0.3);
   --ds-shadow-lift: 0 2px 4px oklch(0 0 0 / 0.3), 0 12px 32px -12px oklch(0 0 0 / 0.5);
@@ -123,6 +145,7 @@
   --color-surface: var(--ds-color-bg-surface);
   --color-subtle: var(--ds-color-bg-subtle);
   --color-active: var(--ds-color-bg-active);
+  --color-field: var(--ds-color-bg-field);
 
   --color-fg: var(--ds-color-fg-default);
   --color-fg-muted: var(--ds-color-fg-muted);
@@ -323,11 +346,11 @@
   .input {
     display: block;
     width: 100%;
-    height: 2.75rem;
+    height: 2.5rem;
     padding-inline: 0.875rem;
     font-size: var(--pr-fs-400);
     color: var(--ds-color-fg-default);
-    background: var(--ds-color-bg-surface);
+    background-color: var(--ds-color-bg-field);
     border: 1px solid var(--ds-color-border-strong);
     border-radius: var(--ds-radius-field);
     box-shadow: var(--ds-shadow-card);
@@ -356,21 +379,26 @@
   textarea.input {
     height: auto;
     min-height: 6rem;
-    padding-block: 0.625rem;
+    padding-block: 0.375rem;
     resize: vertical;
     line-height: 1.6;
   }
 
-  select.input {
+  /* A select cannot hold an icon, so .select wraps it and places the chevron on top. */
+  .select {
+    position: relative;
+  }
+  .select > select.input {
     appearance: none;
-    padding-right: 2.25rem;
-    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
-      linear-gradient(135deg, currentColor 50%, transparent 50%);
-    background-position:
-      calc(100% - 1.125rem) calc(50% - 0.125rem),
-      calc(100% - 0.75rem) calc(50% - 0.125rem);
-    background-size: 0.375rem 0.375rem;
-    background-repeat: no-repeat;
+    padding-right: 2.5rem;
+  }
+  .select-icon {
+    position: absolute;
+    top: 50%;
+    right: 0.875rem;
+    translate: 0 -50%;
+    color: var(--ds-color-fg-muted);
+    pointer-events: none;
   }
 
   .field-label {
@@ -432,6 +460,33 @@
       width: 18rem;
       flex-shrink: 0;
     }
+  }
+
+  /* A row that opens a detail page. Unlike .settings-row it never stacks: its label and
+     detail are short, so they share one line at every width. It bleeds into the card's
+     padding so the hover background has room around the text. */
+  .settings-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 0.5rem -0.75rem;
+    padding: 0.75rem;
+    border-radius: var(--ds-radius-field);
+    color: var(--ds-color-fg-default);
+    transition: background-color 120ms ease;
+  }
+  .settings-link:hover {
+    background: var(--ds-color-bg-active);
+  }
+  .settings-link > :first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .settings-link > :last-child {
+    flex-shrink: 0;
   }
 
   .popover-panel {

@@ -2,6 +2,7 @@ import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { z } from "astro/zod";
 import { describe, expect, it } from "vitest";
 import FieldInput from "@src/components/FieldInput.astro";
+import FieldSelect from "@src/components/FieldSelect.astro";
 import { getConstraintsFromZodSchema } from "@src/validation/constraint";
 import { usernameSchema } from "@src/validation/username";
 
@@ -11,7 +12,7 @@ describe("getConstraintsFromZodSchema", () => {
 			minlength: 3,
 			maxlength: 30,
 			pattern: "^[A-Za-z0-9_]+$",
-			title: "Use only letters a–Z, digits and underscores.",
+			title: "Use only letters A–Z or a–z, digits and underscores.",
 			required: true,
 		});
 	});
@@ -50,7 +51,7 @@ describe("FieldInput", () => {
 	it("tells the browser why the username does not match", async () => {
 		const html = await renderUsernameField();
 
-		expect(html).toContain('title="Use only letters A–Z, digits and underscores."');
+		expect(html).toContain('title="Use only letters A–Z or a–z, digits and underscores."');
 		expect(html).not.toContain('title="Username"');
 		expect(html).toMatch(/<label[^>]*for="username"[^>]*>Username<\/label>/);
 	});
@@ -70,5 +71,26 @@ describe("FieldInput", () => {
 		expect(input).toContain('aria-describedby="username-description username-error"');
 		expect(input).toContain('aria-invalid="true"');
 		expect(html).toMatch(/<p id="username-error"[^>]*>Username is already taken\.<\/p>/);
+	});
+});
+
+describe("FieldSelect", () => {
+	it("draws the chevron over the select and hides it from screen readers", async () => {
+		const container = await AstroContainer.create();
+		const html = await container.renderToString(FieldSelect, {
+			props: {
+				label: "Pronouns",
+				name: "pronoun",
+				description: "How others refer to you.",
+				selected: "He / his",
+				zodField: z.enum(["They / their", "He / his"]).nullable(),
+			},
+		});
+		const wrapper = html.match(/<div class="select">([\s\S]*?)<\/div>/)?.[1];
+
+		expect(wrapper).toMatch(/^\s*<select[^>]*id="pronoun"[\s\S]*<\/select>/);
+		const icon = wrapper?.match(/<svg[^>]*>/)?.[0];
+		expect(icon).toMatch(/class="[^"]*\bselect-icon\b/);
+		expect(icon).toContain('aria-hidden="true"');
 	});
 });

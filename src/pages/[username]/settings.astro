@@ -146,7 +146,7 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
           zodField={updateAccountSchema.shape.bio}
         />
         <div class="settings-card-footer">
-          <button class="btn btn-secondary btn-md" type="submit">Save settings</button>
+          <button class="btn btn-primary btn-md" type="submit">Save settings</button>
         </div>
       </fieldset>
     </form>
@@ -167,13 +167,13 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
       ) : (
         <ul>
           {activeSessions.map((activeSession) => (
-            <li class="py-2">
+            <li>
               <a
-                class="settings-row -mx-3 rounded-field px-3 py-3 hover:bg-active"
+                class="settings-link"
                 href={`/${encodeURIComponent(user.username)}/settings/sessions/${encodeURIComponent(activeSession.id)}`}
               >
                 <span class="field-label">{deviceName(activeSession, session.id)}</span>
-                <span class="t-body-sm truncate text-fg-muted">
+                <span class="t-body-sm text-fg-muted">
                   Last used{" "}
                   {activeSession.lastRequestAt ? (
                     <time

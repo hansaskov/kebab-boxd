@@ -1,4 +1,5 @@
 ---
+import { ChevronDown } from "@lucide/astro";
 import { getConstraintsFromZodSchema } from "@src/validation/constraint";
 import { ZodNullable, type ZodEnum } from "astro/zod";
 
@@ -32,21 +33,24 @@ const hasErrors = errors !== undefined && errors.length > 0
         <p id={descriptionId} class="t-body-sm text-fg-muted">{description}</p>
     </div>
     <div class="settings-row-field space-y-2">
-        <select
-            id={fieldId}
-            class:list={["input", className]}
-            aria-describedby={hasErrors ? `${descriptionId} ${errorId}` : descriptionId}
-            aria-invalid={hasErrors ? "true" : undefined}
-            {...constraints}
-            {...props}
-        >
-            {options.map(opt => (
-                <option value={opt} selected={selected === opt}>{opt}</option>
-            ))}
-            {zodField instanceof ZodNullable && (
-                <option value="" selected={selected == null}>{noneOption ?? "None"}</option>
-            )}
-        </select>
+        <div class="select">
+            <select
+                id={fieldId}
+                class:list={["input", className]}
+                aria-describedby={hasErrors ? `${descriptionId} ${errorId}` : descriptionId}
+                aria-invalid={hasErrors ? "true" : undefined}
+                {...constraints}
+                {...props}
+            >
+                {options.map(opt => (
+                    <option value={opt} selected={selected === opt}>{opt}</option>
+                ))}
+                {zodField instanceof ZodNullable && (
+                    <option value="" selected={selected == null}>{noneOption ?? "None"}</option>
+                )}
+            </select>
+            <ChevronDown size={16} aria-hidden="true" class="select-icon" />
+        </div>
         {hasErrors && (
             <p id={errorId} class="t-caption text-danger" role="alert">{errors.join(" ")}</p>
         )}
