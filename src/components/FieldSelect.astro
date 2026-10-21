@@ -1,49 +1,54 @@
 ---
-import { getConstraintsFromZodSchmea } from "@src/validation/constraint";
+import { getConstraintsFromZodSchema } from "@src/validation/constraint";
 import { ZodNullable, type ZodEnum } from "astro/zod";
 
 interface Props extends astroHTML.JSX.SelectHTMLAttributes {
+    name: string;
     zodField: ZodEnum | ZodNullable<ZodEnum>;
     selected?: string | undefined | null;
-    title?: string;
+    label: string;
     description: string;
     noneOption?: string;
-    errors?: string[] | undefined; 
+    errors?: string[] | undefined;
 }
 
-const props = Astro.props
-const enumField = props.zodField instanceof ZodNullable
-    ? props.zodField.unwrap()
-    : props.zodField
-const constraints = getConstraintsFromZodSchmea(props.zodField)
+// Pull out the props that are not select attributes, so they are not rendered
+// on the select.
+const { zodField, selected, label, description, noneOption, errors, class: className, ...props } = Astro.props
+const enumField = zodField instanceof ZodNullable
+    ? zodField.unwrap()
+    : zodField
+const constraints = getConstraintsFromZodSchema(zodField)
 const options = enumField.options
 const fieldId = props.id ?? props.name
+const descriptionId = `${fieldId}-description`
+const errorId = `${fieldId}-error`
+const hasErrors = errors !== undefined && errors.length > 0
 ---
 
 <div class="settings-row">
     <div class="settings-row-text">
-        <label class="field-label" for={fieldId}>{props.title}</label>
-        <p class="t-body-sm text-fg-muted">{props.description}</p>
+        <label class="field-label" for={fieldId}>{label}</label>
+        <p id={descriptionId} class="t-body-sm text-fg-muted">{description}</p>
     </div>
     <div class="settings-row-field space-y-2">
-        <select   
+        <select
             id={fieldId}
-            class:list={[
-                "input",
-                props.class
-            ]}
+            class:list={["input", className]}
+            aria-describedby={hasErrors ? `${descriptionId} ${errorId}` : descriptionId}
+            aria-invalid={hasErrors ? "true" : undefined}
             {...constraints}
             {...props}
         >
             {options.map(opt => (
-                <option value={opt} selected={props.selected === opt}>{opt}</option>
+                <option value={opt} selected={selected === opt}>{opt}</option>
             ))}
-            {props.zodField instanceof ZodNullable && (
-                <option value="" selected={props.selected == null}>{props.noneOption ?? "None"}</option>
+            {zodField instanceof ZodNullable && (
+                <option value="" selected={selected == null}>{noneOption ?? "None"}</option>
             )}
         </select>
-        {props.errors && (
-            <p class="t-caption text-danger" role="alert">{props.errors.join("\n")}</p>
+        {hasErrors && (
+            <p id={errorId} class="t-caption text-danger" role="alert">{errors.join(" ")}</p>
         )}
     </div>
 </div>

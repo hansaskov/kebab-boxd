@@ -1,36 +1,41 @@
 ---
-import { getConstraintsFromZodSchmea } from '@src/validation/constraint';
-import type { ZodString } from 'astro:schema';
+import { getConstraintsFromZodSchema } from '@src/validation/constraint';
+import type { ZodString } from 'astro/zod';
 
 interface Props extends astroHTML.JSX.InputHTMLAttributes {
+    name: string;
     zodField: ZodString;
-    title?: string;
+    label: string;
     description: string;
-    errors?: string[] | undefined; 
+    errors?: string[] | undefined;
 }
 
-const props = Astro.props
-const constraints = getConstraintsFromZodSchmea(props.zodField)
+// Pull out the props that are not input attributes, so they are not rendered
+// on the input. A `title` on the input would replace the hint taken from the schema.
+const { zodField, label, description, errors, class: className, ...props } = Astro.props
+const constraints = getConstraintsFromZodSchema(zodField)
 const fieldId = props.id ?? props.name
+const descriptionId = `${fieldId}-description`
+const errorId = `${fieldId}-error`
+const hasErrors = errors !== undefined && errors.length > 0
 ---
 
 <div class="settings-row">
     <div class="settings-row-text">
-        <label class="field-label" for={fieldId}>{props.title}</label>
-        <p class="t-body-sm text-fg-muted">{props.description}</p>
+        <label class="field-label" for={fieldId}>{label}</label>
+        <p id={descriptionId} class="t-body-sm text-fg-muted">{description}</p>
     </div>
     <div class="settings-row-field space-y-2">
         <input
             id={fieldId}
-            class:list={[
-                "input",
-                props.class
-            ]}
+            class:list={["input", className]}
+            aria-describedby={hasErrors ? `${descriptionId} ${errorId}` : descriptionId}
+            aria-invalid={hasErrors ? "true" : undefined}
             {...constraints}
             {...props}
         />
-        {props.errors && (
-            <p class="t-caption text-danger" role="alert">{props.errors.join("\n")}</p>
+        {hasErrors && (
+            <p id={errorId} class="t-caption text-danger" role="alert">{errors.join(" ")}</p>
         )}
     </div>
 </div>

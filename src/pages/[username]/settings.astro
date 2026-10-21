@@ -112,7 +112,7 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
       <input type="hidden" name="currentUsername" value={user.username} />
       <fieldset class="settings-card">
         <FieldInput
-          title="Full name"
+          label="Full name"
           name="fullname"
           description="Shown on your profile. Use your real name."
           type="text"
@@ -121,7 +121,7 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
         />
 
         <FieldInput
-          title="Username"
+          label="Username"
           name="username"
           description="Others use it to find you. It must be unique."
           type="text"
@@ -131,7 +131,7 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
         />
 
         <FieldSelect
-          title="Pronouns"
+          label="Pronouns"
           name="pronoun"
           selected={user.pronoun}
           description="How others refer to you."
@@ -139,7 +139,7 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
         />
 
         <FieldTextArea
-          title="Bio"
+          label="Bio"
           name="bio"
           description="A short text about you on your profile."
           value={user.bio}

@@ -4,6 +4,7 @@ import { isCheckDef, isNumber, isWrapperDef } from "@src/validation/type-guards"
 
 export type InputConstraint = Partial<{
 	pattern: string;
+	title: string;
 	min: number | string;
 	max: number | string;
 	required: boolean;
@@ -64,7 +65,24 @@ function zodInfo(schema: z.ZodType): ZodInfo {
 	}
 }
 
-export function getConstraintsFromZodSchmea(schema: z.ZodType): InputConstraint | undefined {
+/**
+ * Browsers compile `pattern` with the `v` flag and nothing else, so a regex
+ * that relies on these flags would match differently in the browser.
+ */
+const flagsBrowsersCannotApply = /[ims]/;
+
+/** The custom message given to a check, such as the second argument of `.regex()`. */
+function customMessage(check: z.core.$ZodCheckStringFormatDef): string | undefined {
+	const result = check.error?.({
+		code: "invalid_format",
+		format: check.format,
+		pattern: check.pattern?.source,
+		input: "",
+	} as never);
+	return typeof result === "string" ? result : (result?.message ?? undefined);
+}
+
+export function getConstraintsFromZodSchema(schema: z.ZodType): InputConstraint | undefined {
 	const output: InputConstraint = {};
 	const { def, checks, isNullable, isOptional } = zodInfo(schema);
 
@@ -86,8 +104,17 @@ export function getConstraintsFromZodSchmea(schema: z.ZodType): InputConstraint 
 					output.maxlength = check.length;
 					break;
 				case "string_format":
-					if (check.format === "regex" && check.pattern && output.pattern === undefined) {
+					if (
+						check.format === "regex" &&
+						check.pattern &&
+						!flagsBrowsersCannotApply.test(check.pattern.flags) &&
+						output.pattern === undefined
+					) {
 						output.pattern = check.pattern.source;
+						const title = customMessage(check);
+						if (title !== undefined) {
+							output.title = title;
+						}
 					}
 					break;
 			}
