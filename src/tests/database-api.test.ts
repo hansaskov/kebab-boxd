@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { eq, getColumns, getTableName, is, SQL, Table } from "drizzle-orm";
+import { SQLiteTimestamp } from "drizzle-orm/sqlite-core";
 import { createSession } from "@src/auth/session";
+import * as schema from "@src/db/schema";
 import { accounts, sessions, users } from "@src/db/schema";
 import { createTestDatabase, insertUser } from "@src/tests/database";
 
@@ -26,21 +28,39 @@ describe("database API", () => {
 		expect(await db.queries.sessions.findActiveWithHistory({ ...page, sessionId: timedOut.id })).toBeUndefined();
 	});
 
-	it("stores the time of each write, not the time its statement was prepared", async () => {
-		const { client, db } = createTestDatabase("api-timestamps");
+	it("leaves every automatic timestamp for SQLite to compute when the statement runs", () => {
+		// A value computed in JavaScript would be fixed once, when a prepared statement is built.
+		const computedInJavaScript = Object.values(schema)
+			.filter((table) => is(table, Table))
+			.flatMap((table) =>
+				Object.values(getColumns(table))
+					.filter((column) => is(column, SQLiteTimestamp))
+					.flatMap((column) =>
+						[column.defaultFn, column.onUpdateFn]
+							.filter((fn) => fn !== undefined)
+							.filter((fn) => !is(fn(), SQL))
+							.map(() => `${getTableName(table)}.${column.name}`),
+					),
+			);
+
+		expect(computedInJavaScript).toEqual([]);
+	});
+
+	it("stores the time of the write in updatedAt", async () => {
+		const { client, db } = createTestDatabase("api-updated-at");
 		const user = insertUser(client, "ada");
-		const first = await createSession(user.id, db);
+		const session = await createSession(user.id, db);
+		const yesterday = new Date(Date.now() - day);
+		client.update(sessions).set({ createdAt: yesterday, updatedAt: yesterday }).where(eq(sessions.id, session.id)).run();
+
 		// Timestamps are stored in whole seconds.
-		await new Promise((resolve) => setTimeout(resolve, 1100));
-		const second = await createSession(user.id, db);
-		await db.mutations.sessions.setTheme(first.id, "dark");
+		const startOfWrite = Math.floor(Date.now() / 1000) * 1000;
+		await db.mutations.sessions.setTheme(session.id, "dark");
 
-		const rows = client.select().from(sessions).all();
-		const firstRow = rows.find((row) => row.id === first.id);
-		const secondRow = rows.find((row) => row.id === second.id);
-
-		expect(secondRow!.createdAt.getTime()).toBeGreaterThan(firstRow!.createdAt.getTime());
-		expect(firstRow!.updatedAt.getTime()).toBeGreaterThan(firstRow!.createdAt.getTime());
+		const row = client.select().from(sessions).where(eq(sessions.id, session.id)).get();
+		expect(row!.updatedAt.getTime()).toBeGreaterThanOrEqual(startOfWrite);
+		expect(row!.updatedAt.getTime()).toBeLessThanOrEqual(Date.now());
+		expect(row!.createdAt.getTime()).toBe(Math.floor(yesterday.getTime() / 1000) * 1000);
 	});
 
 	it("creates no user when creating the account fails part way", async () => {

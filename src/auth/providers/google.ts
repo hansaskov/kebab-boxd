@@ -40,14 +40,6 @@ function decodeIdTokenPayload(idToken: string): unknown {
 	}
 }
 
-/**
- * Turns a Google ID token into the provider account used for sign-in.
- *
- * The token arrives straight from Google's token endpoint in response to our
- * authorization code, so its signature does not need to be verified again.
- * Audience and issuer are still checked, because they catch a client id or
- * endpoint that is misconfigured.
- */
 export function parseGoogleIdToken(idToken: string, clientId: string): ProviderAccount {
 	const claims = GoogleIdTokenClaimsSchema.safeParse(decodeIdTokenPayload(idToken));
 
@@ -139,10 +131,6 @@ class GoogleOAuthClient {
 		return (await response.json()) as GoogleTokenResponse;
 	}
 
-	/**
-	 * Exchanges an authorization code and returns the provider account it proves.
-	 * The tokens themselves are not needed after this point.
-	 */
 	async authorize(code: string, codeVerifier: string): Promise<ProviderAccount> {
 		const tokens = await this.validateAuthorizationCode(code, codeVerifier);
 

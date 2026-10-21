@@ -8,15 +8,6 @@ export class EmailAlreadyRegisteredError extends Error {
 		this.name = "EmailAlreadyRegisteredError";
 	}
 }
-
-/**
- * Signs in the person behind a verified provider account.
- *
- * The account row is the source of truth for sign-in: a returning person is
- * found by the provider and provider subject id, never by email. A new person
- * gets a user row and an account row in the same transaction, so a half-created
- * login cannot survive a failure.
- */
 export async function signInWithProviderAccount(
 	db: Database,
 	providerAccount: ProviderAccount,

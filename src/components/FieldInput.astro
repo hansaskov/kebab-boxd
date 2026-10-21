@@ -10,8 +10,6 @@ interface Props extends astroHTML.JSX.InputHTMLAttributes {
     errors?: string[] | undefined;
 }
 
-// Pull out the props that are not input attributes, so they are not rendered
-// on the input. A `title` on the input would replace the hint taken from the schema.
 const { zodField, label, description, errors, class: className, ...props } = Astro.props
 const constraints = getConstraintsFromZodSchema(zodField)
 const fieldId = props.id ?? props.name
