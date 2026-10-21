@@ -7,8 +7,6 @@ interface Props {
 
 const { error } = Astro.props
 
-// The details stay in the server log. Error messages can describe the database
-// or other internals that visitors should not see.
 console.error(error)
 ---
 

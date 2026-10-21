@@ -10,8 +10,9 @@ import type { User } from "@src/db/schema";
 
 import type { APIContext } from "astro";
 
-function restartResponse(): Response {
-	return new Response("Please restart the process.", { status: 400 });
+/** Sends the person back to the login page, which explains the reason, if any. */
+function restart(context: APIContext, reason?: "expired" | "failed"): Response {
+	return context.redirect(reason ? `/login?error=${reason}` : "/login");
 }
 
 export async function GET(context: APIContext): Promise<Response> {
@@ -24,12 +25,19 @@ export async function GET(context: APIContext): Promise<Response> {
 	context.cookies.delete(googleCookieNames.state, { path: oauthCookieOptions.path });
 	context.cookies.delete(googleCookieNames.codeVerifier, { path: oauthCookieOptions.path });
 
+	// Google adds an error, such as access_denied, when the person cancels.
+	if (context.url.searchParams.has("error")) {
+		return restart(context);
+	}
+
+	// The cookies are gone or belong to a newer attempt, for example after going
+	// back to an old account picker.
 	if (storedState === null || codeVerifier === null || code === null || state === null) {
-		return restartResponse();
+		return restart(context, "expired");
 	}
 
 	if (storedState !== state) {
-		return restartResponse();
+		return restart(context, "expired");
 	}
 
 	let providerAccount: ProviderAccount;
@@ -41,7 +49,7 @@ export async function GET(context: APIContext): Promise<Response> {
 			console.error("Google sign-in returned an invalid ID token:", error.message);
 		}
 
-		return restartResponse();
+		return restart(context, "failed");
 	}
 
 	const db = context.locals.db;
