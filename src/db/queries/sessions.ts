@@ -18,7 +18,7 @@ export type SessionHistoryCursor = { before: Date } | { after: Date } | Record<s
 
 export interface SessionHistoryPage {
 	sessionId: string;
-	username: string;
+	userId: number;
 	cursor: SessionHistoryCursor;
 	limit: number;
 }
@@ -35,7 +35,7 @@ function prepareSessionWithHistory(client: Client, kind: HistoryPageKind) {
 			columns: { id: true, createdAt: true },
 			where: {
 				id: sql.placeholder("sessionId"),
-				user: { username: sql.placeholder("username") },
+				userId: sql.placeholder("userId"),
 				RAW: (t) => gt(t.lastVerifiedAt, activeSince),
 			},
 			extras: {
@@ -62,7 +62,6 @@ function prepareSessionWithHistory(client: Client, kind: HistoryPageKind) {
 						)}) + 1`.mapWith(Number),
 			},
 			with: {
-				user: { columns: { username: true, fullname: true } },
 				history: {
 					columns: { requestedAt: true, method: true, path: true, action: true, status: true },
 					where:
@@ -125,10 +124,10 @@ export function createSessionQueries(client: Client) {
 			return activeByUser.all({ userId, activeSince: sessionsActiveSince() });
 		},
 
-		async findActiveWithHistory({ sessionId, username, cursor, limit }: SessionHistoryPage) {
+		async findActiveWithHistory({ sessionId, userId, cursor, limit }: SessionHistoryPage) {
 			const after = "after" in cursor ? cursor.after : undefined;
 			const before = "before" in cursor ? cursor.before : undefined;
-			const values = { sessionId, username, activeSince: sessionsActiveSince(), limit };
+			const values = { sessionId, userId, activeSince: sessionsActiveSince(), limit };
 
 			const session = await (after
 				? withHistory.newer.execute({ ...values, cursor: after })

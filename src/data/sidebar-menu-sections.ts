@@ -38,20 +38,27 @@ export const defaultSidebarMenuSections: SidebarMenuSection[] = [
     },
   ];
 
-/** The default menu plus links to each part of a user's settings page. */
-export function settingsSidebarMenuSections(username: string): SidebarMenuSection[] {
+/**
+ * The default menu plus links to each part of a user's settings page. The links to the parts
+ * about sessions are left out for someone who may not manage them.
+ */
+export function settingsSidebarMenuSections(
+  username: string,
+  { canManageSessions }: { canManageSessions: boolean },
+): SidebarMenuSection[] {
   const settingsHref = `/${encodeURIComponent(username)}/settings`;
+  const items: (SidebarMenuItem | false)[] = [
+    { name: "Account", href: `${settingsHref}#account`, icon: UserRoundCog },
+    { name: "Security", href: `${settingsHref}#security`, icon: Shield },
+    canManageSessions && { name: "Devices", href: `${settingsHref}#devices`, icon: MonitorSmartphone },
+    { name: "Notifications", href: `${settingsHref}#notifications`, icon: Bell },
+    canManageSessions && { name: "Danger zone", href: `${settingsHref}#danger-zone`, icon: TriangleAlert },
+  ];
 
   return defaultSidebarMenuSections.concat([
     {
       title: "Settings",
-      items: [
-        { name: "Account", href: `${settingsHref}#account`, icon: UserRoundCog },
-        { name: "Security", href: `${settingsHref}#security`, icon: Shield },
-        { name: "Devices", href: `${settingsHref}#devices`, icon: MonitorSmartphone },
-        { name: "Notifications", href: `${settingsHref}#notifications`, icon: Bell },
-        { name: "Danger zone", href: `${settingsHref}#danger-zone`, icon: TriangleAlert },
-      ],
+      items: items.filter((item) => item !== false),
     },
   ]);
 }

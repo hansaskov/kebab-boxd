@@ -1,6 +1,7 @@
 ---
 import { settingsSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
+import { can } from "@src/auth/permissions";
 import Pagination from "@src/components/Pagination.astro";
 import {
     sessionHistoryPageSize,
@@ -22,9 +23,15 @@ if (!session) {
     return Astro.redirect("/login");
 }
 
-// Only admins may open the sessions of another user.
-if (session.user.role !== "admin" && session.user.username !== username) {
-    return Astro.rewrite("/401");
+const owner = await Astro.locals.db.queries.users.findByUsername(username);
+
+if (!owner) {
+    return Astro.rewrite("/404");
+}
+
+// Checked before the session is looked up, so it cannot tell whether a session id exists.
+if (!can(session.user, "user:manage-sessions", owner)) {
+    return Astro.rewrite("/403");
 }
 
 function cursorTime(name: string) {
@@ -44,7 +51,7 @@ const rows =
 // Only active sessions that belong to this user can be opened.
 const selectedSession = await Astro.locals.db.queries.sessions.findActiveWithHistory({
     sessionId,
-    username,
+    userId: owner.id,
     cursor,
     limit: rows,
 });
@@ -53,7 +60,7 @@ if (!selectedSession) {
     return Astro.rewrite("/404");
 }
 
-const { user, entries: history } = selectedSession;
+const { entries: history } = selectedSession;
 const name = deviceName(selectedSession, session.id);
 const pageHref = Astro.url.pathname;
 
@@ -85,17 +92,17 @@ const rowsOptions = sessionHistoryPageSizes.map((size) => ({
     rows: size,
     href: historyHref({ ...cursor, rows: size }),
 }));
-const settingsHref = `/${encodeURIComponent(user.username)}/settings`;
+const settingsHref = `/${encodeURIComponent(owner.username)}/settings`;
 ---
 
 <BaseLayout
     title={name}
-    description={`History for ${name.toLowerCase()} of ${user.fullname}`}
+    description={`History for ${name.toLowerCase()} of ${owner.fullname}`}
     includeSidebar={true}
     prefetchUrls={[settingsHref, "/explore", "/reviews", "/"]}
     session={session}
     user={session.user}
-    sidebarMenuSections={settingsSidebarMenuSections(user.username)}
+    sidebarMenuSections={settingsSidebarMenuSections(owner.username, { canManageSessions: true })}
 >
     <h1>{name}</h1>
 

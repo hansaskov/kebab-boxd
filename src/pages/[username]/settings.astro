@@ -7,6 +7,7 @@ import FieldSelect from "@src/components/FieldSelect.astro";
 import FieldTextArea from "@src/components/FieldTextArea.astro";
 import type { Toast } from "@src/components/Toast.astro";
 import { updateAccountSchema } from "@src/actions";
+import { can } from "@src/auth/permissions";
 import { deviceName } from "@src/format/device-name";
 import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
 
@@ -29,15 +30,17 @@ if (!user) {
   return Astro.rewrite("/404");
 }
 
-if (session.user.role !== "admin" && session.user.id !== user.id) {
-  return Astro.rewrite("/401");
+if (!can(session.user, "user:edit-settings", user)) {
+  return Astro.rewrite("/403");
 }
+
+const canManageSessions = can(session.user, "user:manage-sessions", user);
 
 const actionResult = Astro.getActionResult(actions.updateSettings);
 const signOutResult = Astro.getActionResult(actions.signOutEverywhere);
 const isOwnAccount = session.user.id === user.id;
 
-const activeSessions = await Astro.locals.db.queries.sessions.listActive(user.id);
+const activeSessions = canManageSessions ? await Astro.locals.db.queries.sessions.listActive(user.id) : [];
 
 let usernameErrors: string[] | undefined;
 let toast: Toast | undefined;
@@ -83,7 +86,7 @@ if (signOutResult) {
 }
 
 
-const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
+const settingsSidebarMenuSection = settingsSidebarMenuSections(username, { canManageSessions });
 ---
 
 <BaseLayout
@@ -152,40 +155,42 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
     </div>
   </section>
 
-  <section id="devices" class="mt-8">
-    <h2>Devices</h2>
-    <div class="settings-card mt-3">
-      {activeSessions.length === 0 ? (
-        <p class="settings-row t-body-sm text-fg-muted">There are no signed-in devices.</p>
-      ) : (
-        <ul>
-          {activeSessions.map((activeSession) => (
-            <li>
-              <a
-                class="settings-link"
-                href={`/${encodeURIComponent(user.username)}/settings/sessions/${encodeURIComponent(activeSession.id)}`}
-              >
-                <span class="field-label">{deviceName(activeSession, session.id)}</span>
-                <span class="t-body-sm text-fg-muted">
-                  Last used{" "}
-                  {activeSession.lastRequestAt ? (
-                    <time
-                      datetime={activeSession.lastRequestAt.toISOString()}
-                      title={formatExactTime(activeSession.lastRequestAt)}
-                    >
-                      {formatRelativeTime(activeSession.lastRequestAt)}
-                    </time>
-                  ) : (
-                    "never"
-                  )}
-                </span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  </section>
+  {canManageSessions && (
+    <section id="devices" class="mt-8">
+      <h2>Devices</h2>
+      <div class="settings-card mt-3">
+        {activeSessions.length === 0 ? (
+          <p class="settings-row t-body-sm text-fg-muted">There are no signed-in devices.</p>
+        ) : (
+          <ul>
+            {activeSessions.map((activeSession) => (
+              <li>
+                <a
+                  class="settings-link"
+                  href={`/${encodeURIComponent(user.username)}/settings/sessions/${encodeURIComponent(activeSession.id)}`}
+                >
+                  <span class="field-label">{deviceName(activeSession, session.id)}</span>
+                  <span class="t-body-sm text-fg-muted">
+                    Last used{" "}
+                    {activeSession.lastRequestAt ? (
+                      <time
+                        datetime={activeSession.lastRequestAt.toISOString()}
+                        title={formatExactTime(activeSession.lastRequestAt)}
+                      >
+                        {formatRelativeTime(activeSession.lastRequestAt)}
+                      </time>
+                    ) : (
+                      "never"
+                    )}
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  )}
 
   <section id="notifications" class="mt-8">
     <h2>Notifications</h2>
@@ -194,21 +199,23 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
     </div>
   </section>
 
-  <section id="danger-zone" class="mt-8">
-    <h2 class="text-danger">Danger zone</h2>
-    <div class="settings-card settings-card-danger mt-3">
-      <form class="settings-row" method="post" action={actions.signOutEverywhere}>
-        <input type="hidden" name="currentUsername" value={user.username} />
-        <div class="settings-row-text">
-          <p class="field-label">Sign out everywhere</p>
-          <p class="t-body-sm text-fg-muted">
-            {isOwnAccount
-              ? "Sign out on all devices, including this one."
-              : `Sign ${user.fullname} out on all devices.`}
-          </p>
-        </div>
-        <button class="btn btn-danger btn-md settings-row-action" type="submit">Sign out everywhere</button>
-      </form>
-    </div>
-  </section>
+  {canManageSessions && (
+    <section id="danger-zone" class="mt-8">
+      <h2 class="text-danger">Danger zone</h2>
+      <div class="settings-card settings-card-danger mt-3">
+        <form class="settings-row" method="post" action={actions.signOutEverywhere}>
+          <input type="hidden" name="currentUsername" value={user.username} />
+          <div class="settings-row-text">
+            <p class="field-label">Sign out everywhere</p>
+            <p class="t-body-sm text-fg-muted">
+              {isOwnAccount
+                ? "Sign out on all devices, including this one."
+                : `Sign ${user.fullname} out on all devices.`}
+            </p>
+          </div>
+          <button class="btn btn-danger btn-md settings-row-action" type="submit">Sign out everywhere</button>
+        </form>
+      </div>
+    </section>
+  )}
 </BaseLayout>

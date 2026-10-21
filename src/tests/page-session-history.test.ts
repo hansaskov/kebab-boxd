@@ -1,7 +1,7 @@
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { describe, expect, it } from "vitest";
 import SessionPage from "@src/pages/[username]/settings/sessions/[sessionId].astro";
-import NotAuthorizedPage from "@src/pages/401.astro";
+import ForbiddenPage from "@src/pages/403.astro";
 import NotFoundPage from "@src/pages/404.astro";
 import { createSession, getSession } from "@src/auth/session";
 import { sessionHistoryPageSize } from "@src/db/queries/sessions";
@@ -35,7 +35,7 @@ function insertRequests(client: Client, sessionId: string, total: number) {
 
 async function renderSessionPage(db: Database, viewerSessionId: string, username: string, sessionId: string, query = "") {
 	const container = await AstroContainer.create();
-	container.insertPageRoute("/401", NotAuthorizedPage);
+	container.insertPageRoute("/403", ForbiddenPage);
 	container.insertPageRoute("/404", NotFoundPage);
 	const response = await container.renderToResponse(SessionPage, {
 		locals: { db, session: await getSession(viewerSessionId, db) },
@@ -70,10 +70,38 @@ describe("SessionPage", () => {
 		const current = await createSession(user.id, db);
 		const strangerSession = await createSession(stranger.id, db);
 
-		const { html } = await renderSessionPage(db, current.id, stranger.username, strangerSession.id);
+		const { response, html } = await renderSessionPage(db, current.id, stranger.username, strangerSession.id);
 
+		expect(response.status).toBe(403);
 		expect(html).not.toContain("<h2>History</h2>");
-		expect(html).toContain("401");
+	});
+
+	it("does not tell another user whether a session id exists", async () => {
+		const { client, db } = createTestDatabase("session-page-forbidden-unknown");
+		const user = insertUser(client, "firstuser");
+		const stranger = insertUser(client, "seconduser");
+		const current = await createSession(user.id, db);
+
+		const { response } = await renderSessionPage(db, current.id, stranger.username, "no-such-session");
+
+		expect(response.status).toBe(403);
+	});
+
+	it("lets an admin open another user's session", async () => {
+		const { client, db } = createTestDatabase("session-page-admin");
+		const admin = insertUser(client, "firstuser", "admin");
+		const stranger = insertUser(client, "seconduser");
+		const current = await createSession(admin.id, db);
+		const strangerSession = await createSession(stranger.id, db);
+		client.insert(history)
+			.values({ sessionId: strangerSession.id, requestedAt: new Date(), method: "GET", route: "/explore", path: "/explore", status: 200 })
+			.run();
+
+		const { response, html } = await renderSessionPage(db, current.id, stranger.username, strangerSession.id);
+
+		expect(response.status).toBe(200);
+		expect(html).toContain("<h2>History</h2>");
+		expect(html).toContain("/explore</span>");
 	});
 
 	it("shows only the newest page of requests and links to the older ones", async () => {

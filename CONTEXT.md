@@ -68,6 +68,10 @@ _Avoid_: Handle, DisplayName, Nickname
 A role on a User. Admins can approve or reject suggested Restaurants and seed Restaurants from the Google Places API. Not a separate entity type. An Admin is able to manage all users and content, this entails banning users, suspending reviews, and restaurants. 
 _Avoid_: Moderator, Staff, Manager
 
+**Permission**:
+A named operation on a kind of resource, written `resource:operation`, such as `user:edit-settings`. A Policy decides whether a User has a Permission from attributes of the User (such as their id and role) and of the resource (such as the User it belongs to). Every access check names a Permission. No check reads the role directly, so each rule is written once, in `src/auth/permissions.ts`.
+_Avoid_: Right, Privilege, Scope, Grant
+
 **Picture**:
 A hosted image stored in blob storage (only the URL is in the database). Used for profile pictures, Review pictures, and potentially future picture types. Kept in a single generic table to centralize image logic.
 _Avoid_: Image, Photo, Avatar

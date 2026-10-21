@@ -2,8 +2,7 @@ import { ActionError, defineAction } from "astro:actions";
 import { z } from "astro/zod";
 import { pronouns } from "@src/data/pronouns";
 import { deleteSessionTokenCookie } from "@src/auth/session";
-import type { SessionWithUser } from "@src/auth/session";
-import type { Database } from "@src/db";
+import { can, type UserPermission } from "@src/auth/permissions";
 import { usernameSchema } from "@src/validation/username";
 
 export const updateAccountSchema = z.object({
@@ -18,8 +17,13 @@ export const signOutEverywhereSchema = z.object({
   currentUsername: z.string().trim().min(1).max(50),
 });
 
-/** Finds the user a settings form targets, and checks the signed-in user may change it. */
-async function findEditableUser(session: SessionWithUser, db: Database, username: string) {
+/**
+ * Finds the user a settings form targets, and checks the signed-in user has the permission on
+ * them.
+ */
+async function authorizeTargetUser(locals: App.Locals, username: string, permission: UserPermission) {
+  const session = locals.session;
+
   if (!session) {
     throw new ActionError({
       code: "UNAUTHORIZED",
@@ -27,7 +31,7 @@ async function findEditableUser(session: SessionWithUser, db: Database, username
     });
   }
 
-  const targetUser = await db.queries.users.findByUsername(username);
+  const targetUser = await locals.db.queries.users.findByUsername(username);
 
   if (!targetUser) {
     throw new ActionError({
@@ -36,10 +40,10 @@ async function findEditableUser(session: SessionWithUser, db: Database, username
     });
   }
 
-  if (session.user.role !== "admin" && session.user.id !== targetUser.id) {
+  if (!can(session.user, permission, targetUser)) {
     throw new ActionError({
       code: "FORBIDDEN",
-      message: "You are not allowed to change this profile.",
+      message: "You do not have permission to change this account.",
     });
   }
 
@@ -51,10 +55,10 @@ export const server = {
     accept: "form",
     input: updateAccountSchema,
     handler: async (input, context) => {
-      const { targetUser } = await findEditableUser(
-        context.locals.session,
-        context.locals.db,
+      const { targetUser } = await authorizeTargetUser(
+        context.locals,
         input.currentUsername,
+        "user:edit-settings",
       );
 
       const result = await context.locals.db.mutations.users.updateProfile(targetUser.id, {
@@ -78,10 +82,10 @@ export const server = {
     accept: "form",
     input: signOutEverywhereSchema,
     handler: async (input, context) => {
-      const { session, targetUser } = await findEditableUser(
-        context.locals.session,
-        context.locals.db,
+      const { session, targetUser } = await authorizeTargetUser(
+        context.locals,
         input.currentUsername,
+        "user:manage-sessions",
       );
 
       await context.locals.db.mutations.sessions.deleteAllForUser(targetUser.id);

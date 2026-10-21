@@ -3,6 +3,7 @@ import { ChevronUp, CircleUser, Settings, DoorOpen, Shield } from "@lucide/astro
 import ThemeSelector from "@src/components/ThemeSelector.astro";
 import type { ComponentProps } from "astro/types";
 import type { User } from "@src/db/schema"
+import { can } from "@src/auth/permissions";
 
 interface Props extends ComponentProps<typeof ThemeSelector> {
   user?: User;
@@ -44,7 +45,7 @@ const initials = user?.fullname
       <li><a href={`/${encodeURIComponent(user.username)}/settings`}><Settings size={16} aria-hidden="true" />Settings</a></li>
       <ThemeSelector {...Astro.props} />
       {
-        user.role === "admin" && (
+        can(user, "admin-console:view") && (
           <>
             <li data-menu-title="true">Admin</li>
             <li><a href="/admin" ><Shield size={16} aria-hidden="true" />Admin console</a></li>

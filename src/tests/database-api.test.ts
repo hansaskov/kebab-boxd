@@ -23,7 +23,7 @@ describe("database API", () => {
 		const listed = await db.queries.sessions.listActive(user.id);
 
 		expect(listed.map((session) => session.id)).toEqual([active.id]);
-		const page = { username: user.username, cursor: {}, limit: 25 };
+		const page = { userId: user.id, cursor: {}, limit: 25 };
 		expect(await db.queries.sessions.findActiveWithHistory({ ...page, sessionId: active.id })).toBeDefined();
 		expect(await db.queries.sessions.findActiveWithHistory({ ...page, sessionId: timedOut.id })).toBeUndefined();
 	});
