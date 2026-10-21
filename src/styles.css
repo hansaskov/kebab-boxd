@@ -462,6 +462,18 @@
     }
   }
 
+  /* The button that acts on a row. When the row stacks it fills the width, like
+     .settings-row-field, so it lines up with the text above instead of floating alone. */
+  .settings-row-action {
+    width: 100%;
+  }
+  @media (min-width: 30rem) {
+    .settings-row-action {
+      width: auto;
+      flex-shrink: 0;
+    }
+  }
+
   /* A row that opens a detail page. Unlike .settings-row it never stacks: its label and
      detail are short, so they share one line at every width. It bleeds into the card's
      padding so the hover background has room around the text. */
