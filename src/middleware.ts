@@ -5,15 +5,15 @@ import { getSessionAndUserFromCookie } from "@src/auth/session";
 import { defineMiddleware, sequence } from "astro:middleware";
 import { getActionContext } from "astro:actions";
 import { compressMiddleware } from "@src/middleware/compress";
-import { historyMiddleware } from "@src/middleware/history";
 import { hasStringRedirect } from "@src/validation/type-guards";
 
 const db = createDatabase(createClient(DB_FILE_NAME));
 
 const sessionMiddleware = defineMiddleware(async (context, next) => {
 
-	if (context.isPrerendered) return next();
+  if (context.isPrerendered) return next();
 
+	const requestedAt = new Date();
 	context.locals.db = db;
 	const session = await getSessionAndUserFromCookie(context.cookies, db);
 	context.locals.session = session;
@@ -51,7 +51,30 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 		setActionResult(session.actionData.actionName, session.actionData.actionResult);
 	}
 
-	return next();
+	// Execute request
+  const response = await next();
+
+  // If page is not prefetched, then add
+  if (!context.request.headers.get("Sec-Purpose")?.startsWith("prefetch")) {
+    const entry = {
+  		sessionId: session.id,
+  		requestedAt,
+  		method: context.request.method,
+  		route: context.routePattern,
+  		path: context.url.pathname,
+  		action: context.url.searchParams.get("_action"),
+  		status: response.status,
+      };
+
+    setImmediate(() => {
+		db.mutations.history.record(entry).catch((error: unknown) => {
+			console.error("Could not record history entry", entry, error);
+		});
+	});
+
+  }
+
+	return response;
 });
 
-export const onRequest = sequence(compressMiddleware, historyMiddleware, sessionMiddleware);
+export const onRequest = sequence(compressMiddleware, sessionMiddleware);
