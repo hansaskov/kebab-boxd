@@ -152,8 +152,14 @@ const settingsHref = `/${encodeURIComponent(owner.username)}/settings`;
             <ol class="mt-4 divide-y divide-line rounded-box border border-line bg-surface">
                 {history.map((entry) => (
                     <li class="flex items-center gap-3 px-4 py-3">
-                        <span class="tag min-w-[8ch] shrink-0 justify-center">
-                            {entry.method}
+                        {/* Prefetches are always GET, so PRE takes the place of the method. */}
+                        <span
+                            class="tag min-w-[8ch] shrink-0 justify-center"
+                            title={entry.prefetched
+                                ? "Prefetched: the browser loaded this page early, in case it was opened next"
+                                : undefined}
+                        >
+                            {entry.prefetched ? "PRE" : entry.method}
                         </span>
                         <span
                             class:list={[

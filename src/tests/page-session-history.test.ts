@@ -104,6 +104,28 @@ describe("SessionPage", () => {
 		expect(html).toContain("/explore</span>");
 	});
 
+	it("marks the requests that were prefetched", async () => {
+		const { client, db } = createTestDatabase("session-page-prefetched");
+		const user = insertUser(client, "firstuser");
+		const current = await createSession(user.id, db);
+		const request = { sessionId: current.id, method: "GET", route: "/explore", status: 200 };
+		client.insert(history)
+			.values([
+				{ ...request, requestedAt: new Date(2000), path: "/prefetched", prefetched: true },
+				{ ...request, requestedAt: new Date(1000), path: "/opened" },
+			])
+			.run();
+
+		const { html } = await renderSessionPage(db, current.id, user.username, current.id);
+
+		const rows = html.match(/<li\b.*?<\/li>/gs) ?? [];
+		const row = (path: string) => rows.find((li) => li.includes(`${path}</span>`));
+		expect(row("/prefetched")).toMatch(/>\s*PRE\s*</);
+		expect(row("/prefetched")).not.toMatch(/>\s*GET\s*</);
+		expect(row("/opened")).toMatch(/>\s*GET\s*</);
+		expect(row("/opened")).not.toMatch(/>\s*PRE\s*</);
+	});
+
 	it("shows only the newest page of requests and links to the older ones", async () => {
 		const { client, db } = createTestDatabase("session-page-limit");
 		const user = insertUser(client, "firstuser");

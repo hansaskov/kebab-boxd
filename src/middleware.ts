@@ -52,27 +52,27 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 	}
 
 	// Execute request
-  const response = await next();
+	const response = await next();
 
-  // If page is not prefetched, then add
-  if (!context.request.headers.get("Sec-Purpose")?.startsWith("prefetch")) {
-    const entry = {
-  		sessionId: session.id,
-  		requestedAt,
-  		method: context.request.method,
-  		route: context.routePattern,
-  		path: context.url.pathname,
-  		action: context.url.searchParams.get("_action"),
-  		status: response.status,
-      };
+	if (!context.routePattern.startsWith("/api/logout")) {
+		const entry = {
+			sessionId: session.id,
+			requestedAt,
+			method: context.request.method,
+			route: context.routePattern,
+			path: context.url.pathname,
+			action: context.url.searchParams.get("_action"),
+			status: response.status,
+			// Speculation rules send "prefetch", or "prefetch;prerender" when the page is also rendered.
+			prefetched: context.request.headers.get("Sec-Purpose")?.startsWith("prefetch") ?? false,
+		};
 
-    setImmediate(() => {
-		db.mutations.history.record(entry).catch((error: unknown) => {
-			console.error("Could not record history entry", entry, error);
+		setImmediate(() => {
+			db.mutations.history.record(entry).catch((error: unknown) => {
+				console.error("Could not record history entry", entry, error);
+			});
 		});
-	});
-
-  }
+	}
 
 	return response;
 });

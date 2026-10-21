@@ -60,7 +60,7 @@ function prepareSessionWithHistory(client: Client, kind: HistoryPageKind) {
 			},
 			with: {
 				history: {
-					columns: { requestedAt: true, method: true, path: true, action: true, status: true },
+					columns: { requestedAt: true, method: true, path: true, action: true, status: true, prefetched: true },
 					where:
 						kind === "newer"
 							? { RAW: (t) => gt(t.requestedAt, cursor) }

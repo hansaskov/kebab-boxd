@@ -11,5 +11,13 @@ export const POST = (async ({ cookies, redirect, locals }) => {
 	await locals.db.mutations.sessions.delete(session.id);
 	deleteSessionTokenCookie(cookies);
 
-	return redirect("/");
+	// Pages prefetched or prerendered while signed in would otherwise be shown after sign-out.
+	return new Response(null, {
+		status: 302,
+		headers: {
+			Location: "/login",
+			"Cache-Control": "no-store",
+			"Clear-Site-Data": "\"prefetchCache\", \"prerenderCache\"",
+		},
+	});
 }) satisfies APIRoute;

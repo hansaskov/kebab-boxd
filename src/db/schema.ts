@@ -184,6 +184,7 @@ export const history = p.snakeCase.table("history", {
   path: p.text().notNull(),
   action: p.text(),
   status: p.int({ mode: "number" }).notNull(),
+  prefetched: p.int({ mode: "boolean" }).notNull().default(false),
 }, (t) => [
   p.primaryKey({ columns: [t.sessionId, t.requestedAt] }),
 ])

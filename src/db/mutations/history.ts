@@ -14,6 +14,7 @@ export function createHistoryMutations(client: Client) {
 			path: sql.placeholder("path"),
 			action: sql.placeholder("action"),
 			status: sql.placeholder("status"),
+			prefetched: sql.placeholder("prefetched"),
 		})
 		.prepare();
 
