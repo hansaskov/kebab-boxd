@@ -24,8 +24,20 @@
     "src/tests/*"
   ],
   "rules": {
-    "no-underscore-dangle": ["error", { "allow": ["_zod"] }]
+    "no-underscore-dangle": ["error", { "allow": ["_zod"] }],
+    "no-restricted-imports": ["error", {
+      "patterns": [{
+        "group": ["drizzle-orm", "drizzle-orm/*"],
+        "message": "Database access belongs in src/db. Add a query or mutation there and call it through Astro.locals.db."
+      }]
+    }]
   },
+  "overrides": [
+    {
+      "files": ["src/db/**"],
+      "rules": { "no-restricted-imports": "off" }
+    }
+  ],
   "env": {
     "builtin": true
   }

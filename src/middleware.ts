@@ -1,14 +1,14 @@
 import { DB_FILE_NAME } from "astro:env/server";
-import { createDrizzleDatabase, s } from "@src/db";
+import { createDatabase } from "@src/db";
+import { createClient } from "@src/db/client";
 import { getSessionAndUserFromCookie } from "@src/auth/session";
 import { defineMiddleware, sequence } from "astro:middleware";
 import { getActionContext } from "astro:actions";
-import { eq } from "drizzle-orm";
 import { compressMiddleware } from "@src/middleware/compress";
 import { historyMiddleware } from "@src/middleware/history";
 import { hasStringRedirect } from "@src/validation/type-guards";
 
-const db = createDrizzleDatabase(DB_FILE_NAME);
+const db = createDatabase(createClient(DB_FILE_NAME));
 
 const sessionMiddleware = defineMiddleware(async (context, next) => {
 
@@ -25,15 +25,10 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 	if (action?.calledFrom === "form") {
 		const actionResult = await action.handler();
 
-		await context.locals.db
-			.update(s.sessions)
-			.set({
-				actionData: {
-					actionName: action.name,
-					actionResult: serializeActionResult(actionResult),
-				},
-			})
-			.where(eq(s.sessions.id, session.id));
+		await context.locals.db.mutations.sessions.setActionData(session.id, {
+			actionName: action.name,
+			actionResult: serializeActionResult(actionResult),
+		});
 
 		if (actionResult.error) {
 			const referer = context.request.headers.get("Referer");
@@ -51,10 +46,7 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 
 	if (context.request.method === "GET" && session.actionData) {
 
-		await context.locals.db
-			.update(s.sessions)
-			.set({ actionData: null })
-			.where(eq(s.sessions.id, session.id));
+		await context.locals.db.mutations.sessions.setActionData(session.id, null);
 
 		setActionResult(session.actionData.actionName, session.actionData.actionResult);
 	}

@@ -3,25 +3,13 @@ import { describe, expect, it } from "vitest";
 import SessionPage from "@src/pages/[username]/settings/sessions/[sessionId].astro";
 import NotAuthorizedPage from "@src/pages/401.astro";
 import NotFoundPage from "@src/pages/404.astro";
-import { createSession, getSession, sessionHistoryPageSize } from "@src/auth/session";
-import { createDrizzleDatabase, migrateDrizzleDatabase } from "@src/db";
-import type { DB } from "@src/db";
+import { createSession, getSession } from "@src/auth/session";
+import { sessionHistoryPageSize } from "@src/db/queries/sessions";
+import type { Database } from "@src/db";
+import type { Client } from "@src/db/client";
 import { eq } from "drizzle-orm";
-import { history, sessions, users } from "@src/db/schema";
-
-function createTestDb(name: string) {
-	const db = createDrizzleDatabase(`file:${name}?mode=memory`);
-	migrateDrizzleDatabase(db);
-	return db;
-}
-
-function insertUser(db: DB, username: string) {
-	return db
-		.insert(users)
-		.values({ fullname: `${username} user`, username, email: `${username}@example.com` })
-		.returning()
-		.get();
-}
+import { history, sessions } from "@src/db/schema";
+import { createTestDatabase, insertUser } from "@src/tests/database";
 
 // The query of a pagination link, or undefined when the link is turned off.
 function linkQuery(html: string, rel: "prev" | "next") {
@@ -29,9 +17,9 @@ function linkQuery(html: string, rel: "prev" | "next") {
 	return href === undefined ? undefined : href.slice(href.indexOf("?") === -1 ? href.length : href.indexOf("?"));
 }
 
-function insertRequests(db: DB, sessionId: string, total: number) {
+function insertRequests(client: Client, sessionId: string, total: number) {
 	const now = Date.now();
-	db.insert(history)
+	client.insert(history)
 		.values(
 			Array.from({ length: total }, (_, i) => ({
 				sessionId,
@@ -45,7 +33,7 @@ function insertRequests(db: DB, sessionId: string, total: number) {
 		.run();
 }
 
-async function renderSessionPage(db: DB, viewerSessionId: string, username: string, sessionId: string, query = "") {
+async function renderSessionPage(db: Database, viewerSessionId: string, username: string, sessionId: string, query = "") {
 	const container = await AstroContainer.create();
 	container.insertPageRoute("/401", NotAuthorizedPage);
 	container.insertPageRoute("/404", NotFoundPage);
@@ -59,12 +47,12 @@ async function renderSessionPage(db: DB, viewerSessionId: string, username: stri
 
 describe("SessionPage", () => {
 	it("does not show a session that belongs to another user", async () => {
-		const db = createTestDb("session-page-other-user");
-		const user = insertUser(db, "firstuser");
-		const stranger = insertUser(db, "seconduser");
+		const { client, db } = createTestDatabase("session-page-other-user");
+		const user = insertUser(client, "firstuser");
+		const stranger = insertUser(client, "seconduser");
 		const current = await createSession(user.id, db);
 		const strangerSession = await createSession(stranger.id, db);
-		db.insert(history)
+		client.insert(history)
 			.values({ sessionId: strangerSession.id, requestedAt: new Date(), method: "GET", route: "/secret", path: "/secret", status: 200 })
 			.run();
 
@@ -76,9 +64,9 @@ describe("SessionPage", () => {
 	});
 
 	it("does not let a user open another user's sessions", async () => {
-		const db = createTestDb("session-page-forbidden");
-		const user = insertUser(db, "firstuser");
-		const stranger = insertUser(db, "seconduser");
+		const { client, db } = createTestDatabase("session-page-forbidden");
+		const user = insertUser(client, "firstuser");
+		const stranger = insertUser(client, "seconduser");
 		const current = await createSession(user.id, db);
 		const strangerSession = await createSession(stranger.id, db);
 
@@ -89,11 +77,11 @@ describe("SessionPage", () => {
 	});
 
 	it("shows only the newest page of requests and links to the older ones", async () => {
-		const db = createTestDb("session-page-limit");
-		const user = insertUser(db, "firstuser");
+		const { client, db } = createTestDatabase("session-page-limit");
+		const user = insertUser(client, "firstuser");
 		const current = await createSession(user.id, db);
 		const total = sessionHistoryPageSize + 5;
-		insertRequests(db, current.id, total);
+		insertRequests(client, current.id, total);
 
 		const { html } = await renderSessionPage(db, current.id, user.username, current.id);
 
@@ -128,10 +116,10 @@ describe("SessionPage", () => {
 	});
 
 	it("shows the chosen number of rows per page and keeps it when paging", async () => {
-		const db = createTestDb("session-page-rows");
-		const user = insertUser(db, "firstuser");
+		const { client, db } = createTestDatabase("session-page-rows");
+		const user = insertUser(client, "firstuser");
 		const current = await createSession(user.id, db);
-		insertRequests(db, current.id, 30);
+		insertRequests(client, current.id, 30);
 
 		const { html } = await renderSessionPage(db, current.id, user.username, current.id, "?rows=10");
 
@@ -149,10 +137,10 @@ describe("SessionPage", () => {
 	});
 
 	it("falls back to the default number of rows for sizes not on offer", async () => {
-		const db = createTestDb("session-page-rows-invalid");
-		const user = insertUser(db, "firstuser");
+		const { client, db } = createTestDatabase("session-page-rows-invalid");
+		const user = insertUser(client, "firstuser");
 		const current = await createSession(user.id, db);
-		insertRequests(db, current.id, sessionHistoryPageSize + 1);
+		insertRequests(client, current.id, sessionHistoryPageSize + 1);
 
 		const { html } = await renderSessionPage(db, current.id, user.username, current.id, "?rows=100000");
 
@@ -160,10 +148,10 @@ describe("SessionPage", () => {
 	});
 
 	it("links back to the newest requests from a page past the oldest one", async () => {
-		const db = createTestDb("session-page-past-end");
-		const user = insertUser(db, "firstuser");
+		const { client, db } = createTestDatabase("session-page-past-end");
+		const user = insertUser(client, "firstuser");
 		const current = await createSession(user.id, db);
-		db.insert(history)
+		client.insert(history)
 			.values({ sessionId: current.id, requestedAt: new Date(), method: "GET", route: "/explore", path: "/explore", status: 200 })
 			.run();
 
@@ -175,15 +163,15 @@ describe("SessionPage", () => {
 	});
 
 	it("numbers another device in the order it signed in", async () => {
-		const db = createTestDb("session-page-device-name");
-		const user = insertUser(db, "firstuser");
-		const stranger = insertUser(db, "seconduser");
+		const { client, db } = createTestDatabase("session-page-device-name");
+		const user = insertUser(client, "firstuser");
+		const stranger = insertUser(client, "seconduser");
 		const strangerSession = await createSession(stranger.id, db);
 		const later = await createSession(user.id, db);
 		const earlier = await createSession(user.id, db);
 		const current = await createSession(user.id, db);
 		const signIn = (id: string, ms: number) =>
-			db.update(sessions).set({ createdAt: new Date(ms) }).where(eq(sessions.id, id)).run();
+			client.update(sessions).set({ createdAt: new Date(ms) }).where(eq(sessions.id, id)).run();
 		signIn(strangerSession.id, 1000);
 		signIn(earlier.id, 2000);
 		signIn(later.id, 3000);

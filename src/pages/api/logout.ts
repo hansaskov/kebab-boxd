@@ -1,4 +1,4 @@
-import { deleteSession, deleteSessionTokenCookie } from "@src/auth/session";
+import { deleteSessionTokenCookie } from "@src/auth/session";
 import type { APIRoute } from "astro";
 
 export const POST = (async ({ cookies, redirect, locals }) => {
@@ -8,7 +8,7 @@ export const POST = (async ({ cookies, redirect, locals }) => {
 		return redirect("/login");
 	}
 
-	await deleteSession(session.id, locals.db);
+	await locals.db.mutations.sessions.delete(session.id);
 	deleteSessionTokenCookie(cookies);
 
 	return redirect("/");

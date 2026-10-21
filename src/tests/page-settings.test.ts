@@ -1,14 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { server } from "@src/actions/index";
 import { createSession } from "@src/auth/session";
-import { createDrizzleDatabase, migrateDrizzleDatabase } from "@src/db";
 import { users } from "@src/db/schema";
+import { createTestDatabase } from "@src/tests/database";
 
 describe("SettingsPage", () => {
 	it("returns a field error when the username is already taken", async () => {
-		const db = createDrizzleDatabase("file:settings-duplicate-username?mode=memory");
-		migrateDrizzleDatabase(db);
-		const user = db
+		const { client, db } = createTestDatabase("settings-duplicate-username");
+		const user = client
 			.insert(users)
 			.values({
 				fullname: "First User",
@@ -17,7 +16,7 @@ describe("SettingsPage", () => {
 			})
 			.returning()
 			.get();
-		db.insert(users)
+		client.insert(users)
 			.values({
 				fullname: "Second User",
 				username: "seconduser",

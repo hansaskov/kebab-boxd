@@ -1,13 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { createDrizzleDatabase, migrateDrizzleDatabase } from "@src/db/index";
 import { seedDatabase } from "@src/db/seed";
 import * as s from "@src/db/schema";
+import { createTestDatabase } from "@src/tests/database";
 
 describe("seedDatabase", () => {
 
   it("populates all tables without constraint violations", async () => {
-    const db = createDrizzleDatabase("file:test?mode=memory");
-    migrateDrizzleDatabase(db);
+    const { client: db } = createTestDatabase("database-seed");
 
     await expect(seedDatabase(db)).resolves.not.toThrow();
 

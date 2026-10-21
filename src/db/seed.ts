@@ -1,9 +1,10 @@
 import { reset, seed } from "drizzle-seed";
 import * as schema from "@src/db/schema";
-import type { DB } from "@src/db/index";
+import { createDatabase } from "@src/db";
+import type { Client } from "@src/db/client";
 import { pronouns } from "@src/data/pronouns";
 import { createSession } from "@src/auth/session";
-import { buildUsername } from "@src/auth/sign-in";
+import { buildUsername } from "@src/db/mutations/accounts";
 import { eq } from "drizzle-orm";
 
 const imageUrls = [
@@ -76,8 +77,8 @@ function uniquePairs(
   return result;
 }
 
-export async function seedDatabase(db: DB) {
-  await seed(db, parentSchema).refine((funcs) => ({
+export async function seedDatabase(client: Client) {
+  await seed(client, parentSchema).refine((funcs) => ({
     users: {
       count: 50,
       columns: {
@@ -159,20 +160,20 @@ export async function seedDatabase(db: DB) {
 
   // Seeded first names are capitalized, so turn them into valid lowercase
   // usernames the same way a real sign-in does. The id suffix keeps them unique.
-  const seededUsers = await db
+  const seededUsers = await client
     .select({ id: schema.users.id, username: schema.users.username })
     .from(schema.users);
   for (const { id, username } of seededUsers) {
-    await db
+    await client
       .update(schema.users)
       .set({ username: buildUsername(username, id) })
       .where(eq(schema.users.id, id));
   }
 
   const userIds = seededUsers.map((r) => r.id);
-  const restaurantIds = (await db.select({ id: schema.restaurants.id }).from(schema.restaurants)).map((r) => r.id);
-  const reviewIds = (await db.select({ id: schema.reviews.id }).from(schema.reviews)).map((r) => r.id);
-  const pictureIds = (await db.select({ id: schema.pictures.id }).from(schema.pictures)).map((r) => r.id);
+  const restaurantIds = (await client.select({ id: schema.restaurants.id }).from(schema.restaurants)).map((r) => r.id);
+  const reviewIds = (await client.select({ id: schema.reviews.id }).from(schema.reviews)).map((r) => r.id);
+  const pictureIds = (await client.select({ id: schema.pictures.id }).from(schema.pictures)).map((r) => r.id);
 
   const now = new Date();
 
@@ -182,9 +183,10 @@ export async function seedDatabase(db: DB) {
     accountId: `seed-google-${userId}`,
   }));
   if (accountRows.length > 0) {
-    await db.insert(schema.accounts).values(accountRows);
+    await client.insert(schema.accounts).values(accountRows);
   }
 
+  const db = createDatabase(client);
   for (const id of userIds.slice(10)) {
     await createSession(id, db);
   }
@@ -195,7 +197,7 @@ export async function seedDatabase(db: DB) {
     updatedAt: now,
   }));
   if (favoritesRows.length > 0) {
-    await db.insert(schema.favorites).values(favoritesRows);
+    await client.insert(schema.favorites).values(favoritesRows);
   }
 
   const likesRows = uniquePairs(500, userIds, reviewIds).map(([userId, reviewId]) => ({
@@ -204,7 +206,7 @@ export async function seedDatabase(db: DB) {
     updatedAt: now,
   }));
   if (likesRows.length > 0) {
-    await db.insert(schema.likes).values(likesRows);
+    await client.insert(schema.likes).values(likesRows);
   }
 
   const bucketListRows = uniquePairs(100, userIds, restaurantIds).map(([userId, restaurantId]) => ({
@@ -213,7 +215,7 @@ export async function seedDatabase(db: DB) {
     updatedAt: now,
   }));
   if (bucketListRows.length > 0) {
-    await db.insert(schema.bucketList).values(bucketListRows);
+    await client.insert(schema.bucketList).values(bucketListRows);
   }
 
   const reviewPicturesRows = uniquePairs(150, reviewIds, pictureIds).map(([reviewId, pictureId]) => ({
@@ -222,10 +224,10 @@ export async function seedDatabase(db: DB) {
     updatedAt: now,
   }));
   if (reviewPicturesRows.length > 0) {
-    await db.insert(schema.reviewPictures).values(reviewPicturesRows);
+    await client.insert(schema.reviewPictures).values(reviewPicturesRows);
   }
 }
 
-export async function nukeDatabase(db: DB) {
-  await reset(db, schema)
+export async function nukeDatabase(client: Client) {
+  await reset(client, schema)
 }

@@ -1,7 +1,5 @@
 import { defineMiddleware } from "astro:middleware";
 
-import { isFunction } from "@src/validation/type-guards";
-
 export const COMPRESSIBLE_CONTENT_TYPE_REGEX =
 	/^\s*(?:text\/(?!event-stream(?:[;\s]|$))[^;\s]+|application\/(?:javascript|json|xml|xml-dtd|ecmascript|dart|msgpack|postscript|rtf|tar|toml|vnd\.dart|vnd\.ms-fontobject|vnd\.ms-opentype|vnd\.msgpack|wasm|x-httpd-php|x-javascript|x-msgpack|x-ns-proxy-autoconfig|x-sh|x-tar|x-virtualbox-hdd|x-virtualbox-ova|x-virtualbox-ovf|x-virtualbox-vbox|x-virtualbox-vdi|x-virtualbox-vhd|x-virtualbox-vmdk|x-www-form-urlencoded)|font\/(?:otf|ttf)|image\/(?:bmp|vnd\.adobe\.photoshop|vnd\.microsoft\.icon|vnd\.ms-dds|x-icon|x-ms-bmp)|message\/rfc822|model\/gltf-binary|x-shader\/x-fragment|x-shader\/x-vertex|[^;\s]+?\+(?:json|text|xml|yaml|msgpack))(?:[;\s]|$)/i;
 
@@ -10,12 +8,10 @@ type Encoding = (typeof ENCODING_TYPES)[number];
 const cacheControlNoTransformRegExp = /(?:^|,)\s*?no-transform\s*?(?:,|$)/i;
 const varyAcceptEncodingRegExp = /(?:^|,)\s*accept-encoding\s*(?:,|$)/i;
 
-export type ContentTypeFilter = RegExp | ((contentType: string) => boolean);
-
 export interface CompressionOptions {
 	encoding?: Encoding;
 	threshold?: number;
-	contentTypeFilter?: ContentTypeFilter;
+	contentTypeFilter?: RegExp;
 }
 
 interface Accept {
@@ -304,9 +300,7 @@ export const compress = (options?: CompressionOptions) => {
 		if (!type) {
 			return false;
 		}
-		return isFunction(contentTypeFilter)
-			? contentTypeFilter(type)
-			: contentTypeFilter.test(type);
+		return contentTypeFilter.test(type);
 	};
 
 	return defineMiddleware(async (context, next) => {

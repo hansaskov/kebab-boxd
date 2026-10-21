@@ -1,15 +1,10 @@
 import type { z } from "astro/zod";
 
 import type { SQLiteError } from "@src/db/sqlite-errors";
-import type { ContentTypeFilter } from "@src/middleware/compress";
 import type { CheckDef } from "@src/validation/constraint";
 
 export function isNumber(value: number | string | bigint | Date | undefined): value is number {
 	return Number.isFinite(value);
-}
-
-export function isFunction(value: ContentTypeFilter): value is (contentType: string) => boolean {
-	return !(value instanceof RegExp);
 }
 
 export function hasStringRedirect(

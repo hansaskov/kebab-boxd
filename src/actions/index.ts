@@ -1,12 +1,9 @@
 import { ActionError, defineAction } from "astro:actions";
 import { z } from "astro/zod";
-import { eq } from "drizzle-orm";
 import { pronouns } from "@src/data/pronouns";
-import { s } from "@src/db";
-import { getSQLiteError, isUniqueConstraintError } from "@src/db/sqlite-errors";
-import { deleteSessionTokenCookie, deleteUserSessions } from "@src/auth/session";
+import { deleteSessionTokenCookie } from "@src/auth/session";
 import type { SessionWithUser } from "@src/auth/session";
-import type { DB } from "@src/db";
+import type { Database } from "@src/db";
 import { usernameSchema } from "@src/validation/username";
 
 export const updateAccountSchema = z.object({
@@ -22,7 +19,7 @@ export const signOutEverywhereSchema = z.object({
 });
 
 /** Finds the user a settings form targets, and checks the signed-in user may change it. */
-async function findEditableUser(session: SessionWithUser, db: DB, username: string) {
+async function findEditableUser(session: SessionWithUser, db: Database, username: string) {
   if (!session) {
     throw new ActionError({
       code: "UNAUTHORIZED",
@@ -30,9 +27,7 @@ async function findEditableUser(session: SessionWithUser, db: DB, username: stri
     });
   }
 
-  const targetUser = await db.query.users.findFirst({
-    where: { username: { eq: username } },
-  });
+  const targetUser = await db.queries.users.findByUsername(username);
 
   if (!targetUser) {
     throw new ActionError({
@@ -62,25 +57,19 @@ export const server = {
         input.currentUsername,
       );
 
-      await context.locals.db
-        .update(s.users)
-        .set({
-          fullname: input.fullname,
-          username: input.username,
-          pronoun: input.pronoun,
-          bio: input.bio,
-        })
-        .where(eq(s.users.id, targetUser.id))
-        .catch((error) => {
-          if (isUniqueConstraintError(getSQLiteError(error))) {
-            throw new ActionError({
-              code: "CONFLICT",
-              message: "Username is already taken.",
-            });
-          }
+      const result = await context.locals.db.mutations.users.updateProfile(targetUser.id, {
+        fullname: input.fullname,
+        username: input.username,
+        pronoun: input.pronoun,
+        bio: input.bio,
+      });
 
-          throw error;
+      if (result === "username-taken") {
+        throw new ActionError({
+          code: "CONFLICT",
+          message: "Username is already taken.",
         });
+      }
 
       return { redirect: `/${encodeURIComponent(input.username)}/settings` };
     },
@@ -95,7 +84,7 @@ export const server = {
         input.currentUsername,
       );
 
-      await deleteUserSessions(targetUser.id, context.locals.db);
+      await context.locals.db.mutations.sessions.deleteAllForUser(targetUser.id);
 
       // An admin who signs out another user keeps their own session.
       if (session.user.id !== targetUser.id) {

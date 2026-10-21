@@ -1,18 +1,26 @@
-import { drizzle } from "drizzle-orm/node-sqlite";
-import { migrate } from "drizzle-orm/node-sqlite/migrator";
-import { relations } from "@src/db/relations";
-export * as s from "@src/db/schema";
+import type { Client } from "@src/db/client";
+import { createAccountMutations } from "@src/db/mutations/accounts";
+import { createAccountQueries } from "@src/db/queries/accounts";
+import { createHistoryMutations } from "@src/db/mutations/history";
+import { createSessionMutations } from "@src/db/mutations/sessions";
+import { createSessionQueries } from "@src/db/queries/sessions";
+import { createUserMutations } from "@src/db/mutations/users";
+import { createUserQueries } from "@src/db/queries/users";
 
-const MIGRATIONS_DIR = ".drizzle";
-
-export function createDrizzleDatabase(dbFileName: string) {
-	return drizzle(dbFileName, { relations, jit: true });
+export function createDatabase(client: Client) {
+	return {
+		queries: {
+			accounts: createAccountQueries(client),
+			sessions: createSessionQueries(client),
+			users: createUserQueries(client),
+		},
+		mutations: {
+			accounts: createAccountMutations(client),
+			history: createHistoryMutations(client),
+			sessions: createSessionMutations(client),
+			users: createUserMutations(client),
+		},
+	};
 }
 
-export function migrateDrizzleDatabase(db: DB) {
-	return migrate(db, {
-		migrationsFolder: MIGRATIONS_DIR
-	})
-}
-
-export type DB = ReturnType<typeof createDrizzleDatabase>;
+export type Database = ReturnType<typeof createDatabase>;

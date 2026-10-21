@@ -1,19 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { createDrizzleDatabase, migrateDrizzleDatabase } from "@src/db/index";
+import type { Client } from "@src/db/client";
 import { users } from "@src/db/schema";
 import { getSQLiteError, isUniqueConstraintError } from "@src/db/sqlite-errors";
-
-function createTestDb(name: string) {
-  const db = createDrizzleDatabase(`file:${name}?mode=memory`);
-  migrateDrizzleDatabase(db);
-  return db;
-}
+import { createTestDatabase } from "@src/tests/database";
 
 function insertUser(
-  db: ReturnType<typeof createTestDb>,
+  client: Client,
   overrides: { username: string; email: string },
 ) {
-  const user = db
+  const user = client
     .insert(users)
     .values({
       fullname: "Test User",
@@ -31,13 +26,13 @@ function insertUser(
 
 describe("users table constraints", () => {
   it("enforces unique usernames regardless of letter case", () => {
-    const db = createTestDb("constraint-username-case");
+    const { client } = createTestDatabase("constraint-username-case");
 
-    insertUser(db, { username: "kebabking", email: "first@example.com" });
+    insertUser(client, { username: "kebabking", email: "first@example.com" });
 
     let error: unknown;
     try {
-      insertUser(db, { username: "KebabKing", email: "second@example.com" });
+      insertUser(client, { username: "KebabKing", email: "second@example.com" });
     } catch (caughtError) {
       error = caughtError;
     }
@@ -46,13 +41,13 @@ describe("users table constraints", () => {
   });
 
   it("enforces unique emails regardless of letter case", () => {
-    const db = createTestDb("constraint-email-case");
+    const { client } = createTestDatabase("constraint-email-case");
 
-    insertUser(db, { username: "first", email: "ada@example.com" });
+    insertUser(client, { username: "first", email: "ada@example.com" });
 
     let error: unknown;
     try {
-      insertUser(db, { username: "second", email: "Ada@Example.com" });
+      insertUser(client, { username: "second", email: "Ada@Example.com" });
     } catch (caughtError) {
       error = caughtError;
     }

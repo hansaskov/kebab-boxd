@@ -3,10 +3,9 @@ import { settingsSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import Pagination from "@src/components/Pagination.astro";
 import {
-    getActiveUserSessionHistory,
     sessionHistoryPageSize,
     sessionHistoryPageSizes,
-} from "@src/auth/session";
+} from "@src/db/queries/sessions";
 import { deviceName } from "@src/format/device-name";
 import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
 
@@ -43,13 +42,12 @@ const rows =
     sessionHistoryPageSize;
 
 // Only active sessions that belong to this user can be opened.
-const selectedSession = await getActiveUserSessionHistory(
+const selectedSession = await Astro.locals.db.queries.sessions.findActiveWithHistory({
     sessionId,
     username,
-    Astro.locals.db,
     cursor,
-    rows,
-);
+    limit: rows,
+});
 
 if (!selectedSession) {
     return Astro.rewrite("/404");

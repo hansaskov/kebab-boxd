@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { createDrizzleDatabase, migrateDrizzleDatabase } from "@src/db";
 import { accounts, users } from "@src/db/schema";
 import {
 	EmailAlreadyRegisteredError,
@@ -7,12 +6,7 @@ import {
 } from "@src/auth/sign-in";
 import type { ProviderAccount } from "@src/auth/provider-account";
 import { usernameSchema } from "@src/validation/username";
-
-function createTestDb(name: string) {
-	const db = createDrizzleDatabase(`file:${name}?mode=memory`);
-	migrateDrizzleDatabase(db);
-	return db;
-}
+import { createTestDatabase } from "@src/tests/database";
 
 function googleAccount(overrides: Partial<ProviderAccount> = {}): ProviderAccount {
 	return {
@@ -27,18 +21,18 @@ function googleAccount(overrides: Partial<ProviderAccount> = {}): ProviderAccoun
 
 describe("signInWithProviderAccount", () => {
 	it("returns the existing user when the same provider account signs in again", async () => {
-		const db = createTestDb("sign-in-repeat");
+		const { client, db } = createTestDatabase("sign-in-repeat");
 
 		const first = await signInWithProviderAccount(db, googleAccount());
 		const second = await signInWithProviderAccount(db, googleAccount());
 
 		expect(second.id).toBe(first.id);
-		expect(await db.$count(users)).toBe(1);
-		expect(await db.$count(accounts)).toBe(1);
+		expect(await client.$count(users)).toBe(1);
+		expect(await client.$count(accounts)).toBe(1);
 	});
 
 	it("refuses to attach a second provider to an email that is already registered", async () => {
-		const db = createTestDb("sign-in-email-conflict");
+		const { client, db } = createTestDatabase("sign-in-email-conflict");
 
 		await signInWithProviderAccount(db, googleAccount());
 
@@ -49,12 +43,12 @@ describe("signInWithProviderAccount", () => {
 			),
 		).rejects.toBeInstanceOf(EmailAlreadyRegisteredError);
 
-		expect(await db.$count(users)).toBe(1);
-		expect(await db.$count(accounts)).toBe(1);
+		expect(await client.$count(users)).toBe(1);
+		expect(await client.$count(accounts)).toBe(1);
 	});
 
 	it("generates a username that passes the settings validation", async () => {
-		const db = createTestDb("sign-in-valid-username");
+		const { db } = createTestDatabase("sign-in-valid-username");
 
 		const result = await signInWithProviderAccount(
 			db,
@@ -66,8 +60,8 @@ describe("signInWithProviderAccount", () => {
 	});
 
 	it("picks another username when the id-based one is already taken", async () => {
-		const db = createTestDb("sign-in-username-taken");
-		db.insert(users)
+		const { client, db } = createTestDatabase("sign-in-username-taken");
+		client.insert(users)
 			.values({ fullname: "Squatter", username: "ada_2", email: "squatter@example.com" })
 			.run();
 

@@ -1,5 +1,3 @@
-import { eq } from "drizzle-orm";
-import { s } from "@src/db/index";
 import type { APIRoute } from "astro";
 
 export const POST = (async ({ redirect, locals: {db, session}, request }) => {
@@ -9,10 +7,7 @@ export const POST = (async ({ redirect, locals: {db, session}, request }) => {
 	}
 	const newTheme = session.theme === "dark" ? "light" : "dark";
 
-	await db
-		.update(s.sessions)
-		.set({ theme: newTheme })
-		.where(eq(s.sessions.id, session.id));
+	await db.mutations.sessions.setTheme(session.id, newTheme);
 
 	const referer = request.headers.get("Referer");
 
@@ -21,9 +16,6 @@ export const POST = (async ({ redirect, locals: {db, session}, request }) => {
 		headers: {
 			Location: referer ?? "/",
 			"Cache-Control": "no-store",
-			// Only the speculatively loaded pages still show the old theme. Clearing
-			// all of "cache" makes the browser hold this response while it wipes
-			// the whole HTTP cache and back/forward cache, which is slow.
 			"Clear-Site-Data": "\"prefetchCache\", \"prerenderCache\"",
 		},
 	});
