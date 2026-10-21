@@ -3,6 +3,7 @@ import * as schema from "@src/db/schema";
 import { createDatabase } from "@src/db";
 import type { Client } from "@src/db/client";
 import { pronouns } from "@src/data/pronouns";
+import { can } from "@src/auth/permissions";
 import { createSession } from "@src/auth/session";
 import { buildUsername } from "@src/db/mutations/accounts";
 import { eq } from "drizzle-orm";
@@ -95,6 +96,8 @@ export async function seedDatabase(client: Client) {
         pronoun: funcs.valuesFromArray({ values: [...pronouns] }),
         latitude: funcs.number({ minValue: -90, maxValue: 90, precision: 10000 }),
         longitude: funcs.number({ minValue: -180, maxValue: 180, precision: 10000 }),
+        // A few users are banned below, the way an admin does it.
+        bannedAt: funcs.default({ defaultValue: null }),
       },
     },
 
@@ -190,7 +193,25 @@ export async function seedDatabase(client: Client) {
   for (const id of userIds.slice(10)) {
     await createSession(id, db);
   }
-   
+
+  const admin = client
+    .select({ id: schema.users.id })
+    .from(schema.users)
+    .where(eq(schema.users.role, "admin"))
+    .get();
+  if (!admin) {
+    throw new Error("The seed has no Admin to ban users with.");
+  }
+  // Only users without the Admin role can be banned.
+  const bannableUsers = await client
+    .select({ id: schema.users.id })
+    .from(schema.users)
+    .where(eq(schema.users.role, "user"))
+    .limit(3);
+  for (const { id } of bannableUsers) {
+    await db.mutations.users.ban(id, admin.id, (actor, target) => can(actor, "user:ban", target));
+  }
+
   const favoritesRows = uniquePairs(250, userIds, restaurantIds).map(([userId, restaurantId]) => ({
     userId,
     restaurantId,

@@ -1,0 +1,50 @@
+---
+import { adminSidebarMenuSections } from "@src/data/sidebar-menu-sections";
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+import { can } from "@src/auth/permissions";
+
+const session = Astro.locals.session;
+
+if (!session) {
+  return Astro.redirect("/login");
+}
+
+if (!can(session.user, "admin-console:view")) {
+  return Astro.rewrite("/403");
+}
+
+const totals = await Astro.locals.db.queries.users.countByFilter();
+
+const userGroups = [
+  { label: "Users", count: totals.all, href: "/admin/users" },
+  { label: "Admins", count: totals.admin, href: "/admin/users?filter=admin" },
+  { label: "Banned", count: totals.banned, href: "/admin/users?filter=banned" },
+];
+---
+
+<BaseLayout
+  title="Admin console"
+  description="Manage the users of Kebab Boxd"
+  includeSidebar={true}
+  prefetchUrls={["/admin/users", "/"]}
+  session={session}
+  user={session.user}
+  sidebarMenuSections={adminSidebarMenuSections()}
+>
+  <h1>Admin console</h1>
+  <p class="t-lead mt-2 text-fg-muted">Manage the people who use Kebab Boxd.</p>
+
+  <section class="mt-8">
+    <h2>Users</h2>
+    <ul class="t-body-sm mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {userGroups.map((group) => (
+        <li>
+          <a class="block rounded-box border border-line bg-surface p-3 hover:bg-active" href={group.href}>
+            <span class="block text-fg-muted">{group.label}</span>
+            <span class="t-body block font-medium">{group.count}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </section>
+</BaseLayout>

@@ -3,6 +3,7 @@ import { oauthCookieOptions } from "@src/auth/oauth";
 import {
 	EmailAlreadyRegisteredError,
 	signInWithProviderAccount,
+	UserBannedError,
 } from "@src/auth/sign-in";
 import type { ProviderAccount } from "@src/auth/provider-account";
 import { createSession, setSessionTokenCookie } from "@src/auth/session";
@@ -11,7 +12,7 @@ import type { User } from "@src/db/schema";
 import type { APIContext } from "astro";
 
 /** Sends the person back to the login page, which explains the reason, if any. */
-function restart(context: APIContext, reason?: "expired" | "failed"): Response {
+function restart(context: APIContext, reason?: "expired" | "failed" | "banned"): Response {
 	return context.redirect(reason ? `/login?error=${reason}` : "/login");
 }
 
@@ -63,6 +64,10 @@ export async function GET(context: APIContext): Promise<Response> {
 				"An account with this email already exists. Sign in with the method you used before.",
 				{ status: 409 },
 			);
+		}
+
+		if (error instanceof UserBannedError) {
+			return restart(context, "banned");
 		}
 
 		throw error;

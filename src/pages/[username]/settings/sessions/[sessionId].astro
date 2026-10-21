@@ -4,9 +4,10 @@ import BaseLayout from "@src/layouts/BaseLayout.astro";
 import { can } from "@src/auth/permissions";
 import Pagination from "@src/components/Pagination.astro";
 import {
-    sessionHistoryPageSize,
-    sessionHistoryPageSizes,
-} from "@src/db/queries/sessions";
+    defaultPageSize,
+    pageSizes,
+    parsePageSize,
+} from "@src/validation/page-size";
 import { deviceName } from "@src/format/device-name";
 import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
 
@@ -43,18 +44,16 @@ const after = cursorTime("after");
 const cursor = before ? { before } : after ? { after } : {};
 
 // ?rows=<n> sets how many requests a page shows, from the sizes on offer.
-const rowsParam = Number(Astro.url.searchParams.get("rows"));
-const rows =
-    sessionHistoryPageSizes.find((size) => size === rowsParam) ??
-    sessionHistoryPageSize;
+const rows = parsePageSize(Astro.url.searchParams.get("rows"));
 
 // Only active sessions that belong to this user can be opened.
-const selectedSession = await Astro.locals.db.queries.sessions.findActiveWithHistory({
-    sessionId,
-    userId: owner.id,
-    cursor,
-    limit: rows,
-});
+const selectedSession =
+    await Astro.locals.db.queries.sessions.findActiveWithHistory({
+        sessionId,
+        userId: owner.id,
+        cursor,
+        limit: rows,
+    });
 
 if (!selectedSession) {
     return Astro.rewrite("/404");
@@ -72,7 +71,7 @@ function historyHref(params: {
     const search = new URLSearchParams();
     if (params.before) search.set("before", String(params.before.getTime()));
     else if (params.after) search.set("after", String(params.after.getTime()));
-    if (params.rows !== sessionHistoryPageSize)
+    if (params.rows !== defaultPageSize)
         search.set("rows", String(params.rows));
     return search.size ? `${pageHref}?${search}` : pageHref;
 }
@@ -88,7 +87,7 @@ const nextHref = selectedSession.older
     ? historyHref({ before: selectedSession.older, rows })
     : undefined;
 // Changing the rows per page keeps the page starting where it does.
-const rowsOptions = sessionHistoryPageSizes.map((size) => ({
+const rowsOptions = pageSizes.map((size) => ({
     rows: size,
     href: historyHref({ ...cursor, rows: size }),
 }));
@@ -102,7 +101,7 @@ const settingsHref = `/${encodeURIComponent(owner.username)}/settings`;
     prefetchUrls={[settingsHref, "/explore", "/reviews", "/"]}
     session={session}
     user={session.user}
-    sidebarMenuSections={settingsSidebarMenuSections(owner.username, { canManageSessions: true })}
+    sidebarMenuSections={settingsSidebarMenuSections(owner.username)}
 >
     <h1>{name}</h1>
 

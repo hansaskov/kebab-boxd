@@ -6,7 +6,7 @@ import FieldInput from "@src/components/FieldInput.astro";
 import FieldSelect from "@src/components/FieldSelect.astro";
 import FieldTextArea from "@src/components/FieldTextArea.astro";
 import type { Toast } from "@src/components/Toast.astro";
-import { updateAccountSchema } from "@src/actions";
+import { updateAccountSchema } from "@src/actions/settings";
 import { can } from "@src/auth/permissions";
 import { deviceName } from "@src/format/device-name";
 import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
@@ -15,23 +15,23 @@ import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
 const { username } = Astro.params;
 
 if (!username) {
-  return Astro.rewrite("/404");
+    return Astro.rewrite("/404");
 }
 
 const session = Astro.locals.session;
 
 if (!session) {
-  return Astro.redirect("/login");
+    return Astro.redirect("/login");
 }
 
 const user = await Astro.locals.db.queries.users.findByUsername(username);
 
 if (!user) {
-  return Astro.rewrite("/404");
+    return Astro.rewrite("/404");
 }
 
 if (!can(session.user, "user:edit-settings", user)) {
-  return Astro.rewrite("/403");
+    return Astro.rewrite("/403");
 }
 
 const canManageSessions = can(session.user, "user:manage-sessions", user);
@@ -40,182 +40,213 @@ const actionResult = Astro.getActionResult(actions.updateSettings);
 const signOutResult = Astro.getActionResult(actions.signOutEverywhere);
 const isOwnAccount = session.user.id === user.id;
 
-const activeSessions = canManageSessions ? await Astro.locals.db.queries.sessions.listActive(user.id) : [];
+const activeSessions = canManageSessions
+    ? await Astro.locals.db.queries.sessions.listActive(user.id)
+    : [];
 
 let usernameErrors: string[] | undefined;
 let toast: Toast | undefined;
 
 if (actionResult) {
-  if (actionResult.error) {
-    if (actionResult.error.code == "CONFLICT") {
-      usernameErrors = [actionResult.error.message];
-    } else if (isInputError(actionResult.error) && actionResult.error.fields.username) {
-      usernameErrors = actionResult.error.fields.username;
-    } else {
-      toast = {
-        kind: "title",
-        variant: "error",
-        title: "Submission failed",
-        text: actionResult.error.message,
-      };
+    if (actionResult.error) {
+        if (actionResult.error.code == "CONFLICT") {
+            usernameErrors = [actionResult.error.message];
+        } else if (
+            isInputError(actionResult.error) &&
+            actionResult.error.fields.username
+        ) {
+            usernameErrors = actionResult.error.fields.username;
+        } else {
+            toast = {
+                kind: "title",
+                variant: "error",
+                title: "Submission failed",
+                text: actionResult.error.message,
+            };
+        }
     }
-  }
 
-  if (actionResult.data) {
-    toast = {
-      kind: "title",
-      title: "Settings updated",
-      text: "Your profile changes have been saved.",
-    };
-  }
+    if (actionResult.data) {
+        toast = {
+            kind: "title",
+            title: "Settings updated",
+            text: "Your profile changes have been saved.",
+        };
+    }
 }
 
 if (signOutResult) {
-  toast = signOutResult.error
-    ? {
-        kind: "title",
-        variant: "error",
-        title: "Sign-out failed",
-        text: signOutResult.error.message,
-      }
-    : {
-        kind: "title",
-        title: "Signed out everywhere",
-        text: `${user.fullname} must sign in again on every device.`,
-      };
+    toast = signOutResult.error
+        ? {
+              kind: "title",
+              variant: "error",
+              title: "Sign-out failed",
+              text: signOutResult.error.message,
+          }
+        : {
+              kind: "title",
+              title: "Signed out everywhere",
+              text: `${user.fullname} must sign in again on every device.`,
+          };
 }
 
-
-const settingsSidebarMenuSection = settingsSidebarMenuSections(username, { canManageSessions });
+const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
 ---
 
 <BaseLayout
-  class=""
-  title="Settings"
-  description={`Settings page for ${user.fullname}`}
-  includeSidebar={true}
-  prefetchUrls={["/explore", "/reviews", "/"]}
-  session={session}
-  user={session.user}
-  sidebarMenuSections={settingsSidebarMenuSection}
-  toast={toast}
+    class=""
+    title="Settings"
+    description={`Settings page for ${user.fullname}`}
+    includeSidebar={true}
+    prefetchUrls={["/explore", "/reviews", "/"]}
+    session={session}
+    user={session.user}
+    sidebarMenuSections={settingsSidebarMenuSection}
+    toast={toast}
 >
-  <h1>Settings</h1>
+    <h1>Settings</h1>
 
-  <section id="account" class="mt-8">
-    <h2>Account</h2>
-    <form class="mt-3" method="post" action={actions.updateSettings}>
-      <input type="hidden" name="currentUsername" value={user.username} />
-      <fieldset class="settings-card">
-        <FieldInput
-          label="Full name"
-          name="fullname"
-          description="Shown on your profile. Use your real name."
-          type="text"
-          value={user.fullname}
-          zodField={updateAccountSchema.shape.fullname}
-        />
+    <section id="account" class="mt-8">
+        <h2>Account</h2>
+        <form class="mt-3" method="post" action={actions.updateSettings}>
+            <input type="hidden" name="currentUsername" value={user.username} />
+            <fieldset class="settings-card">
+                <FieldInput
+                    label="Full name"
+                    name="fullname"
+                    description="Shown on your profile. Use your real name."
+                    type="text"
+                    value={user.fullname}
+                    zodField={updateAccountSchema.shape.fullname}
+                />
 
-        <FieldInput
-          label="Username"
-          name="username"
-          description="Others use it to find you. It must be unique."
-          type="text"
-          value={user.username}
-          zodField={updateAccountSchema.shape.username}
-          errors={usernameErrors}
-        />
+                <FieldInput
+                    label="Username"
+                    name="username"
+                    description="Others use it to find you. It must be unique."
+                    type="text"
+                    value={user.username}
+                    zodField={updateAccountSchema.shape.username}
+                    errors={usernameErrors}
+                />
 
-        <FieldSelect
-          label="Pronouns"
-          name="pronoun"
-          selected={user.pronoun}
-          description="How others refer to you."
-          zodField={updateAccountSchema.shape.pronoun}
-        />
+                <FieldSelect
+                    label="Pronouns"
+                    name="pronoun"
+                    selected={user.pronoun}
+                    description="How others refer to you."
+                    zodField={updateAccountSchema.shape.pronoun}
+                />
 
-        <FieldTextArea
-          label="Bio"
-          name="bio"
-          description="A short text about you on your profile."
-          value={user.bio}
-          zodField={updateAccountSchema.shape.bio}
-        />
-        <div class="settings-card-footer">
-          <button class="btn btn-primary btn-md" type="submit">Save settings</button>
-        </div>
-      </fieldset>
-    </form>
-  </section>
-
-  <section id="security" class="mt-8">
-    <h2>Security</h2>
-    <div class="settings-card mt-3">
-      <p class="settings-row t-body-sm text-fg-muted">Placeholder for security settings.</p>
-    </div>
-  </section>
-
-  {canManageSessions && (
-    <section id="devices" class="mt-8">
-      <h2>Devices</h2>
-      <div class="settings-card mt-3">
-        {activeSessions.length === 0 ? (
-          <p class="settings-row t-body-sm text-fg-muted">There are no signed-in devices.</p>
-        ) : (
-          <ul>
-            {activeSessions.map((activeSession) => (
-              <li>
-                <a
-                  class="settings-link"
-                  href={`/${encodeURIComponent(user.username)}/settings/sessions/${encodeURIComponent(activeSession.id)}`}
-                >
-                  <span class="field-label">{deviceName(activeSession, session.id)}</span>
-                  <span class="t-body-sm text-fg-muted">
-                    Last used{" "}
-                    {activeSession.lastRequestAt ? (
-                      <time
-                        datetime={activeSession.lastRequestAt.toISOString()}
-                        title={formatExactTime(activeSession.lastRequestAt)}
-                      >
-                        {formatRelativeTime(activeSession.lastRequestAt)}
-                      </time>
-                    ) : (
-                      "never"
-                    )}
-                  </span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </section>
-  )}
-
-  <section id="notifications" class="mt-8">
-    <h2>Notifications</h2>
-    <div class="settings-card mt-3">
-      <p class="settings-row t-body-sm text-fg-muted">Placeholder for notification settings.</p>
-    </div>
-  </section>
-
-  {canManageSessions && (
-    <section id="danger-zone" class="mt-8">
-      <h2 class="text-danger">Danger zone</h2>
-      <div class="settings-card settings-card-danger mt-3">
-        <form class="settings-row" method="post" action={actions.signOutEverywhere}>
-          <input type="hidden" name="currentUsername" value={user.username} />
-          <div class="settings-row-text">
-            <p class="field-label">Sign out everywhere</p>
-            <p class="t-body-sm text-fg-muted">
-              {isOwnAccount
-                ? "Sign out on all devices, including this one."
-                : `Sign ${user.fullname} out on all devices.`}
-            </p>
-          </div>
-          <button class="btn btn-danger btn-md settings-row-action" type="submit">Sign out everywhere</button>
+                <FieldTextArea
+                    label="Bio"
+                    name="bio"
+                    description="A short text about you on your profile."
+                    value={user.bio}
+                    zodField={updateAccountSchema.shape.bio}
+                />
+                <div class="settings-card-footer">
+                    <button class="btn btn-primary btn-md" type="submit">
+                        Save settings
+                    </button>
+                </div>
+            </fieldset>
         </form>
-      </div>
     </section>
-  )}
+
+    <section id="security" class="mt-8">
+        <h2>Security</h2>
+        <div class="settings-card mt-3">
+            <p class="settings-row t-body-sm text-fg-muted">
+                Placeholder for security settings.
+            </p>
+        </div>
+    </section>
+
+    {canManageSessions && (
+        <section id="devices" class="mt-8">
+            <h2>Devices</h2>
+            <div class="settings-card mt-3">
+                {activeSessions.length === 0 ? (
+                    <p class="settings-row t-body-sm text-fg-muted">
+                        There are no signed-in devices.
+                    </p>
+                ) : (
+                    <ul>
+                        {activeSessions.map((activeSession) => (
+                            <li>
+                                <a
+                                    class="settings-link"
+                                    href={`/${encodeURIComponent(user.username)}/settings/sessions/${encodeURIComponent(activeSession.id)}`}
+                                >
+                                    <span class="field-label">
+                                        {deviceName(activeSession, session.id)}
+                                    </span>
+                                    <span class="t-body-sm text-fg-muted">
+                                        Last used{" "}
+                                        {activeSession.lastRequestAt ? (
+                                            <time
+                                                datetime={activeSession.lastRequestAt.toISOString()}
+                                                title={formatExactTime(
+                                                    activeSession.lastRequestAt,
+                                                )}
+                                            >
+                                                {formatRelativeTime(
+                                                    activeSession.lastRequestAt,
+                                                )}
+                                            </time>
+                                        ) : (
+                                            "never"
+                                        )}
+                                    </span>
+                                </a>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+        </section>
+    )}
+
+    <section id="notifications" class="mt-8">
+        <h2>Notifications</h2>
+        <div class="settings-card mt-3">
+            <p class="settings-row t-body-sm text-fg-muted">
+                Placeholder for notification settings.
+            </p>
+        </div>
+    </section>
+
+    {canManageSessions && (
+        <section id="danger-zone" class="mt-8">
+            <h2 class="text-danger">Danger zone</h2>
+            <div class="settings-card settings-card-danger mt-3">
+                <form
+                    class="settings-row"
+                    method="post"
+                    action={actions.signOutEverywhere}
+                >
+                    <input
+                        type="hidden"
+                        name="currentUsername"
+                        value={user.username}
+                    />
+                    <div class="settings-row-text">
+                        <p class="field-label">Sign out everywhere</p>
+                        <p class="t-body-sm text-fg-muted">
+                            {isOwnAccount
+                                ? "Sign out on all devices, including this one."
+                                : `Sign ${user.fullname} out on all devices.`}
+                        </p>
+                    </div>
+                    <button
+                        class="btn btn-danger btn-md settings-row-action"
+                        type="submit"
+                    >
+                        Sign out everywhere
+                    </button>
+                </form>
+            </div>
+        </section>
+    )}
 </BaseLayout>

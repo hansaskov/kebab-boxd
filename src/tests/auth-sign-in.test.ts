@@ -31,6 +31,21 @@ describe("signInWithProviderAccount", () => {
 		expect(await client.$count(accounts)).toBe(1);
 	});
 
+	it("signs in the same new provider account twice at the same time", async () => {
+		const { client, db } = createTestDatabase("sign-in-concurrent");
+
+		// Each sign-in waits between steps, so a lookup outside the transaction would let both
+		// see the account missing, and the second would find the email taken by the first.
+		const [first, second] = await Promise.all([
+			signInWithProviderAccount(db, googleAccount()),
+			signInWithProviderAccount(db, googleAccount()),
+		]);
+
+		expect(second.id).toBe(first.id);
+		expect(await client.$count(users)).toBe(1);
+		expect(await client.$count(accounts)).toBe(1);
+	});
+
 	it("refuses to attach a second provider to an email that is already registered", async () => {
 		const { client, db } = createTestDatabase("sign-in-email-conflict");
 

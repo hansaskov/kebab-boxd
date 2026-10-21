@@ -77,7 +77,6 @@ export async function createSession(userId: number, db: Database): Promise<Sessi
 	return session;
 }
 
-/** Finds a session and its user. A session that has timed out is deleted instead. */
 export async function getSession(sessionId: string, db: Database) {
 	const now = new Date();
 
@@ -87,7 +86,7 @@ export async function getSession(sessionId: string, db: Database) {
 		return null;
 	}
 
-	if (now.getTime() - session.lastVerifiedAt.getTime() >= inactivityTimeoutSeconds * 1000) {
+	if (session.user.bannedAt || now.getTime() - session.lastVerifiedAt.getTime() >= inactivityTimeoutSeconds * 1000) {
 		await db.mutations.sessions.delete(sessionId);
 		return null;
 	}

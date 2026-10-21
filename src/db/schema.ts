@@ -17,6 +17,7 @@ export const users = p.snakeCase.table("users", {
   pronoun: p.text({ enum: pronouns }),
   latitude: p.real(),
   longitude: p.real(),
+  bannedAt: p.int({ mode: "timestamp" }),
   updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(now),
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
 }, (t) => [
@@ -28,6 +29,8 @@ export const users = p.snakeCase.table("users", {
 ]);
 
 export type User = typeof users.$inferSelect
+export const roles = users.role.enumValues
+export type Role = User["role"]
 
 export const sessions = p.snakeCase.table("sessions", {
   id: p.text().primaryKey(),

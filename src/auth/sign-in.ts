@@ -8,6 +8,14 @@ export class EmailAlreadyRegisteredError extends Error {
 		this.name = "EmailAlreadyRegisteredError";
 	}
 }
+
+export class UserBannedError extends Error {
+	constructor(readonly userId: number) {
+		super(`User ${userId} is banned.`);
+		this.name = "UserBannedError";
+	}
+}
+
 export async function signInWithProviderAccount(
 	db: Database,
 	providerAccount: ProviderAccount,
@@ -15,26 +23,30 @@ export async function signInWithProviderAccount(
 	const email = providerAccount.email.trim().toLowerCase();
 	const fullname = providerAccount.fullname.trim();
 
-	const existingAccount = await db.queries.accounts.findWithUser(
-		providerAccount.providerId,
-		providerAccount.accountId,
-	);
+	const result = await db.mutations.accounts.findOrCreateWithUser({ ...providerAccount, email, fullname });
 
-	if (existingAccount) {
-		if (providerAccount.emailVerified && !existingAccount.user.emailVerified) {
-			await db.mutations.users.verifyEmail(existingAccount.user.id);
+	switch (result.status) {
+		case "created":
+			return result.user;
 
-			return { ...existingAccount.user, emailVerified: true };
-		}
+		case "email-taken":
+			// A banned user who signs in with another provider account is told about the ban.
+			if (result.user.bannedAt) {
+				throw new UserBannedError(result.user.id);
+			}
+			throw new EmailAlreadyRegisteredError(email);
 
-		return existingAccount.user;
+		case "existing":
+			if (result.user.bannedAt) {
+				throw new UserBannedError(result.user.id);
+			}
+
+			if (providerAccount.emailVerified && !result.user.emailVerified) {
+				await db.mutations.users.verifyEmail(result.user.id);
+
+				return { ...result.user, emailVerified: true };
+			}
+
+			return result.user;
 	}
-
-	const created = await db.mutations.accounts.createWithUser({ ...providerAccount, email, fullname });
-
-	if (created === "email-taken") {
-		throw new EmailAlreadyRegisteredError(email);
-	}
-
-	return created;
 }

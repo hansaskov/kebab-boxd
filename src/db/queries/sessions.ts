@@ -11,9 +11,6 @@ function sessionsActiveSince() {
 	return new Date(Date.now() - inactivityTimeoutSeconds * 1000);
 }
 
-export const sessionHistoryPageSizes = [10, 25, 50, 100] as const;
-export const sessionHistoryPageSize = 25;
-
 export type SessionHistoryCursor = { before: Date } | { after: Date } | Record<string, never>;
 
 export interface SessionHistoryPage {

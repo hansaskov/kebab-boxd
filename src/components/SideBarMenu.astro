@@ -11,8 +11,15 @@ interface Props {
 const { sidebarMenuSections = defaultSidebarMenuSections } = Astro.props;
 const { pathname } = Astro.url;
 
-const isActive = (href: string) =>
-  href === "/" ? pathname === "/" : pathname.startsWith(href);
+// A link matches its own page and the pages below it, so /explore matches /explore/odense.
+// When links are nested, such as /admin and /admin/users, only the longest match is current.
+const matches = (href: string) =>
+  href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+const activeHref = sidebarMenuSections
+  .flatMap((section) => section.items.map((item) => item.href))
+  .filter(matches)
+  .toSorted((a, b) => b.length - a.length)
+  .at(0);
 ---
 
 <nav class="flex-1 overflow-y-auto px-3 pb-3">
@@ -23,7 +30,7 @@ const isActive = (href: string) =>
           <li class="t-overline px-3 pt-4 pb-1" aria-hidden="true">{section.title}</li>
           {section.items.map((item) => {
             const Icon = item.icon;
-            const active = isActive(item.href);
+            const active = item.href === activeHref;
             return (
               <li>
                 <a

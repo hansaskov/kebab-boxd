@@ -1,0 +1,208 @@
+---
+import { actions } from "astro:actions";
+import { adminSidebarMenuSections } from "@src/data/sidebar-menu-sections";
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+import FieldSelect from "@src/components/FieldSelect.astro";
+import type { Toast } from "@src/components/Toast.astro";
+import { changeUserRoleSchema } from "@src/actions/admin";
+import { can } from "@src/auth/permissions";
+import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
+
+// Astro has already decoded the route parameter.
+const { username } = Astro.params;
+
+if (!username) {
+  return Astro.rewrite("/404");
+}
+
+const session = Astro.locals.session;
+
+if (!session) {
+  return Astro.redirect("/login");
+}
+
+// Checked before the user is looked up, so it cannot tell whether a username exists.
+if (!can(session.user, "admin-console:view")) {
+  return Astro.rewrite("/403");
+}
+
+const user = await Astro.locals.db.queries.users.findByUsername(username);
+
+if (!user) {
+  return Astro.rewrite("/404");
+}
+
+const canBan = can(session.user, "user:ban", user);
+const canChangeRole = can(session.user, "user:change-role", user);
+const canManageSessions = can(session.user, "user:manage-sessions", user);
+const isOwnAccount = session.user.id === user.id;
+
+// Sorted with the most recently used device first.
+const devices = canManageSessions ? await Astro.locals.db.queries.sessions.listActive(user.id) : [];
+const lastActiveAt = devices.at(0)?.lastRequestAt;
+
+const banResult = Astro.getActionResult(actions.admin.banUser);
+const unbanResult = Astro.getActionResult(actions.admin.unbanUser);
+const roleResult = Astro.getActionResult(actions.admin.changeUserRole);
+
+function resultToast(
+  result: { error?: { message: string } | undefined } | undefined,
+  failedTitle: string,
+  success: { title: string; text: string },
+): Toast | undefined {
+  if (!result) return undefined;
+  return result.error
+    ? { kind: "title", variant: "error", title: failedTitle, text: result.error.message }
+    : { kind: "title", ...success };
+}
+
+const toast =
+  resultToast(banResult, "Ban failed", {
+    title: "User banned",
+    text: `${user.fullname} is signed out everywhere and cannot sign in.`,
+  }) ??
+  resultToast(unbanResult, "Lifting the ban failed", {
+    title: "Ban lifted",
+    text: `${user.fullname} can sign in again.`,
+  }) ??
+  resultToast(roleResult, "Role change failed", {
+    title: "Role changed",
+    text: `${user.fullname} is now ${user.role === "admin" ? "an admin" : "a user"}.`,
+  });
+
+const settingsHref = `/${encodeURIComponent(user.username)}/settings`;
+---
+
+<BaseLayout
+  title={user.fullname}
+  description={`Manage the account of ${user.fullname}`}
+  includeSidebar={true}
+  prefetchUrls={["/admin/users", settingsHref, "/admin"]}
+  session={session}
+  user={session.user}
+  sidebarMenuSections={adminSidebarMenuSections()}
+  toast={toast}
+>
+  <div class="flex flex-wrap items-center gap-2">
+    <h1>{user.fullname}</h1>
+    {user.role === "admin" && <span class="tag">Admin</span>}
+    {user.bannedAt && <span class="tag text-danger">Banned</span>}
+  </div>
+  <p class="t-body-sm mt-1 text-fg-muted">@{user.username} · {user.email}</p>
+
+  <dl class="t-body-sm mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+    <div class="rounded-box border border-line bg-surface p-3">
+      <dt class="text-fg-muted">Joined</dt>
+      <dd class="t-body font-medium">
+        <time datetime={user.createdAt.toISOString()} title={formatExactTime(user.createdAt)}>
+          {formatRelativeTime(user.createdAt)}
+        </time>
+      </dd>
+    </div>
+    <div class="rounded-box border border-line bg-surface p-3">
+      <dt class="text-fg-muted">Last active</dt>
+      <dd class="t-body font-medium">
+        {lastActiveAt ? (
+          <time datetime={lastActiveAt.toISOString()} title={formatExactTime(lastActiveAt)}>
+            {formatRelativeTime(lastActiveAt)}
+          </time>
+        ) : (
+          "Not signed in"
+        )}
+      </dd>
+    </div>
+    <div class="col-span-2 rounded-box border border-line bg-surface p-3 sm:col-span-1">
+      <dt class="text-fg-muted">Signed-in devices</dt>
+      <dd class="t-body font-medium">{devices.length}</dd>
+    </div>
+  </dl>
+
+  <section id="account" class="mt-8">
+    <h2>Account</h2>
+    <div class="settings-card mt-3">
+      <ul>
+        <li>
+          <a class="settings-link" href={`${settingsHref}#account`}>
+            <span class="field-label">Profile</span>
+            <span class="t-body-sm text-fg-muted">Name, username, pronouns and bio</span>
+          </a>
+        </li>
+        {canManageSessions && (
+          <li>
+            <a class="settings-link" href={`${settingsHref}#devices`}>
+              <span class="field-label">Devices</span>
+              <span class="t-body-sm text-fg-muted">History and sign out</span>
+            </a>
+          </li>
+        )}
+      </ul>
+    </div>
+  </section>
+
+  <section id="role" class="mt-8">
+    <h2>Role</h2>
+    {canChangeRole ? (
+      <form class="mt-3" method="post" action={actions.admin.changeUserRole}>
+        <input type="hidden" name="username" value={user.username} />
+        <fieldset class="settings-card">
+          <FieldSelect
+            label="Role"
+            name="role"
+            selected={user.role}
+            description="Admins can manage every user and all content."
+            zodField={changeUserRoleSchema.shape.role}
+          />
+          <div class="settings-card-footer">
+            <button class="btn btn-primary btn-md" type="submit">Save role</button>
+          </div>
+        </fieldset>
+      </form>
+    ) : (
+      <div class="settings-card mt-3">
+        <p class="settings-row t-body-sm text-fg-muted">
+          {isOwnAccount
+            ? "You cannot change your own role."
+            : user.bannedAt
+              ? "Lift the ban before you change the role of this user."
+              : "You cannot change the role of this user."}
+        </p>
+      </div>
+    )}
+  </section>
+
+  <section id="danger-zone" class="mt-8">
+    <h2 class="text-danger">Danger zone</h2>
+    <div class="settings-card settings-card-danger mt-3">
+      {!canBan ? (
+        <p class="settings-row t-body-sm text-fg-muted">
+          {isOwnAccount ? "You cannot ban yourself." : "Remove the Admin role before you ban this user."}
+        </p>
+      ) : user.bannedAt ? (
+        <form class="settings-row" method="post" action={actions.admin.unbanUser}>
+          <input type="hidden" name="username" value={user.username} />
+          <div class="settings-row-text">
+            <p class="field-label">Lift the ban</p>
+            <p class="t-body-sm text-fg-muted">
+              Banned{" "}
+              <time datetime={user.bannedAt.toISOString()} title={formatExactTime(user.bannedAt)}>
+                {formatRelativeTime(user.bannedAt)}
+              </time>. Lift the ban to let {user.fullname} sign in again.
+            </p>
+          </div>
+          <button class="btn btn-secondary btn-md settings-row-action" type="submit">Lift ban</button>
+        </form>
+      ) : (
+        <form class="settings-row" method="post" action={actions.admin.banUser}>
+          <input type="hidden" name="username" value={user.username} />
+          <div class="settings-row-text">
+            <p class="field-label">Ban user</p>
+            <p class="t-body-sm text-fg-muted">
+              Sign {user.fullname} out on all devices and stop them from signing in.
+            </p>
+          </div>
+          <button class="btn btn-danger btn-md settings-row-action" type="submit">Ban user</button>
+        </form>
+      )}
+    </div>
+  </section>
+</BaseLayout>

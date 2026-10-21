@@ -3,6 +3,17 @@ import type { Client } from "@src/db/client";
 import * as s from "@src/db/schema";
 import type { ActionData, NewSession, Session } from "@src/db/schema";
 
+/**
+ * Signs the user with the `userId` placeholder out on every device. Shared with mutations that sign
+ * a user out inside their own transaction, which cannot wait for `deleteAllForUser`.
+ */
+export function prepareDeleteAllForUser(client: Client) {
+	return client
+		.delete(s.sessions)
+		.where(eq(s.sessions.userId, sql.placeholder("userId")))
+		.prepare();
+}
+
 export function createSessionMutations(client: Client) {
 	const insert = client
 		.insert(s.sessions)
@@ -37,10 +48,7 @@ export function createSessionMutations(client: Client) {
 		.where(eq(s.sessions.id, sql.placeholder("id")))
 		.prepare();
 
-	const deleteByUser = client
-		.delete(s.sessions)
-		.where(eq(s.sessions.userId, sql.placeholder("userId")))
-		.prepare();
+	const deleteByUser = prepareDeleteAllForUser(client);
 
 	return {
 		async create(session: Pick<NewSession, "id" | "userId" | "secretHash" | "lastVerifiedAt">) {

@@ -15,6 +15,12 @@ const errorToasts: Record<string, Toast> = {
 		title: "Sign-in failed",
 		text: "Google could not confirm your account. Please try again.",
 	},
+	banned: {
+		kind: "title",
+		variant: "error",
+		title: "Account banned",
+		text: "An admin has banned this account, so you cannot sign in.",
+	},
 };
 
 const error = Astro.url.searchParams.get("error");

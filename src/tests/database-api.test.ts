@@ -65,21 +65,20 @@ describe("database API", () => {
 
 	it("creates no user when creating the account fails part way", async () => {
 		const { client, db } = createTestDatabase("api-create-account-rollback");
-		const bob = insertUser(client, "bob");
-		client.insert(accounts).values({ userId: bob.id, providerId: "google", accountId: "google-sub-1" }).run();
 
-		// The user is inserted, then the account clashes with Bob's.
+		// The user is inserted, then the account breaks the NOT NULL constraint on its subject id.
 		await expect(
-			db.mutations.accounts.createWithUser({
+			db.mutations.accounts.findOrCreateWithUser({
 				providerId: "google",
-				accountId: "google-sub-1",
+				accountId: null as unknown as string,
 				fullname: "Ada Lovelace",
 				email: "ada@example.com",
 				emailVerified: true,
 			}),
 		).rejects.toThrow();
 
-		expect(await client.$count(users)).toBe(1);
+		expect(await client.$count(users)).toBe(0);
+		expect(await client.$count(accounts)).toBe(0);
 	});
 
 	it("reports a username that another user has, ignoring letter case", async () => {

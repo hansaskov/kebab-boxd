@@ -1,4 +1,4 @@
-import { Rss, Compass, SquarePen, UserRoundCog, Shield, Bell, MonitorSmartphone, TriangleAlert } from "@lucide/astro";
+import { Rss, Compass, SquarePen, UserRoundCog, Shield, Bell, MonitorSmartphone, TriangleAlert, LayoutDashboard, Users } from "@lucide/astro";
 
 export type SidebarMenuItem = {
   name: string;
@@ -15,9 +15,9 @@ export const defaultSidebarMenuSections: SidebarMenuSection[] = [
     {
       title: "Discover",
       items: [
-        { 
-          name: "Feed", 
-          href: "/", 
+        {
+          name: "Feed",
+          href: "/",
           icon: Rss },
         {
           name: "Explore",
@@ -38,27 +38,32 @@ export const defaultSidebarMenuSections: SidebarMenuSection[] = [
     },
   ];
 
-/**
- * The default menu plus links to each part of a user's settings page. The links to the parts
- * about sessions are left out for someone who may not manage them.
- */
-export function settingsSidebarMenuSections(
-  username: string,
-  { canManageSessions }: { canManageSessions: boolean },
-): SidebarMenuSection[] {
+export function settingsSidebarMenuSections(username: string): SidebarMenuSection[] {
   const settingsHref = `/${encodeURIComponent(username)}/settings`;
-  const items: (SidebarMenuItem | false)[] = [
-    { name: "Account", href: `${settingsHref}#account`, icon: UserRoundCog },
-    { name: "Security", href: `${settingsHref}#security`, icon: Shield },
-    canManageSessions && { name: "Devices", href: `${settingsHref}#devices`, icon: MonitorSmartphone },
-    { name: "Notifications", href: `${settingsHref}#notifications`, icon: Bell },
-    canManageSessions && { name: "Danger zone", href: `${settingsHref}#danger-zone`, icon: TriangleAlert },
-  ];
 
   return defaultSidebarMenuSections.concat([
     {
       title: "Settings",
-      items: items.filter((item) => item !== false),
+      items: [
+        { name: "Account", href: `${settingsHref}#account`, icon: UserRoundCog },
+        { name: "Security", href: `${settingsHref}#security`, icon: Shield },
+        { name: "Devices", href: `${settingsHref}#devices`, icon: MonitorSmartphone },
+        { name: "Notifications", href: `${settingsHref}#notifications`, icon: Bell },
+        { name: "Danger zone", href: `${settingsHref}#danger-zone`, icon: TriangleAlert },
+      ],
+    },
+  ]);
+}
+
+/** The default menu plus links to each part of the admin console. */
+export function adminSidebarMenuSections(): SidebarMenuSection[] {
+  return defaultSidebarMenuSections.concat([
+    {
+      title: "Admin",
+      items: [
+        { name: "Overview", href: "/admin", icon: LayoutDashboard },
+        { name: "Users", href: "/admin/users", icon: Users },
+      ],
     },
   ]);
 }

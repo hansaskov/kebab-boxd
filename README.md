@@ -40,9 +40,11 @@ pnpm run dev
 - A user can delete their account.
 - A user can request all their data. (GDPR)
 - An admin can approve or reject restaurant suggestions.
+- An admin can find any user, change their role, and ban them.
 
 ## Roadmap
 
 - [x] Database schema
 - [x] Login with Google
 - [x] Sidebar layout and placeholder pages
+- [x] Admin console with user management

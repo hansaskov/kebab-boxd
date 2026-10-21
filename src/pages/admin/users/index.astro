@@ -1,0 +1,164 @@
+---
+import { Search } from "@lucide/astro";
+import { adminSidebarMenuSections } from "@src/data/sidebar-menu-sections";
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+import Pagination from "@src/components/Pagination.astro";
+import { adminUserHref } from "@src/actions/admin";
+import { can } from "@src/auth/permissions";
+import { userFilters, type UserFilter } from "@src/db/queries/users";
+import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
+import { defaultPageSize, pageSizes, parsePageSize } from "@src/validation/page-size";
+
+const session = Astro.locals.session;
+
+if (!session) {
+  return Astro.redirect("/login");
+}
+
+if (!can(session.user, "admin-console:view")) {
+  return Astro.rewrite("/403");
+}
+
+const searchMaxLength = 100;
+const params = Astro.url.searchParams;
+
+// ?q=<text> searches usernames, names and emails, ?filter=<group> narrows the list to one group,
+// ?rows=<n> sets the page size and ?page=<n> picks a page, counted from 1.
+const search = (params.get("q") ?? "").trim().slice(0, searchMaxLength);
+const filter = userFilters.find((option) => option === params.get("filter")) ?? "all";
+const rows = parsePageSize(params.get("rows"));
+const pageParam = Number(params.get("page"));
+const page = Number.isSafeInteger(pageParam) && pageParam > 0 ? pageParam : 1;
+const offset = (page - 1) * rows;
+
+const { users, total } = await Astro.locals.db.queries.users.list({ search, filter, limit: rows, offset });
+const lastPage = Math.max(1, Math.ceil(total / rows));
+
+function usersHref(options: { filter: UserFilter; rows: number; page: number }) {
+  const query = new URLSearchParams();
+  if (search) query.set("q", search);
+  if (options.filter !== "all") query.set("filter", options.filter);
+  if (options.rows !== defaultPageSize) query.set("rows", String(options.rows));
+  if (options.page !== 1) query.set("page", String(options.page));
+  return query.size ? `/admin/users?${query}` : "/admin/users";
+}
+
+const filterLabels: Record<UserFilter, string> = { all: "All", admin: "Admins", banned: "Banned" };
+// A new filter starts again from the first page.
+const filterOptions = userFilters.map((option) => ({
+  filter: option,
+  label: filterLabels[option],
+  href: usersHref({ filter: option, rows, page: 1 }),
+}));
+
+// A page past the end goes back to the last page.
+const previousHref = page > 1 ? usersHref({ filter, rows, page: Math.min(page - 1, lastPage) }) : undefined;
+const nextHref = page < lastPage ? usersHref({ filter, rows, page: page + 1 }) : undefined;
+// Changing the rows per page keeps the first row of this page in view.
+const rowsOptions = pageSizes.map((size) => ({
+  rows: size,
+  href: usersHref({ filter, rows: size, page: Math.floor(offset / size) + 1 }),
+}));
+
+const emptyGroupMessages: Record<UserFilter, string> = {
+  all: "There are no users.",
+  admin: "There are no admins.",
+  banned: "No users are banned.",
+};
+const emptyMessage =
+  page > lastPage
+    ? "There are no users on this page."
+    : search
+      ? `No users match “${search}”.`
+      : emptyGroupMessages[filter];
+---
+
+<BaseLayout
+  title="Users"
+  description="Search and manage the users of Kebab Boxd"
+  includeSidebar={true}
+  prefetchUrls={["/admin", "/"]}
+  session={session}
+  user={session.user}
+  sidebarMenuSections={adminSidebarMenuSections()}
+>
+  <h1>Users</h1>
+
+  <form class="mt-4 flex gap-2" method="get" action="/admin/users" role="search">
+    <label class="sr-only" for="user-search">Search users</label>
+    <input
+      id="user-search"
+      class="input"
+      type="search"
+      name="q"
+      value={search}
+      maxlength={searchMaxLength}
+      placeholder="Name, username or email"
+    />
+    {filter !== "all" && <input type="hidden" name="filter" value={filter} />}
+    {rows !== defaultPageSize && <input type="hidden" name="rows" value={rows} />}
+    <button class="btn btn-secondary btn-md shrink-0" type="submit">
+      <Search size={16} aria-hidden="true" /><span class="max-sm:sr-only">Search</span>
+    </button>
+  </form>
+
+  <nav class="mt-4 flex flex-wrap gap-2" aria-label="Filter users">
+    {filterOptions.map((option) => (
+      <a
+        class:list={["btn btn-sm", option.filter === filter ? "btn-primary" : "btn-secondary"]}
+        href={option.href}
+        aria-current={option.filter === filter ? "page" : undefined}
+      >
+        {option.label}
+      </a>
+    ))}
+  </nav>
+
+  <section class="mt-6" aria-label="Users">
+    {users.length === 0 ? (
+      <p class="t-body text-fg-muted">{emptyMessage}</p>
+    ) : (
+      <>
+        <p class="t-body-sm text-fg-muted">
+          Showing {offset + 1}–{offset + users.length} of {total}
+        </p>
+        <div class="settings-card mt-3">
+          <ul>
+            {users.map((user) => (
+              <li>
+                <a class="settings-link" href={adminUserHref(user.username)}>
+                  <span>
+                    <span class="field-label block truncate">{user.fullname}</span>
+                    <span class="t-body-sm block truncate text-fg-muted">@{user.username} · {user.email}</span>
+                  </span>
+                  <span class="flex items-center gap-2">
+                    {user.role === "admin" && <span class="tag">Admin</span>}
+                    {user.bannedAt && <span class="tag text-danger">Banned</span>}
+                    <time
+                      class="t-body-sm text-fg-muted max-sm:hidden"
+                      datetime={user.createdAt.toISOString()}
+                      title={formatExactTime(user.createdAt)}
+                    >
+                      Joined {formatRelativeTime(user.createdAt)}
+                    </time>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </>
+    )}
+    {(users.length > 0 || previousHref) && (
+      <Pagination
+        id="user-pages"
+        class="mt-4"
+        aria-label="User pages"
+        previousHref={previousHref}
+        nextHref={nextHref}
+        rows={rows}
+        rowsOptions={rowsOptions}
+      />
+    )}
+  </section>
+</BaseLayout>

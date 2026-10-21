@@ -1,4 +1,6 @@
+import { can } from "@src/auth/permissions";
 import { createDatabase } from "@src/db";
+import type { Database } from "@src/db";
 import { createClient, migrateClient } from "@src/db/client";
 import type { Client } from "@src/db/client";
 import { users } from "@src/db/schema";
@@ -19,4 +21,9 @@ export function insertUser(client: Client, username: string, role: "user" | "adm
 		.values({ fullname: `${username} user`, username, email: `${username}@example.com`, role })
 		.returning()
 		.get();
+}
+
+/** Bans the user as the Admin does from the admin console, so the ban signs them out everywhere. */
+export function banAs(db: Database, adminId: number, userId: number) {
+	return db.mutations.users.ban(userId, adminId, (actor, target) => can(actor, "user:ban", target));
 }

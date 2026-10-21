@@ -10,7 +10,7 @@ import type { User } from "@src/db/schema";
 export type Subject = Pick<User, "id" | "role">;
 
 /** A user that a permission is checked against. */
-type TargetUser = Pick<User, "id">;
+export type TargetUser = Pick<User, "id" | "role" | "bannedAt">;
 
 /**
  * Every Permission, written `resource:operation`, and the attributes of the resource it is
@@ -21,7 +21,11 @@ interface Permissions {
 	"user:edit-settings": TargetUser;
 	/** List the signed-in devices of a user, read their history, and sign them out. */
 	"user:manage-sessions": TargetUser;
-	/** Open the admin console. */
+	/** Ban a user, which signs them out everywhere, and lift the ban. */
+	"user:ban": TargetUser;
+	/** Make a user an Admin, or take the role away. */
+	"user:change-role": TargetUser;
+	/** Open the admin console and list every user. */
 	"admin-console:view": undefined;
 }
 
@@ -43,14 +47,26 @@ function isSelf(subject: Subject, user: TargetUser) {
 	return subject.id === user.id;
 }
 
-// An Admin manages every User, so they pass every policy for one.
 function isSelfOrAdmin(subject: Subject, user: TargetUser) {
 	return isSelf(subject, user) || isAdmin(subject);
+}
+
+function isAdminActingOnOther(subject: Subject, user: TargetUser) {
+	return isAdmin(subject) && !isSelf(subject, user);
+}
+
+function isAdminActingOnNonAdmin(subject: Subject, user: TargetUser) {
+	return isAdmin(subject) && !isAdmin(user);
+}
+function isAdminActingOnOtherUnbanned(subject: Subject, user: TargetUser) {
+	return isAdminActingOnOther(subject, user) && !user.bannedAt;
 }
 
 const policies: { [P in Permission]: Policy<P> } = {
 	"user:edit-settings": isSelfOrAdmin,
 	"user:manage-sessions": isSelfOrAdmin,
+	"user:ban": isAdminActingOnNonAdmin,
+	"user:change-role": isAdminActingOnOtherUnbanned,
 	"admin-console:view": isAdmin,
 };
 
