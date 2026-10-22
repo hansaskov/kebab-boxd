@@ -47,6 +47,7 @@ CREATE TABLE `history` (
 	`path` text NOT NULL,
 	`action` text,
 	`status` integer NOT NULL,
+	`prefetched` integer DEFAULT false NOT NULL,
 	CONSTRAINT `history_pk` PRIMARY KEY(`session_id`, `requested_at`),
 	CONSTRAINT `fk_history_session_id_sessions_id_fk` FOREIGN KEY (`session_id`) REFERENCES `sessions`(`id`) ON DELETE CASCADE
 );
@@ -145,6 +146,7 @@ CREATE TABLE `users` (
 	`pronoun` text,
 	`latitude` real,
 	`longitude` real,
+	`banned_at` integer,
 	`updated_at` integer NOT NULL,
 	`created_at` integer NOT NULL,
 	CONSTRAINT `fk_users_profile_picture_id_pictures_id_fk` FOREIGN KEY (`profile_picture_id`) REFERENCES `pictures`(`id`) ON DELETE SET NULL

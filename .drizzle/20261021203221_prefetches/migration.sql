@@ -1,1 +1,0 @@
-ALTER TABLE `history` ADD `prefetched` integer DEFAULT false NOT NULL;

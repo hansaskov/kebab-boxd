@@ -155,9 +155,11 @@ const settingsHref = `/${encodeURIComponent(owner.username)}/settings`;
                         {/* Prefetches are always GET, so PRE takes the place of the method. */}
                         <span
                             class="tag min-w-[8ch] shrink-0 justify-center"
-                            title={entry.prefetched
-                                ? "Prefetched: the browser loaded this page early, in case it was opened next"
-                                : undefined}
+                            title={
+                                entry.prefetched
+                                    ? "Prefetched: the browser loaded this page early, in case it was opened next"
+                                    : undefined
+                            }
                         >
                             {entry.prefetched ? "PRE" : entry.method}
                         </span>

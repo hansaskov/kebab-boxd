@@ -1,5 +1,5 @@
-FROM ghcr.io/pnpm/pnpm:12.14.0
-RUN pnpm runtime set node 26.12.0 -g
+FROM ghcr.io/pnpm/pnpm:12.15.0
+RUN pnpm runtime set node 26.12.1 -g
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./

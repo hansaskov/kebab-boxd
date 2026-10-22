@@ -1,7 +1,7 @@
 {
   "name": "kebab-boxd",
   "private": true,
-  "packageManager": "pnpm@12.14.0",
+  "packageManager": "pnpm@12.15.0",
   "description": "KEBAB MMMMMMMMMMHH",
   "type": "module",
   "scripts": {
@@ -18,14 +18,14 @@
   },
   "dependencies": {
     "@astrojs/node": "^11.1.9",
-    "@lucide/astro": "^1.60.0",
-    "astro": "7.4.1",
-    "drizzle-kit": "1.0.0-rc.4",
-    "drizzle-orm": "1.0.0-rc.4",
-    "drizzle-seed": "1.0.0-rc.4"
+    "@lucide/astro": "^1.61.0",
+    "astro": "7.4.2",
+    "drizzle-kit": "1.0.0-rc.5",
+    "drizzle-orm": "1.0.0-rc.5",
+    "drizzle-seed": "1.0.0-rc.5"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.11",
+    "@astrojs/check": "^0.9.12",
     "@oxlint/plugins": "1.89.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.5",
@@ -37,7 +37,7 @@
   "devEngines": {
     "runtime": {
       "name": "node",
-      "version": "^26.12.0",
+      "version": "^26.12.1",
       "onFail": "download"
     }
   }

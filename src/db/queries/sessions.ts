@@ -1,4 +1,5 @@
 import { and, count, desc, eq, gt, lt, max, or, sql } from "drizzle-orm";
+import { EmptyFilter } from "drizzle-orm/relations";
 import { alias } from "drizzle-orm/sqlite-core";
 import type { Client } from "@src/db/client";
 import { encodedPlaceholder } from "@src/db/placeholder";
@@ -66,7 +67,7 @@ function prepareSessionWithHistory(client: Client, kind: HistoryPageKind) {
 							? { RAW: (t) => gt(t.requestedAt, cursor) }
 							: kind === "older"
 								? { RAW: (t) => lt(t.requestedAt, cursor) }
-								: undefined,
+								: EmptyFilter,
 					// Newer pages are read from the oldest request up, then turned around.
 					orderBy: { requestedAt: kind === "newer" ? "asc" : "desc" },
 					limit: sql.placeholder("limit"),
