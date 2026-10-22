@@ -4,7 +4,7 @@ import SessionPage from "@src/pages/[username]/settings/sessions/[sessionId].ast
 import ForbiddenPage from "@src/pages/403.astro";
 import NotFoundPage from "@src/pages/404.astro";
 import { createSession, getSession } from "@src/auth/session";
-import { defaultPageSize } from "@src/validation/page-size";
+import { defaultPageSize } from "@src/pagination";
 import type { Database } from "@src/db";
 import type { Client } from "@src/db/client";
 import { eq } from "drizzle-orm";
@@ -143,7 +143,7 @@ describe("SessionPage", () => {
 
 		expect(linkQuery(html, "prev")).toBeUndefined();
 		const query = linkQuery(html, "next");
-		expect(query).toMatch(/^\?before=\d+$/);
+		expect(query).toMatch(/^\?after=\d+$/);
 
 		const older = await renderSessionPage(db, current.id, user.username, current.id, query);
 
@@ -153,7 +153,7 @@ describe("SessionPage", () => {
 		expect(linkQuery(older.html, "next")).toBeUndefined();
 
 		const newerQuery = linkQuery(older.html, "prev");
-		expect(newerQuery).toMatch(/^\?after=\d+$/);
+		expect(newerQuery).toMatch(/^\?before=\d+$/);
 
 		const newer = await renderSessionPage(db, current.id, user.username, current.id, newerQuery);
 
@@ -162,7 +162,7 @@ describe("SessionPage", () => {
 		expect(newer.html).toContain(`/request-${defaultPageSize - 1}</span>`);
 		expect(newer.html.indexOf("/request-0</span>")).toBeLessThan(newer.html.indexOf("/request-1</span>"));
 		expect(linkQuery(newer.html, "prev")).toBeUndefined();
-		expect(linkQuery(newer.html, "next")).toMatch(/^\?before=\d+$/);
+		expect(linkQuery(newer.html, "next")).toMatch(/^\?after=\d+$/);
 	});
 
 	it("shows the chosen number of rows per page and keeps it when paging", async () => {
@@ -175,7 +175,7 @@ describe("SessionPage", () => {
 
 		expect(html.match(/\/request-\d+<\/span>/g)).toHaveLength(10);
 		const query = linkQuery(html, "next");
-		expect(query).toMatch(/^\?before=\d+&rows=10$/);
+		expect(query).toMatch(/^\?rows=10&after=\d+$/);
 
 		const older = await renderSessionPage(db, current.id, user.username, current.id, query);
 
@@ -183,7 +183,7 @@ describe("SessionPage", () => {
 		expect(older.html).toContain("/request-10</span>");
 		expect(older.html).toContain("/request-19</span>");
 		// The rows-per-page links keep the page starting where it does.
-		expect(older.html).toContain(`${query!.replace("&rows=10", "&amp;rows=50")}"`);
+		expect(older.html).toContain(`${query!.replace("?rows=10&", "?rows=50&amp;")}"`);
 	});
 
 	it("falls back to the default number of rows for sizes not on offer", async () => {
@@ -197,19 +197,24 @@ describe("SessionPage", () => {
 		expect(html.match(/\/request-\d+<\/span>/g)).toHaveLength(defaultPageSize);
 	});
 
-	it("links back to the newest requests from a page past the oldest one", async () => {
+	it("links back to the oldest requests from a page past the oldest one", async () => {
 		const { client, db } = createTestDatabase("session-page-past-end");
 		const user = insertUser(client, "firstuser");
 		const current = await createSession(user.id, db);
 		client.insert(history)
-			.values({ sessionId: current.id, requestedAt: new Date(), method: "GET", route: "/explore", path: "/explore", status: 200 })
+			.values({ sessionId: current.id, requestedAt: new Date(5000), method: "GET", route: "/explore", path: "/explore", status: 200 })
 			.run();
 
-		const { html } = await renderSessionPage(db, current.id, user.username, current.id, "?before=1");
+		const { html } = await renderSessionPage(db, current.id, user.username, current.id, "?after=1000");
 
 		expect(html).toContain("There are no older requests.");
-		expect(linkQuery(html, "prev")).toBe("");
+		expect(linkQuery(html, "prev")).toBe("?before=1000");
 		expect(linkQuery(html, "next")).toBeUndefined();
+
+		const back = await renderSessionPage(db, current.id, user.username, current.id, "?before=1000");
+
+		expect(back.html).toContain("/explore</span>");
+		expect(linkQuery(back.html, "prev")).toBeUndefined();
 	});
 
 	it("numbers another device in the order it signed in", async () => {

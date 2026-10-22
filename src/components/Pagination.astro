@@ -1,18 +1,15 @@
 ---
 import { ChevronDown, ChevronLeft, ChevronRight } from "@lucide/astro";
 import type { HTMLAttributes } from "astro/types";
+import type { PageNavigation } from "@src/pagination";
 
 interface Props extends HTMLAttributes<"nav"> {
-  /** Unique on the page; names the rows-per-page menu. */
   id: string;
-  previousHref?: string | undefined;
-  nextHref?: string | undefined;
-  rows: number;
-  /** One link per choice of rows per page. */
-  rowsOptions: { rows: number; href: string }[];
+  navigation: PageNavigation;
 }
 
-const { id, previousHref, nextHref, rows, rowsOptions, class: className, ...props } = Astro.props;
+const { id, navigation, class: className, ...props } = Astro.props;
+const { previousHref, nextHref, rows, rowsOptions } = navigation;
 const menuId = `${id}-rows`;
 const anchor = `--${menuId}`;
 ---

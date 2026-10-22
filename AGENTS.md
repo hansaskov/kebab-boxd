@@ -13,6 +13,7 @@ Single context root `CONTEXT.md`
 - Astro components must extend `ComponentProps<typeof Child>` (from `astro/types`) for every forwarded child and spread `{...props}` at the call site.
 - Verify with `pnpm lint`, `pnpm check` and `pnpm test`
 - Write unit and integration tests under `@src/tests/`, mocking is forbidden. 
+- Avoid unnecessary secondary labels and descriptions. Let the layout do the explaining.
 
 ## Response style
 

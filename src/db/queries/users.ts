@@ -1,17 +1,17 @@
-import { and, count, desc, eq, isNotNull, or, sql, type SQL } from "drizzle-orm";
+import { and, count, eq, isNotNull, or, sql, type SQL } from "drizzle-orm";
 import type { Client } from "@src/db/client";
+import { cursorList, type Seek } from "@src/db/pagination";
 import * as s from "@src/db/schema";
+import type { PageRequest } from "@src/pagination";
 
 /** The groups of users the admin console can list. */
 export const userFilters = ["all", "admin", "banned"] as const;
 export type UserFilter = (typeof userFilters)[number];
 
-export interface UserListPage {
+export interface UserListCriteria {
 	/** Matched anywhere in the username, full name or email. Empty matches every user. */
 	search: string;
 	filter: UserFilter;
-	limit: number;
-	offset: number;
 }
 
 const filterConditions: Record<UserFilter, SQL | undefined> = {
@@ -45,7 +45,7 @@ function countWhere(condition: SQL | undefined) {
 	return condition ? sql<number>`count(*) filter (where ${condition})`.mapWith(Number) : count();
 }
 
-function prepareUserList(client: Client, filter: UserFilter) {
+function prepareUserList(client: Client, filter: UserFilter, seek: Seek) {
 	return client
 		.select({
 			id: s.users.id,
@@ -57,11 +57,9 @@ function prepareUserList(client: Client, filter: UserFilter) {
 			createdAt: s.users.createdAt,
 		})
 		.from(s.users)
-		.where(and(matchesSearch(), filterConditions[filter]))
-		// Newest first, so new accounts are easy to look over.
-		.orderBy(desc(s.users.createdAt), desc(s.users.id))
-		.limit(sql.placeholder("limit"))
-		.offset(sql.placeholder("offset"))
+		.where(and(matchesSearch(), filterConditions[filter], seek.where))
+		.orderBy(seek.orderBy)
+		.limit(seek.limit)
 		.prepare();
 }
 
@@ -78,7 +76,10 @@ export function createUserQueries(client: Client) {
 		.findFirst({ where: { username: sql.placeholder("username") } })
 		.prepare();
 
-	const lists = forEachFilter((filter) => prepareUserList(client, filter));
+	// Newest first, so new accounts are easy to look over. Ids count up as users sign up.
+	const lists = forEachFilter((filter) =>
+		cursorList(s.users, "id", "desc", (seek) => prepareUserList(client, filter, seek)),
+	);
 	const counts = forEachFilter((filter) => prepareUserCount(client, filter));
 
 	const totals = client
@@ -92,13 +93,11 @@ export function createUserQueries(client: Client) {
 			return byUsername.execute({ username });
 		},
 
-		/** One page of the users that match the search and filter, and how many match in all. */
-		async list({ search, filter, limit, offset }: UserListPage) {
+		/** One page of the users that match the search and filter, newest first, and how many match in all. */
+		async list({ search, filter }: UserListCriteria, page: PageRequest) {
 			const pattern = containsPattern(search);
-			return {
-				users: lists[filter].all({ pattern, limit, offset }),
-				total: counts[filter].get({ pattern })?.count ?? 0,
-			};
+			const users = await lists[filter](page, { pattern });
+			return { ...users, total: counts[filter].get({ pattern })?.count ?? 0 };
 		},
 
 		/** How many users there are in each group the admin console lists. */

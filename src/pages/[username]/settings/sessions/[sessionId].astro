@@ -3,15 +3,10 @@ import { settingsSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import { can } from "@src/auth/permissions";
 import Pagination from "@src/components/Pagination.astro";
-import {
-    defaultPageSize,
-    pageSizes,
-    parsePageSize,
-} from "@src/validation/page-size";
+import { pageNavigation, parsePageRequest } from "@src/pagination";
 import { deviceName } from "@src/format/device-name";
 import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
 
-// Astro has already decoded the route parameters.
 const { username, sessionId } = Astro.params;
 
 if (!username || !sessionId) {
@@ -30,67 +25,27 @@ if (!owner) {
     return Astro.rewrite("/404");
 }
 
-// Checked before the session is looked up, so it cannot tell whether a session id exists.
 if (!can(session.user, "user:manage-sessions", owner)) {
     return Astro.rewrite("/403");
 }
 
-function cursorTime(name: string) {
-    const ms = Number(Astro.url.searchParams.get(name));
-    return Number.isSafeInteger(ms) && ms > 0 ? new Date(ms) : undefined;
-}
-const before = cursorTime("before");
-const after = cursorTime("after");
-const cursor = before ? { before } : after ? { after } : {};
-
-// ?rows=<n> sets how many requests a page shows, from the sizes on offer.
-const rows = parsePageSize(Astro.url.searchParams.get("rows"));
-
-// Only active sessions that belong to this user can be opened.
-const selectedSession =
-    await Astro.locals.db.queries.sessions.findActiveWithHistory({
-        sessionId,
-        userId: owner.id,
-        cursor,
-        limit: rows,
-    });
+const selectedSession = await Astro.locals.db.queries.sessions.findActive(
+    sessionId,
+    owner.id,
+);
 
 if (!selectedSession) {
     return Astro.rewrite("/404");
 }
 
-const { entries: history } = selectedSession;
+const page = await Astro.locals.db.queries.history.listBySession(
+    sessionId,
+    parsePageRequest(Astro.url),
+);
+const history = page.items;
+const navigation = pageNavigation(Astro.url, page);
+
 const name = deviceName(selectedSession, session.id);
-const pageHref = Astro.url.pathname;
-
-function historyHref(params: {
-    before?: Date | null | undefined;
-    after?: Date | null | undefined;
-    rows: number;
-}) {
-    const search = new URLSearchParams();
-    if (params.before) search.set("before", String(params.before.getTime()));
-    else if (params.after) search.set("after", String(params.after.getTime()));
-    if (params.rows !== defaultPageSize)
-        search.set("rows", String(params.rows));
-    return search.size ? `${pageHref}?${search}` : pageHref;
-}
-
-// Previous goes to newer requests and next to older ones. A page past either end has no
-// neighbours, so previous goes back to the newest requests instead.
-const previousHref = selectedSession.newer
-    ? historyHref({ after: selectedSession.newer, rows })
-    : (before || after) && history.length === 0
-      ? historyHref({ rows })
-      : undefined;
-const nextHref = selectedSession.older
-    ? historyHref({ before: selectedSession.older, rows })
-    : undefined;
-// Changing the rows per page keeps the page starting where it does.
-const rowsOptions = pageSizes.map((size) => ({
-    rows: size,
-    href: historyHref({ ...cursor, rows: size }),
-}));
 const settingsHref = `/${encodeURIComponent(owner.username)}/settings`;
 ---
 
@@ -142,11 +97,10 @@ const settingsHref = `/${encodeURIComponent(owner.username)}/settings`;
         <h2>History</h2>
         {history.length === 0 ? (
             <p class="t-body mt-2 text-fg-muted">
-                {before
+                {/* A page before the first request is the first page, so only a page after the last one is empty. */}
+                {page.isPastEnd
                     ? "There are no older requests."
-                    : after
-                      ? "There are no newer requests."
-                      : "This session has not made any requests yet."}
+                    : "This session has not made any requests yet."}
             </p>
         ) : (
             <ol class="mt-4 divide-y divide-line rounded-box border border-line bg-surface">
@@ -196,15 +150,12 @@ const settingsHref = `/${encodeURIComponent(owner.username)}/settings`;
                 ))}
             </ol>
         )}
-        {(history.length > 0 || previousHref) && (
+        {navigation && (
             <Pagination
                 id="history-pages"
                 class="mt-4"
                 aria-label="History pages"
-                previousHref={previousHref}
-                nextHref={nextHref}
-                rows={rows}
-                rowsOptions={rowsOptions}
+                navigation={navigation}
             />
         )}
     </section>

@@ -97,27 +97,33 @@ describe("AdminUsersPage", () => {
 
 		expect(listedUsernames(first.html)).toHaveLength(10);
 		expect(listedUsernames(first.html)[0]).toBe("user_10");
-		expect(first.html).toContain("Showing 1–10 of 12");
+		expect(first.html).toContain("12 users");
 		expect(linkHref(first.html, "prev")).toBeUndefined();
-		expect(linkHref(first.html, "next")).toBe("/admin/users?rows=10&page=2");
+		// Pages start after the last user on show, user_1, who has id 3.
+		expect(linkHref(first.html, "next")).toBe("/admin/users?rows=10&after=3");
 
-		const second = await render(AdminUsersPage, db, adminSession.id, "/admin/users?rows=10&page=2");
+		const second = await render(AdminUsersPage, db, adminSession.id, "/admin/users?rows=10&after=3");
 
 		expect(listedUsernames(second.html)).toEqual(["user_0", "admin_user"]);
-		expect(second.html).toContain("Showing 11–12 of 12");
-		expect(linkHref(second.html, "prev")).toBe("/admin/users?rows=10");
+		expect(second.html).toContain("12 users");
+		expect(linkHref(second.html, "prev")).toBe("/admin/users?rows=10&before=2");
 		expect(linkHref(second.html, "next")).toBeUndefined();
+
+		const back = await render(AdminUsersPage, db, adminSession.id, "/admin/users?rows=10&before=2");
+
+		expect(listedUsernames(back.html)).toEqual(listedUsernames(first.html));
 	});
 
-	it("links back to the last page from a page past the end", async () => {
+	it("links back from a page past the end", async () => {
 		const { client, db } = createTestDatabase("admin-users-past-end");
 		const admin = insertUser(client, "ada", "admin");
+		insertUser(client, "bob");
 		const adminSession = await createSession(admin.id, db);
 
-		const { html } = await render(AdminUsersPage, db, adminSession.id, "/admin/users?page=9");
+		const { html } = await render(AdminUsersPage, db, adminSession.id, "/admin/users?after=1");
 
 		expect(html).toContain("There are no users on this page.");
-		expect(linkHref(html, "prev")).toBe("/admin/users");
+		expect(linkHref(html, "prev")).toBe("/admin/users?before=1");
 	});
 
 	it("searches and filters, and keeps both when paging", async () => {
@@ -135,7 +141,17 @@ describe("AdminUsersPage", () => {
 		expect(listedUsernames(html)).toHaveLength(10);
 		expect(listedUsernames(html).every((username) => username?.startsWith("kebab_"))).toBe(true);
 		expect(html).toContain('value="kebab"');
-		expect(linkHref(html, "next")).toBe("/admin/users?q=kebab&filter=banned&rows=10&page=2");
+		expect(html).toContain('<input type="hidden" name="filter" value="banned">');
+		expect(html).toContain('<input type="hidden" name="rows" value="10">');
+		expect(linkHref(html, "next")).toBe("/admin/users?q=kebab&filter=banned&rows=10&after=3");
+
+		// A new search from a later page keeps the filter and rows, and starts again from the first page.
+		const second = await render(AdminUsersPage, db, adminSession.id, linkHref(html, "next")!);
+
+		expect(listedUsernames(second.html)).toEqual(["kebab_0"]);
+		expect(second.html).toContain('<input type="hidden" name="filter" value="banned">');
+		expect(second.html).toContain('<input type="hidden" name="rows" value="10">');
+		expect(second.html).not.toContain('name="after"');
 	});
 
 	it("says when no user matches the search", async () => {
@@ -146,6 +162,7 @@ describe("AdminUsersPage", () => {
 		const { html } = await render(AdminUsersPage, db, adminSession.id, "/admin/users?q=shawarma");
 
 		expect(html).toContain("No users match “shawarma”.");
+		expect(html).not.toContain('name="rows"');
 		expect(listedUsernames(html)).toEqual([]);
 	});
 

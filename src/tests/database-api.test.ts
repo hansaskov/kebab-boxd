@@ -23,9 +23,8 @@ describe("database API", () => {
 		const listed = await db.queries.sessions.listActive(user.id);
 
 		expect(listed.map((session) => session.id)).toEqual([active.id]);
-		const page = { userId: user.id, cursor: {}, limit: 25 };
-		expect(await db.queries.sessions.findActiveWithHistory({ ...page, sessionId: active.id })).toBeDefined();
-		expect(await db.queries.sessions.findActiveWithHistory({ ...page, sessionId: timedOut.id })).toBeUndefined();
+		expect(await db.queries.sessions.findActive(active.id, user.id)).toBeDefined();
+		expect(await db.queries.sessions.findActive(timedOut.id, user.id)).toBeUndefined();
 	});
 
 	it("leaves every automatic timestamp for SQLite to compute when the statement runs", () => {
