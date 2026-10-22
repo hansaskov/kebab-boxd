@@ -4,9 +4,8 @@ import type { Client } from "@src/db/client";
 import { encodedPlaceholder } from "@src/db/placeholder";
 import * as s from "@src/db/schema";
 
-export const inactivityTimeoutSeconds = 60 * 60 * 24 * 30; // 30 days
+export const inactivityTimeoutSeconds = 60 * 60 * 24 * 30;
 
-/** Sessions last verified at or before this time have timed out. */
 function sessionsActiveSince() {
 	return new Date(Date.now() - inactivityTimeoutSeconds * 1000);
 }
@@ -29,7 +28,6 @@ function prepareActiveSession(client: Client) {
 					sql<Date | null>`(select max(${s.history.requestedAt}) from ${s.history} where ${s.history.sessionId} = ${t.id})`.mapWith(
 						s.history.requestedAt,
 					),
-				// The active sessions of the same user that signed in first, as in `listActive`.
 				signInOrder: (t) =>
 					sql<number>`(${client
 						.select({ count: count() })
@@ -87,7 +85,6 @@ export function createSessionQueries(client: Client) {
 			return activeByUser.all({ userId, activeSince: sessionsActiveSince() });
 		},
 
-		/** The session if it belongs to the user and has not timed out. */
 		async findActive(sessionId: string, userId: number) {
 			return active.execute({ sessionId, userId, activeSince: sessionsActiveSince() });
 		},

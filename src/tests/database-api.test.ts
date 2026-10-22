@@ -28,7 +28,6 @@ describe("database API", () => {
 	});
 
 	it("leaves every automatic timestamp for SQLite to compute when the statement runs", () => {
-		// A value computed in JavaScript would be fixed once, when a prepared statement is built.
 		const computedInJavaScript = Object.values(schema)
 			.filter((table) => is(table, Table))
 			.flatMap((table) =>
@@ -52,7 +51,6 @@ describe("database API", () => {
 		const yesterday = new Date(Date.now() - day);
 		client.update(sessions).set({ createdAt: yesterday, updatedAt: yesterday }).where(eq(sessions.id, session.id)).run();
 
-		// Timestamps are stored in whole seconds.
 		const startOfWrite = Math.floor(Date.now() / 1000) * 1000;
 		await db.mutations.sessions.setTheme(session.id, "dark");
 
@@ -65,7 +63,6 @@ describe("database API", () => {
 	it("creates no user when creating the account fails part way", async () => {
 		const { client, db } = createTestDatabase("api-create-account-rollback");
 
-		// The user is inserted, then the account breaks the NOT NULL constraint on its subject id.
 		await expect(
 			db.mutations.accounts.findOrCreateWithUser({
 				providerId: "google",

@@ -13,8 +13,6 @@ interface Props extends astroHTML.JSX.SelectHTMLAttributes {
     errors?: string[] | undefined;
 }
 
-// Pull out the props that are not select attributes, so they are not rendered
-// on the select.
 const { zodField, selected, label, description, noneOption, errors, class: className, ...props } = Astro.props
 const enumField = zodField instanceof ZodNullable
     ? zodField.unwrap()

@@ -11,7 +11,6 @@ function firstNameOf(fullname: string): string {
 	return fullname.trim().split(/\s+/).at(0) ?? "";
 }
 
-/** Drops accents and every character a username may not contain, then lowercases. */
 function toUsernameCharacters(value: string): string {
 	return value
 		.normalize("NFKD")
@@ -19,11 +18,6 @@ function toUsernameCharacters(value: string): string {
 		.toLowerCase();
 }
 
-/**
- * Usernames are derived from the first name and made unique with a suffix,
- * normally the row id. The id is only known after the insert, so callers
- * update the placeholder.
- */
 export function buildUsername(fullname: string, suffix: number | string): string {
 	const separatedSuffix = `_${suffix}`;
 	const maxBaseLength = Math.max(0, USERNAME_MAX_LENGTH - separatedSuffix.length);
@@ -97,18 +91,7 @@ export function createAccountMutations(client: Client) {
 		.prepare();
 
 	return {
-		/**
-		 * Finds the user who signs in with the account, or creates both. Returns the user who
-		 * already has the email, without creating anything, when the account is new but the email
-		 * is not.
-		 */
 		async findOrCreateWithUser(account: NewUserWithAccount): Promise<SignInResult> {
-			// Everything from the lookup to the inserts is one transaction, so two sign-ins with the
-			// same new account cannot both see it missing. The callback must stay synchronous: the
-			// driver commits as soon as it returns. The prepared statements run on the same
-			// connection, so they take part in the transaction, and an error rolls all of them back.
-			// "immediate" takes the write lock before the first read, so the transaction cannot fail
-			// with SQLITE_BUSY part way when another connection writes to the file.
 			return client.transaction(
 				(): SignInResult => {
 					const existing = userByAccount.get({
@@ -124,7 +107,6 @@ export function createAccountMutations(client: Client) {
 						return { status: "email-taken", user: emailTakenBy };
 					}
 
-					// The username must be unique, but the one we want depends on the id this insert creates.
 					const inserted = insertUser.get({
 						fullname: account.fullname,
 						username: `pending-${crypto.randomUUID()}`,
@@ -136,7 +118,6 @@ export function createAccountMutations(client: Client) {
 						throw new Error("Failed to create a user for the provider account.");
 					}
 
-					// Someone may already have picked the id-based name in settings.
 					const preferredUsername = buildUsername(account.fullname, inserted.id);
 					const username = userIdByUsername.get({ username: preferredUsername })
 						? buildUsername(account.fullname, generateSecureRandomString())

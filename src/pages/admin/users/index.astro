@@ -28,7 +28,6 @@ const users = page.items;
 const navigation = pageNavigation(Astro.url, page);
 
 const filterLabels: Record<UserFilter, string> = { all: "All", admin: "Admins", banned: "Banned" };
-// A new filter starts again from the first page.
 const filterOptions = userFilters.map((option) => ({
   filter: option,
   label: filterLabels[option],
@@ -70,7 +69,6 @@ const emptyMessage =
       maxlength={searchMaxLength}
       placeholder="Name, username or email"
     />
-    {/* A new search keeps the filter and the rows per page, and starts again from the first page. */}
     {firstPageFields(Astro.url, { q: undefined }).map(([name, value]) => (
       <input type="hidden" name={name} value={value} />
     ))}

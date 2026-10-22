@@ -5,7 +5,6 @@ import * as s from "@src/db/schema";
 import type { PageRequest } from "@src/pagination";
 
 export function createHistoryQueries(client: Client) {
-	// Newest first. The time is unique within a session, as it is part of the primary key.
 	const bySession = cursorList(s.history, "requestedAt", "desc", (seek) =>
 		client
 			.select({
@@ -24,7 +23,6 @@ export function createHistoryQueries(client: Client) {
 	);
 
 	return {
-		/** One page of the requests a session made, newest first. Check that the session may be seen first. */
 		async listBySession(sessionId: string, page: PageRequest) {
 			return bySession(page, { sessionId });
 		},

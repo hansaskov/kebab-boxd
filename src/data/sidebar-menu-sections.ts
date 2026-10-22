@@ -55,7 +55,6 @@ export function settingsSidebarMenuSections(username: string): SidebarMenuSectio
   ]);
 }
 
-/** The default menu plus links to each part of the admin console. */
 export function adminSidebarMenuSections(): SidebarMenuSection[] {
   return defaultSidebarMenuSections.concat([
     {

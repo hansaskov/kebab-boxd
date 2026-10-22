@@ -8,7 +8,6 @@ import { getSQLiteError, isUniqueConstraintError } from "@src/db/sqlite-errors";
 
 export type Profile = Pick<User, "fullname" | "username" | "pronoun" | "bio">;
 
-/** Decides whether the acting user may change the target, from both as they are when the change is written. */
 export type Authorize = (actor: Subject, target: TargetUser) => boolean;
 
 export function createUserMutations(client: Client) {
@@ -35,7 +34,6 @@ export function createUserMutations(client: Client) {
 		.where(eq(s.users.id, sql.placeholder("id")))
 		.prepare();
 
-	// A user who is banned again keeps the time of the first ban.
 	const setBannedAt = client
 		.update(s.users)
 		.set({ bannedAt: sql.placeholder("bannedAt") })
@@ -56,16 +54,6 @@ export function createUserMutations(client: Client) {
 		.where(eq(s.users.id, sql.placeholder("id")))
 		.prepare();
 
-	/**
-	 * Runs `write` if `authorize` allows it, from the acting user and the target read again in the
-	 * same transaction. The users read when the request started may be out of date, and two Admins
-	 * who demote each other at the same time must not leave the site without an Admin.
-	 *
-	 * The callback must stay synchronous: the driver commits as soon as it returns. The prepared
-	 * statements run on the same connection, so they take part in the transaction, and an error
-	 * rolls all of them back. "immediate" takes the write lock before the first read, so the
-	 * transaction cannot fail with SQLITE_BUSY part way when another connection writes to the file.
-	 */
 	function writeIfAuthorized(actorId: number, id: number, authorize: Authorize, write: () => void) {
 		return client.transaction(
 			(): "updated" | "refused" => {
@@ -88,7 +76,6 @@ export function createUserMutations(client: Client) {
 				updateProfile.run({ id, ...profile });
 				return "updated";
 			} catch (error) {
-				// The username is the only unique column the update changes.
 				if (isUniqueConstraintError(getSQLiteError(error))) {
 					return "username-taken";
 				}
@@ -100,14 +87,12 @@ export function createUserMutations(client: Client) {
 			verifyEmail.run({ id });
 		},
 
-		/** Gives the user the role, if `authorize` lets `actorId` do it. */
 		async setRole(id: number, role: Role, actorId: number, authorize: Authorize) {
 			return writeIfAuthorized(actorId, id, authorize, () => {
 				setRole.run({ id, role });
 			});
 		},
 
-		/** Bans the user and signs them out on every device, if `authorize` lets `actorId` do it. */
 		async ban(id: number, actorId: number, authorize: Authorize) {
 			return writeIfAuthorized(actorId, id, authorize, () => {
 				setBannedAt.run({ id, bannedAt: new Date() });
@@ -115,7 +100,6 @@ export function createUserMutations(client: Client) {
 			});
 		},
 
-		/** Lifts the ban, if `authorize` lets `actorId` do it. */
 		async unban(id: number, actorId: number, authorize: Authorize) {
 			return writeIfAuthorized(actorId, id, authorize, () => {
 				clearBannedAt.run({ id });

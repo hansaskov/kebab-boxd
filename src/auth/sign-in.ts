@@ -30,7 +30,6 @@ export async function signInWithProviderAccount(
 			return result.user;
 
 		case "email-taken":
-			// A banned user who signs in with another provider account is told about the ban.
 			if (result.user.bannedAt) {
 				throw new UserBannedError(result.user.id);
 			}

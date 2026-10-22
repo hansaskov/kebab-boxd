@@ -50,7 +50,6 @@ describe("a banned user", () => {
 		const admin = insertUser(client, "admin", "admin");
 		const bob = insertUser(client, "bob");
 		await banAs(db, admin.id, bob.id);
-		// As if a sign-in that started before the ban finished after it.
 		const session = await createSession(bob.id, db);
 
 		expect(await getSession(session.id, db)).toBeNull();

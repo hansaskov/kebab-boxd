@@ -6,7 +6,6 @@ import { history } from "@src/db/schema";
 import type { Cursor } from "@src/pagination";
 import { createTestDatabase, insertUser } from "@src/tests/database";
 
-// Requests made at 1, 2, … seconds, so request n has the key n * 1000.
 function insertRequests(client: Client, sessionId: string, total: number) {
 	if (total === 0) return;
 	client

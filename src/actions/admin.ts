@@ -13,7 +13,6 @@ export const changeUserRoleSchema = targetUserSchema.extend({
   role: z.enum(roles),
 });
 
-/** Refuses an admin action that the permission check allowed, but the database refused later. */
 function refusedSinceRequestStarted() {
   return new ActionError({
     code: "CONFLICT",
@@ -21,7 +20,6 @@ function refusedSinceRequestStarted() {
   });
 }
 
-/** The admin console page of a user, where every admin action sends the browser back to. */
 export function adminUserHref(username: string) {
   return `/admin/users/${encodeURIComponent(username)}`;
 }

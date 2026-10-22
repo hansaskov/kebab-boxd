@@ -96,7 +96,6 @@ export async function seedDatabase(client: Client) {
         pronoun: funcs.valuesFromArray({ values: [...pronouns] }),
         latitude: funcs.number({ minValue: -90, maxValue: 90, precision: 10000 }),
         longitude: funcs.number({ minValue: -180, maxValue: 180, precision: 10000 }),
-        // A few users are banned below, the way an admin does it.
         bannedAt: funcs.default({ defaultValue: null }),
       },
     },
@@ -161,8 +160,6 @@ export async function seedDatabase(client: Client) {
 
   }));
 
-  // Seeded first names are capitalized, so turn them into valid lowercase
-  // usernames the same way a real sign-in does. The id suffix keeps them unique.
   const seededUsers = await client
     .select({ id: schema.users.id, username: schema.users.username })
     .from(schema.users);
@@ -202,7 +199,6 @@ export async function seedDatabase(client: Client) {
   if (!admin) {
     throw new Error("The seed has no Admin to ban users with.");
   }
-  // Only users without the Admin role can be banned.
   const bannableUsers = await client
     .select({ id: schema.users.id })
     .from(schema.users)

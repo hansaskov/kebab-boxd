@@ -11,8 +11,6 @@ interface Props {
 const { sidebarMenuSections = defaultSidebarMenuSections } = Astro.props;
 const { pathname } = Astro.url;
 
-// A link matches its own page and the pages below it, so /explore matches /explore/odense.
-// When links are nested, such as /admin and /admin/users, only the longest match is current.
 const matches = (href: string) =>
   href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 const activeHref = sidebarMenuSections

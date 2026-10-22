@@ -11,7 +11,6 @@ export const POST = (async ({ cookies, redirect, locals }) => {
 	await locals.db.mutations.sessions.delete(session.id);
 	deleteSessionTokenCookie(cookies);
 
-	// Pages prefetched or prerendered while signed in would otherwise be shown after sign-out.
 	return new Response(null, {
 		status: 302,
 		headers: {

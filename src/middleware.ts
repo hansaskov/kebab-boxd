@@ -51,7 +51,6 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 		setActionResult(session.actionData.actionName, session.actionData.actionResult);
 	}
 
-	// Execute request
 	const response = await next();
 
 	if (!context.routePattern.startsWith("/api/logout")) {
@@ -63,7 +62,6 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 			path: context.url.pathname,
 			action: context.url.searchParams.get("_action"),
 			status: response.status,
-			// Speculation rules send "prefetch", or "prefetch;prerender" when the page is also rendered.
 			prefetched: context.request.headers.get("Sec-Purpose")?.startsWith("prefetch") ?? false,
 		};
 

@@ -11,7 +11,6 @@ import { eq } from "drizzle-orm";
 import { history, sessions } from "@src/db/schema";
 import { createTestDatabase, insertUser } from "@src/tests/database";
 
-// The query of a pagination link, or undefined when the link is turned off.
 function linkQuery(html: string, rel: "prev" | "next") {
 	const href = html.match(new RegExp(`rel="${rel}" href="([^"]*)"`))?.[1]?.replaceAll("&amp;", "&");
 	return href === undefined ? undefined : href.slice(href.indexOf("?") === -1 ? href.length : href.indexOf("?"));
@@ -182,7 +181,6 @@ describe("SessionPage", () => {
 		expect(older.html.match(/\/request-\d+<\/span>/g)).toHaveLength(10);
 		expect(older.html).toContain("/request-10</span>");
 		expect(older.html).toContain("/request-19</span>");
-		// The rows-per-page links keep the page starting where it does.
 		expect(older.html).toContain(`${query!.replace("?rows=10&", "?rows=50&amp;")}"`);
 	});
 

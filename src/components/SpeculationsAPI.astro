@@ -13,7 +13,7 @@ const { prefetchUrls, eagerness = "immediate" } = Astro.props;
     set:html={JSON.stringify({
         prefetch: [
             {
-                urls: import.meta.env.PROD ? prefetchUrls : [], // Only apply prefetch in prod
+                urls: import.meta.env.PROD ? prefetchUrls : [],
                 eagerness: eagerness,
             },
         ],

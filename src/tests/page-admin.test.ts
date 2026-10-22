@@ -28,7 +28,6 @@ async function render(
 	return { response, html: await response.text() };
 }
 
-// The usernames listed on a page of the user list, in order.
 function listedUsernames(html: string) {
 	return [...html.matchAll(/href="\/admin\/users\/([a-z0-9_]+)"/g)].map((match) => match[1]);
 }
@@ -99,7 +98,6 @@ describe("AdminUsersPage", () => {
 		expect(listedUsernames(first.html)[0]).toBe("user_10");
 		expect(first.html).toContain("12 users");
 		expect(linkHref(first.html, "prev")).toBeUndefined();
-		// Pages start after the last user on show, user_1, who has id 3.
 		expect(linkHref(first.html, "next")).toBe("/admin/users?rows=10&after=3");
 
 		const second = await render(AdminUsersPage, db, adminSession.id, "/admin/users?rows=10&after=3");
@@ -145,7 +143,6 @@ describe("AdminUsersPage", () => {
 		expect(html).toContain('<input type="hidden" name="rows" value="10">');
 		expect(linkHref(html, "next")).toBe("/admin/users?q=kebab&filter=banned&rows=10&after=3");
 
-		// A new search from a later page keeps the filter and rows, and starts again from the first page.
 		const second = await render(AdminUsersPage, db, adminSession.id, linkHref(html, "next")!);
 
 		expect(listedUsernames(second.html)).toEqual(["kebab_0"]);

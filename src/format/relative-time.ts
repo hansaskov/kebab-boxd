@@ -12,10 +12,6 @@ const formatters = {
   narrow: new Intl.RelativeTimeFormat("en", { numeric: "auto", style: "narrow" }),
 };
 
-/**
- * Formats a date relative to now, such as "5 minutes ago" or "yesterday".
- * The narrow style abbreviates the unit, such as "5m ago".
- */
 export function formatRelativeTime(date: Date, now = new Date(), style: keyof typeof formatters = "long"): string {
   const seconds = Math.round((date.getTime() - now.getTime()) / 1000);
 
@@ -28,7 +24,6 @@ export function formatRelativeTime(date: Date, now = new Date(), style: keyof ty
   return "just now";
 }
 
-/** Formats a date in full, for tooltips next to a relative time. */
 export function formatExactTime(date: Date): string {
   return date.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "medium" });
 }

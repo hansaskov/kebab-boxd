@@ -72,7 +72,6 @@ const authorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
 const tokenEndpoint = "https://oauth2.googleapis.com/token";
 const scopes = ["openid", "profile", "email"];
 
-/** Cookie names shared by the authorization request and its callback. */
 export const googleCookieNames = {
 	state: "google_oauth_state",
 	codeVerifier: "google_code_verifier",

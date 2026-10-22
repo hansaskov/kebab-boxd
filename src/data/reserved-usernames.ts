@@ -1,7 +1,3 @@
-/**
- * Usernames nobody may pick: top-level routes that a profile URL could be
- * confused with, and names that suggest the user speaks for the site.
- */
 export const reservedUsernames: ReadonlySet<string> = new Set([
   "about",
   "account",

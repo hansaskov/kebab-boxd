@@ -3,10 +3,6 @@ import type { Client } from "@src/db/client";
 import * as s from "@src/db/schema";
 import type { ActionData, NewSession, Session } from "@src/db/schema";
 
-/**
- * Signs the user with the `userId` placeholder out on every device. Shared with mutations that sign
- * a user out inside their own transaction, which cannot wait for `deleteAllForUser`.
- */
 export function prepareDeleteAllForUser(client: Client) {
 	return client
 		.delete(s.sessions)
@@ -63,7 +59,6 @@ export function createSessionMutations(client: Client) {
 			setTheme.run({ id, theme });
 		},
 
-		/** Keeps the result of a form action for the page the browser is sent to next. */
 		async setActionData(id: string, actionData: ActionData | null) {
 			setActionData.run({ id, actionData });
 		},
@@ -72,7 +67,6 @@ export function createSessionMutations(client: Client) {
 			deleteById.run({ id });
 		},
 
-		/** Signs the user out on every device. */
 		async deleteAllForUser(userId: number) {
 			deleteByUser.run({ userId });
 		},

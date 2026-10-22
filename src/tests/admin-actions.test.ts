@@ -11,7 +11,6 @@ type AdminAction = keyof typeof server.admin;
 
 type Session = Awaited<ReturnType<typeof getSession>>;
 
-/** Calls the action with a session read earlier, as a request does that started before a change. */
 async function callWithSession(db: Database, session: Session, action: AdminAction, fields: Record<string, string>) {
 	const formData = new FormData();
 	for (const [name, value] of Object.entries(fields)) {
@@ -103,7 +102,6 @@ describe("banUser action", () => {
 
 		const result = await callWithSession(db, adminSession, "banUser", { username: "bob" });
 
-		// The action reads Bob again, so the permission check refuses before the ban runs.
 		expect(result.error?.code).toBe("FORBIDDEN");
 		expect(await banAs(db, admin.id, bob.id)).toBe("refused");
 		expect(userRow(client, bob.id)?.bannedAt).toBeNull();
@@ -120,7 +118,6 @@ describe("banUser action", () => {
 
 		const result = await callWithSession(db, adminSession, "banUser", { username: "bob" });
 
-		// The session still says Ada is an Admin, so only the check in the transaction refuses.
 		expect(result.error?.code).toBe("CONFLICT");
 		expect(userRow(client, bob.id)?.bannedAt).toBeNull();
 		expect(sessionIdsOf(client, bob.id)).toHaveLength(1);
@@ -242,7 +239,6 @@ describe("changeUserRole action", () => {
 		const { client, db } = createTestDatabase("admin-role-race");
 		const ada = insertUser(client, "ada", "admin");
 		const bob = insertUser(client, "bob", "admin");
-		// Both requests read their session before either change is saved.
 		const adaSession = await getSession((await createSession(ada.id, db)).id, db);
 		const bobSession = await getSession((await createSession(bob.id, db)).id, db);
 

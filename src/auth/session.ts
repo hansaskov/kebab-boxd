@@ -4,7 +4,7 @@ import { inactivityTimeoutSeconds } from "@src/db/queries/sessions";
 import { constantTimeEqual, generateSecureRandomString, hashSecret } from "@src/auth/hash";
 import type { AstroCookies } from "astro";
 
-const activityCheckIntervalSeconds = 60 * 60 * 24; // 24 hours
+const activityCheckIntervalSeconds = 60 * 60 * 24;
 
 export const sessionCookieName = "__Host-session";
 

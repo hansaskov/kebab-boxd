@@ -1,9 +1,6 @@
 import { ActionError } from "astro:actions";
 import { can, type UserPermission } from "@src/auth/permissions";
 
-/**
- * Finds the user a form targets, and checks the signed-in user has the permission on them.
- */
 export async function authorizeTargetUser(locals: App.Locals, username: string, permission: UserPermission) {
   const session = locals.session;
 

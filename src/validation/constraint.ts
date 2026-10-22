@@ -65,13 +65,8 @@ function zodInfo(schema: z.ZodType): ZodInfo {
 	}
 }
 
-/**
- * Browsers compile `pattern` with the `v` flag and nothing else, so a regex
- * that relies on these flags would match differently in the browser.
- */
 const flagsBrowsersCannotApply = /[ims]/;
 
-/** The custom message given to a check, such as the second argument of `.regex()`. */
 function customMessage(check: z.core.$ZodCheckStringFormatDef): string | undefined {
 	const result = check.error?.({
 		code: "invalid_format",

@@ -57,7 +57,6 @@ export const settingsActions = {
 
       await context.locals.db.mutations.sessions.deleteAllForUser(targetUser.id);
 
-      // An admin who signs out another user keeps their own session.
       if (session.user.id !== targetUser.id) {
         return { redirect: `/${encodeURIComponent(targetUser.username)}/settings` };
       }

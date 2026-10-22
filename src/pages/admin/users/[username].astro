@@ -8,7 +8,6 @@ import { changeUserRoleSchema } from "@src/actions/admin";
 import { can } from "@src/auth/permissions";
 import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
 
-// Astro has already decoded the route parameter.
 const { username } = Astro.params;
 
 if (!username) {
@@ -21,7 +20,6 @@ if (!session) {
   return Astro.redirect("/login");
 }
 
-// Checked before the user is looked up, so it cannot tell whether a username exists.
 if (!can(session.user, "admin-console:view")) {
   return Astro.rewrite("/403");
 }
@@ -37,7 +35,6 @@ const canChangeRole = can(session.user, "user:change-role", user);
 const canManageSessions = can(session.user, "user:manage-sessions", user);
 const isOwnAccount = session.user.id === user.id;
 
-// Sorted with the most recently used device first.
 const devices = canManageSessions ? await Astro.locals.db.queries.sessions.listActive(user.id) : [];
 const lastActiveAt = devices.at(0)?.lastRequestAt;
 

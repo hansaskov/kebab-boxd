@@ -97,7 +97,6 @@ const settingsHref = `/${encodeURIComponent(owner.username)}/settings`;
         <h2>History</h2>
         {history.length === 0 ? (
             <p class="t-body mt-2 text-fg-muted">
-                {/* A page before the first request is the first page, so only a page after the last one is empty. */}
                 {page.isPastEnd
                     ? "There are no older requests."
                     : "This session has not made any requests yet."}
@@ -106,7 +105,6 @@ const settingsHref = `/${encodeURIComponent(owner.username)}/settings`;
             <ol class="mt-4 divide-y divide-line rounded-box border border-line bg-surface">
                 {history.map((entry) => (
                     <li class="flex items-center gap-3 px-4 py-3">
-                        {/* Prefetches are always GET, so PRE takes the place of the method. */}
                         <span
                             class="tag min-w-[8ch] shrink-0 justify-center"
                             title={

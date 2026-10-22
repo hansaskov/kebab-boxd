@@ -77,7 +77,6 @@
   --ds-color-bg-surface: var(--pr-paper-0);
   --ds-color-bg-subtle: var(--pr-paper-100);
   --ds-color-bg-active: var(--pr-paper-150);
-  /* Translucent, so a field is sunk into any background it sits on. */
   --ds-color-bg-field: var(--pr-ink-a5);
 
   --ds-color-fg-default: var(--pr-ink-800);
@@ -107,12 +106,10 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  /* Lightness rises with elevation. Recessed areas stay above the page. */
   --ds-color-bg-page: var(--pr-night-900);
   --ds-color-bg-surface: var(--pr-night-800);
   --ds-color-bg-subtle: var(--pr-night-850);
   --ds-color-bg-active: var(--pr-night-700);
-  /* Translucent, so a field is lifted on any background it sits on. */
   --ds-color-bg-field: var(--pr-white-a5);
 
   --ds-color-fg-default: var(--pr-night-50);
@@ -384,7 +381,6 @@
     line-height: 1.6;
   }
 
-  /* A select cannot hold an icon, so .select wraps it and places the chevron on top. */
   .select {
     position: relative;
   }
@@ -462,8 +458,6 @@
     }
   }
 
-  /* The button that acts on a row. When the row stacks it fills the width, like
-     .settings-row-field, so it lines up with the text above instead of floating alone. */
   .settings-row-action {
     width: 100%;
   }
@@ -474,9 +468,6 @@
     }
   }
 
-  /* A row that opens a detail page. Unlike .settings-row it never stacks: its label and
-     detail are short, so they share one line at every width. It bleeds into the card's
-     padding so the hover background has room around the text. */
   .settings-link {
     display: flex;
     align-items: center;

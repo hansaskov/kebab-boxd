@@ -1,4 +1,3 @@
-# Ignore everything, then allow only what the image needs to build and migrate.
 *
 
 !package.json

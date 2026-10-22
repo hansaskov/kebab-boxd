@@ -10,8 +10,6 @@ interface Props extends astroHTML.JSX.TextareaHTMLAttributes {
     errors?: string[] | undefined;
 }
 
-// Pull out the props that are not textarea attributes, so they are not rendered
-// on the textarea. A textarea takes its value as content, not as an attribute.
 const { zodField, label, description, errors, value, class: className, ...props } = Astro.props;
 const constraints = getConstraintsFromZodSchema(zodField)
 const fieldId = props.id ?? props.name

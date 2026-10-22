@@ -3,8 +3,6 @@ import { describe, expect, it } from "vitest";
 
 const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
 
-// Reads the custom properties declared in the first rule whose selector ends
-// with `selector`. Values may span several lines, as shadows do.
 function declarations(selector: string): Map<string, string> {
 	const start = css.indexOf(`${selector} {`);
 	expect(start, `no rule for ${selector}`).toBeGreaterThanOrEqual(0);
@@ -26,8 +24,6 @@ function colorTokens(theme: Map<string, string>): string[] {
 	return [...theme.keys()].filter((name) => name.startsWith("--ds-color-")).sort();
 }
 
-// Follows a semantic token to its primitive and returns the oklch lightness
-// (0–1) and alpha (0–1).
 function oklch(theme: Map<string, string>, token: string) {
 	const reference = theme.get(token)?.match(/^var\((--pr-[\w-]+)\)$/)?.[1];
 	const value = reference && primitives.get(reference);
