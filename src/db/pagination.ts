@@ -16,10 +16,19 @@ type KeyValues<Table extends SQLiteTable, Keys extends readonly ColumnName<Table
 	[Key in Keys[number]]: GetColumnData<Table["_"]["columns"][Key]>;
 };
 
-const compositeSeparator = ".";
+// Decimal points and minus signs can appear in the values, so the separator must be neither.
+const compositeSeparator = "_";
 
 function isIntegerColumn(column: Column) {
 	return column.getSQLType() === "integer";
+}
+
+function isRealColumn(column: Column) {
+	return column.getSQLType() === "real";
+}
+
+function isNumberColumn(column: Column) {
+	return isIntegerColumn(column) || isRealColumn(column);
 }
 
 function encode(values: unknown[]) {
@@ -32,6 +41,18 @@ function parseSafeInteger(text: string) {
 	return Number.isSafeInteger(value) ? value : undefined;
 }
 
+function parseFiniteNumber(text: string) {
+	if (!/^-?\d+(\.\d+)?(e[+-]?\d+)?$/.test(text)) return undefined;
+	const value = Number(text);
+	return Number.isFinite(value) ? value : undefined;
+}
+
+function parserFor(column: Column): (text: string) => unknown {
+	if (isIntegerColumn(column)) return parseSafeInteger;
+	if (isRealColumn(column)) return parseFiniteNumber;
+	return (text) => text;
+}
+
 export function cursorList<
 	Table extends SQLiteTable,
 	const Keys extends readonly [ColumnName<Table>, ...ColumnName<Table>[]],
@@ -41,20 +62,21 @@ export function cursorList<
 		const column = tableColumns[key];
 		if (!column) throw new Error(`The table has no column ${key}.`);
 		const sqlType = column.getSQLType();
-		if (!isIntegerColumn(column) && !sqlType.startsWith("text")) {
+		if (!isNumberColumn(column) && !sqlType.startsWith("text")) {
 			throw new Error(`A cursor list cannot be ordered by the ${sqlType} column ${column.name}.`);
 		}
 		return column;
 	});
 	const isComposite = columns.length > 1;
-	if (isComposite && !columns.every(isIntegerColumn)) {
-		throw new Error("A cursor list ordered by several columns can only use integer columns.");
+	if (isComposite && !columns.every(isNumberColumn)) {
+		throw new Error("A cursor list ordered by several columns can only use number columns.");
 	}
+	const parsers = columns.map(parserFor);
 
 	const decode = (cursor: string): unknown[] | undefined => {
 		const parts = isComposite ? cursor.split(compositeSeparator) : [cursor];
 		if (parts.length !== columns.length) return undefined;
-		const values = parts.map((part, i) => (isIntegerColumn(columns[i]!) ? parseSafeInteger(part) : part));
+		const values = parts.map((part, i) => parsers[i]!(part));
 		return values.includes(undefined) ? undefined : values;
 	};
 	const keyOf = (row: KeyValues<Table, Keys>): unknown[] =>

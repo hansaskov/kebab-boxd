@@ -184,6 +184,9 @@ importers:
       drizzle-seed:
         specifier: 1.0.0-rc.5
         version: 1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(zod@4.6.7))
+      sharp:
+        specifier: 0.35.5
+        version: 0.35.5(@types/node@26.6.5)
     devDependencies:
       '@astrojs/check':
         specifier: ^0.9.12
@@ -3084,8 +3087,7 @@ snapshots:
   '@esbuild/win32-x64@0.28.2':
     optional: true
 
-  '@img/colour@1.1.0':
-    optional: true
+  '@img/colour@1.1.0': {}
 
   '@img/sharp-darwin-arm64@0.35.5':
     optionalDependencies:
@@ -4365,7 +4367,6 @@ snapshots:
       '@img/sharp-win32-ia32': 0.35.5
       '@img/sharp-win32-x64': 0.35.5
       '@types/node': 26.6.5
-    optional: true
 
   shiki@4.5.0:
     dependencies:

@@ -16,6 +16,8 @@ export interface Page<T> {
 	isPastEnd: boolean;
 }
 
+export type PageItem<List> = List extends Page<infer Row> ? Row : never;
+
 export interface PageNavigation {
 	rows: number;
 	previousHref: string | undefined;

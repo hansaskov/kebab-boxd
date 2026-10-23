@@ -3,6 +3,8 @@ import { actions, isInputError } from "astro:actions";
 import { settingsSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import DialogDrawer from "@src/components/DialogDrawer.astro";
+import Avatar from "@src/components/Avatar.astro";
+import FieldFile from "@src/components/FieldFile.astro";
 import FieldInput from "@src/components/FieldInput.astro";
 import FieldSelect from "@src/components/FieldSelect.astro";
 import FieldTextArea from "@src/components/FieldTextArea.astro";
@@ -11,6 +13,9 @@ import {
     deleteAccountSchema,
     updateAccountSchema,
 } from "@src/actions/settings";
+import { coordinatesTextSchema, formatCoordinates } from "@src/validation/coordinates";
+import { resultToast } from "@src/format/action-toast";
+import { submittedForm } from "@src/actions/submitted-input";
 import { can } from "@src/auth/permissions";
 import { deviceName } from "@src/format/device-name";
 import { personalDataExportHref, sessionHistoryHref, settingsHref } from "@src/hrefs";
@@ -28,7 +33,7 @@ if (!session) {
     return Astro.redirect("/login");
 }
 
-const user = await Astro.locals.db.queries.users.findByUsername(username);
+const user = await Astro.locals.db.queries.users.findByUsernameWithPicture(username);
 
 if (!user) {
     return Astro.rewrite("/404");
@@ -47,8 +52,13 @@ const canExportData = can(session.user, "user:export-data", user);
 const canDeleteAccount = can(session.user, "user:delete-account", user);
 
 const actionResult = Astro.getActionResult(actions.updateSettings);
+const accountForm = submittedForm(Astro.locals, actions.updateSettings);
+const locationForm = submittedForm(Astro.locals, actions.updateLocation);
+const deleteForm = submittedForm(Astro.locals, actions.deleteAccount);
 const signOutResult = Astro.getActionResult(actions.signOutEverywhere);
 const deleteResult = Astro.getActionResult(actions.deleteAccount);
+const pictureResult = Astro.getActionResult(actions.updateProfilePicture);
+const locationResult = Astro.getActionResult(actions.updateLocation);
 const isOwnAccount = session.user.id === user.id;
 
 const activeSessions = canManageSessions
@@ -57,7 +67,21 @@ const activeSessions = canManageSessions
 
 let usernameErrors: string[] | undefined;
 let confirmationErrors: string[] | undefined;
-let toast: Toast | undefined;
+const pictureErrors = pictureResult?.error && isInputError(pictureResult.error) ? pictureResult.error.fields.picture : undefined;
+const locationErrors = locationResult?.error && isInputError(locationResult.error) ? locationResult.error.fields.location : undefined;
+let toast: Toast | undefined =
+    (pictureErrors ? undefined : resultToast(pictureResult, "Upload failed", {
+        title: "Picture saved",
+        text: "Your profile shows the new picture.",
+    })) ??
+    resultToast(Astro.getActionResult(actions.removeProfilePicture), "Removal failed", {
+        title: "Picture removed",
+        text: "Your profile shows your initials.",
+    }) ??
+    (locationErrors ? undefined : resultToast(locationResult, "Saving failed", {
+        title: "Location saved",
+        text: "The map starts at your location.",
+    }));
 
 if (actionResult) {
     if (actionResult.error) {
@@ -145,7 +169,7 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                     name="fullname"
                     description="Shown on your profile. Use your real name."
                     type="text"
-                    value={user.fullname}
+                    value={accountForm?.get("fullname") ?? user.fullname}
                     zodField={updateAccountSchema.shape.fullname}
                 />
 
@@ -154,7 +178,7 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                     name="username"
                     description="Others use it to find you. It must be unique."
                     type="text"
-                    value={user.username}
+                    value={accountForm?.get("username") ?? user.username}
                     zodField={updateAccountSchema.shape.username}
                     errors={usernameErrors}
                 />
@@ -162,7 +186,7 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                 <FieldSelect
                     label="Pronouns"
                     name="pronoun"
-                    selected={user.pronoun}
+                    selected={accountForm ? accountForm.get("pronoun") || null : user.pronoun}
                     description="How others refer to you."
                     zodField={updateAccountSchema.shape.pronoun}
                 />
@@ -171,13 +195,59 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                     label="Bio"
                     name="bio"
                     description="A short text about you on your profile."
-                    value={user.bio}
+                    value={accountForm?.get("bio") ?? user.bio}
                     zodField={updateAccountSchema.shape.bio}
                 />
                 <div class="settings-card-footer">
                     <button class="btn btn-primary btn-md" type="submit">
                         Save settings
                     </button>
+                </div>
+            </fieldset>
+        </form>
+    </section>
+
+    <section id="picture" class="mt-8">
+        <h2>Picture</h2>
+        <form class="mt-3" method="post" action={actions.updateProfilePicture} enctype="multipart/form-data">
+            <input type="hidden" name="currentUsername" value={user.username} />
+            <fieldset class="settings-card">
+                <div class="settings-row">
+                    <Avatar class="size-20 text-2xl" name={user.fullname} picture={user.profilePicture} />
+                </div>
+                <FieldFile label="New picture" name="picture" required errors={pictureErrors} />
+                <div class="settings-card-footer gap-2">
+                    {user.profilePicture && (
+                        <button class="btn btn-secondary btn-md" type="submit" formaction={actions.removeProfilePicture} formnovalidate>
+                            Remove picture
+                        </button>
+                    )}
+                    <button class="btn btn-primary btn-md" type="submit">Save picture</button>
+                </div>
+            </fieldset>
+        </form>
+    </section>
+
+    <section id="location" class="mt-8">
+        <h2>Location</h2>
+        <form class="mt-3" method="post" action={actions.updateLocation}>
+            <input type="hidden" name="currentUsername" value={user.username} />
+            <fieldset class="settings-card">
+                <FieldInput
+                    label="Coordinates"
+                    name="location"
+                    description="The map starts here. Only you can see it."
+                    type="text"
+                    inputmode="decimal"
+                    autocomplete="off"
+                    placeholder="55.3959, 10.3883"
+                    value={locationForm?.get("location") ??
+                        (user.latitude !== null && user.longitude !== null ? formatCoordinates({ latitude: user.latitude, longitude: user.longitude }) : "")}
+                    zodField={coordinatesTextSchema.nullable()}
+                    errors={locationErrors}
+                />
+                <div class="settings-card-footer">
+                    <button class="btn btn-primary btn-md" type="submit">Save location</button>
                 </div>
             </fieldset>
         </form>
@@ -349,6 +419,7 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                             autofocus
                             pattern={user.username}
                             title="Type your username exactly as shown."
+                            value={deleteForm?.get("confirmation")}
                             zodField={deleteAccountSchema.shape.confirmation}
                             errors={confirmationErrors}
                         >

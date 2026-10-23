@@ -44,6 +44,10 @@ export function createUserQueries(client: Client) {
 			return client.query.users.findFirst({ where: hasUsername(username) });
 		},
 
+		async findByUsernameWithPicture(username: string) {
+			return client.query.users.findFirst({ with: { profilePicture: { columns: { url: true } } }, where: hasUsername(username) });
+		},
+
 		async list(criteria: UserListCriteria, page: PageRequest) {
 			const where = matching(criteria);
 			const [users, total] = await Promise.all([

@@ -45,17 +45,26 @@ const cookies = [
         We need them to create your account and sign you in.
       </li>
       <li>
-        <strong>Your profile:</strong> your username, pronouns and bio, if you add them.
+        <strong>Your profile:</strong> your username, picture, pronouns and bio, if you add them.
         Other users can see them.
+      </li>
+      <li>
+        <strong>Your location:</strong> the coordinates you save in your settings, if you do.
+        We use them to start the map where you are. Other users cannot see them.
       </li>
       <li>
         <strong>What you do on Kebab Boxd:</strong> your reviews, pictures, likes, follows, favorites, bucket list and the restaurants you suggest.
         Other users can see your reviews and pictures.
+        We remove the camera details from every picture you upload, such as the place where it was taken.
       </li>
       <li>
         <strong>Your devices:</strong> when each device signed in, and which pages it opened and when.
         We use this to keep your account secure and to show you where you are signed in.
         We do not store your IP address or browser details.
+      </li>
+      <li>
+        <strong>A form that could not be saved:</strong> what you typed, until the next page opens,
+        so that you do not have to type it again. We never keep the files you chose.
       </li>
     </ul>
     <p class="t-body mt-3">
@@ -82,6 +91,9 @@ const cookies = [
     <h2>Who else gets your data</h2>
     <p class="t-body mt-2">
       Google gets to know that you sign in to Kebab Boxd. Read the <a class="link" href="https://policies.google.com/privacy">Google privacy policy</a>.
+      The maps show tiles from <a class="link" href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>,
+      so the OpenStreetMap Foundation gets your IP address when you open a map. Read the
+      <a class="link" href="https://osmfoundation.org/wiki/Privacy_Policy">OpenStreetMap privacy policy</a>.
       We do not sell your data or share it with advertisers.
     </p>
   </section>
@@ -106,6 +118,10 @@ const cookies = [
       <li>
         Correct your profile:{" "}
         {userSettingsHref ? <a class="link" href={`${userSettingsHref}#account`}>Settings, Account</a> : "Settings, Account"}.
+      </li>
+      <li>
+        Remove your location:{" "}
+        {userSettingsHref ? <a class="link" href={`${userSettingsHref}#location`}>Settings, Location</a> : "Settings, Location"}.
       </li>
       <li>
         Delete your account and data:{" "}

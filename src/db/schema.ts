@@ -2,6 +2,7 @@ import * as p from "drizzle-orm/sqlite-core";
 import { pronouns } from "@src/data/pronouns"
 import { sql } from "drizzle-orm";
 import type { getActionContext } from "astro:actions";
+import type { SubmittedInput } from "@src/actions/submitted-input";
 
 const now = () => sql`(unixepoch())`;
 
@@ -75,7 +76,12 @@ export const locations = p.snakeCase.table("locations", {
   longitude: p.real().notNull(),
   updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(now),
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
-})
+}, (t) => [
+  p.index("locations_latitude_longitude_idx").on(t.latitude, t.longitude),
+])
+
+export type Location = typeof locations.$inferSelect
+export type NewLocation = typeof locations.$inferInsert
 
 export const restaurants = p.snakeCase.table("restaurants", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true}),
@@ -91,10 +97,16 @@ export const restaurants = p.snakeCase.table("restaurants", {
 }, (t) => [
   p.index("restaurants_location_id_idx").on(t.locationId),
   p.index("restaurants_suggested_by_idx").on(t.suggestedBy),
+  p.index("restaurants_status_id_idx").on(t.status, t.id),
+  p.index("restaurants_status_rating_avg_id_idx").on(t.status, t.ratingAvg, t.id),
+  p.index("restaurants_status_review_count_id_idx").on(t.status, t.reviewCount, t.id),
   p.uniqueIndex("restaurants_google_place_id_unique").on(t.googlePlaceId)
 ])
 
+export type Restaurant = typeof restaurants.$inferSelect
 export type NewRestaurant = typeof restaurants.$inferInsert
+export const restaurantStatuses = restaurants.status.enumValues
+export type RestaurantStatus = Restaurant["status"]
 
 export const reviews = p.snakeCase.table("reviews", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
@@ -108,9 +120,12 @@ export const reviews = p.snakeCase.table("reviews", {
 }, (t) => [
   p.index("reviews_author_id_created_at_id_idx").on(t.authorId, t.createdAt, t.id),
   p.index("reviews_author_id_restaurant_id_created_at_id_idx").on(t.authorId, t.restaurantId, sql`${t.createdAt} desc`, sql`${t.id} desc`),
-  p.index("reviews_restaurant_id_idx").on(t.restaurantId),
+  p.index("reviews_restaurant_id_created_at_id_idx").on(t.restaurantId, t.createdAt, t.id),
+  p.index("reviews_created_at_id_idx").on(t.createdAt, t.id),
   p.check("reviews_rating_range", sql`${t.rating} BETWEEN 2 AND 10`)
 ])
+
+export type Review = typeof reviews.$inferSelect
 
 export const pictures = p.snakeCase.table("pictures", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
@@ -173,6 +188,7 @@ export const reviewPictures = p.snakeCase.table("review_pictures", {
 ])
 
 export const history = p.snakeCase.table("history", {
+  id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
   sessionId: p.text().notNull().references(() => sessions.id, {onDelete: "cascade"}),
   requestedAt: p.int({ mode: "timestamp_ms" }).notNull(),
   method: p.text().notNull(),
@@ -182,11 +198,11 @@ export const history = p.snakeCase.table("history", {
   status: p.int({ mode: "number" }).notNull(),
   prefetched: p.int({ mode: "boolean" }).notNull().default(false),
 }, (t) => [
-  p.primaryKey({ columns: [t.sessionId, t.requestedAt] }),
+  p.index("history_session_id_requested_at_id_idx").on(t.sessionId, t.requestedAt, t.id),
   p.index("history_requested_at_idx").on(t.requestedAt),
 ])
 
 export type NewHistoryEntry = typeof history.$inferInsert
 
 export type SerializedActionResult = ReturnType<ReturnType<typeof getActionContext>["serializeActionResult"]>
-export type ActionData = {actionName: string, actionResult: SerializedActionResult}
+export type ActionData = {actionName: string, actionResult: SerializedActionResult, input?: SubmittedInput}

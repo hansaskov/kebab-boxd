@@ -1,14 +1,15 @@
 ---
-import { Search } from "@lucide/astro";
 import { adminSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import Pagination from "@src/components/Pagination.astro";
+import SearchForm from "@src/components/SearchForm.astro";
+import TabNav from "@src/components/TabNav.astro";
 import { can } from "@src/auth/permissions";
 import { adminUserHref } from "@src/hrefs";
 import { userFilters, type UserFilter } from "@src/db/queries/users";
 import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
-import { firstPageFields, firstPageHref, pageNavigation, parsePageRequest } from "@src/pagination";
-import { parseUserListCriteria, searchMaxLength } from "@src/validation/user-list-criteria";
+import { firstPageHref, pageNavigation, parsePageRequest } from "@src/pagination";
+import { parseUserListCriteria } from "@src/validation/user-list-criteria";
 
 const session = Astro.locals.session;
 
@@ -28,10 +29,10 @@ const users = page.items;
 const navigation = pageNavigation(Astro.url, page);
 
 const filterLabels: Record<UserFilter, string> = { all: "All", admin: "Admins", banned: "Banned" };
-const filterOptions = userFilters.map((option) => ({
-  filter: option,
+const filterTabs = userFilters.map((option) => ({
   label: filterLabels[option],
   href: firstPageHref(Astro.url, { filter: option === "all" ? undefined : option }),
+  current: option === filter,
 }));
 
 const emptyGroupMessages: Record<UserFilter, string> = {
@@ -58,36 +59,9 @@ const emptyMessage =
 >
   <h1>Users</h1>
 
-  <form class="mt-4 flex gap-2" method="get" action={Astro.url.pathname} role="search">
-    <label class="sr-only" for="user-search">Search users</label>
-    <input
-      id="user-search"
-      class="input"
-      type="search"
-      name="q"
-      value={search}
-      maxlength={searchMaxLength}
-      placeholder="Name, username or email"
-    />
-    {firstPageFields(Astro.url, { q: undefined }).map(([name, value]) => (
-      <input type="hidden" name={name} value={value} />
-    ))}
-    <button class="btn btn-secondary btn-md shrink-0" type="submit">
-      <Search size={16} aria-hidden="true" /><span class="max-sm:sr-only">Search</span>
-    </button>
-  </form>
+  <SearchForm class="mt-4" id="user-search" label="Search users" value={search} placeholder="Name, username or email" />
 
-  <nav class="mt-4 flex flex-wrap gap-2" aria-label="Filter users">
-    {filterOptions.map((option) => (
-      <a
-        class:list={["btn btn-sm", option.filter === filter ? "btn-primary" : "btn-secondary"]}
-        href={option.href}
-        aria-current={option.filter === filter ? "page" : undefined}
-      >
-        {option.label}
-      </a>
-    ))}
-  </nav>
+  <TabNav class="mt-4" aria-label="Filter users" tabs={filterTabs} />
 
   <section class="mt-6" aria-label="Users">
     {users.length === 0 ? (

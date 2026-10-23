@@ -1,36 +1,27 @@
 import type { Client } from "@src/db/client";
 import { approvedRestaurant, hasUsername, publicReview, unbannedUser } from "@src/db/filters";
 import { cursorList } from "@src/db/pagination";
+import { personCard } from "@src/db/queries/people";
+import { createReviewQueries } from "@src/db/queries/reviews";
 import * as s from "@src/db/schema";
 import { countRows, hasRows } from "@src/db/subqueries";
-import type { Page, PageRequest } from "@src/pagination";
+import type { PageItem, PageRequest } from "@src/pagination";
 import type { ProfileTab } from "@src/validation/profile-tab";
 
-const reviewPages = cursorList(s.reviews, ["createdAt", "id"], "desc");
 const favoritePages = cursorList(s.favorites, ["createdAt", "restaurantId"], "desc");
 const bucketListPages = cursorList(s.bucketList, ["createdAt", "restaurantId"], "desc");
+const followerPages = cursorList(s.followers, ["createdAt", "followerId"], "desc");
+const followingPages = cursorList(s.followers, ["createdAt", "followingId"], "desc");
 
 const collectedRestaurant = {
 	columns: { restaurantId: true, createdAt: true },
 	with: {
 		restaurant: {
-			columns: { name: true, ratingAvg: true },
+			columns: { id: true, name: true, ratingAvg: true },
 			with: { location: { columns: { city: true } } },
 		},
 	},
 } as const;
-
-function listReviews(client: Client, userId: number, page: PageRequest) {
-	return reviewPages(page, (seek) =>
-		client.query.reviews.findMany({
-			columns: { id: true, rating: true, description: true, likeCount: true, createdAt: true },
-			with: { restaurant: { columns: { name: true } } },
-			where: { AND: [{ ...publicReview, authorId: userId }, seek.where] },
-			orderBy: seek.orderBy,
-			limit: seek.limit,
-		}),
-	);
-}
 
 function listFavorites(client: Client, userId: number, page: PageRequest) {
 	return favoritePages(page, (seek) =>
@@ -54,7 +45,33 @@ function listBucketList(client: Client, userId: number, page: PageRequest) {
 	);
 }
 
+function listFollowers(client: Client, userId: number, viewerId: number, page: PageRequest) {
+	return followerPages(page, (seek) =>
+		client.query.followers.findMany({
+			columns: { followerId: true, createdAt: true },
+			with: { follower: personCard(client, viewerId) },
+			where: { AND: [{ followingId: userId, follower: unbannedUser }, seek.where] },
+			orderBy: seek.orderBy,
+			limit: seek.limit,
+		}),
+	);
+}
+
+function listFollowing(client: Client, userId: number, viewerId: number, page: PageRequest) {
+	return followingPages(page, (seek) =>
+		client.query.followers.findMany({
+			columns: { followingId: true, createdAt: true },
+			with: { following: personCard(client, viewerId) },
+			where: { AND: [{ followerId: userId, following: unbannedUser }, seek.where] },
+			orderBy: seek.orderBy,
+			limit: seek.limit,
+		}),
+	);
+}
+
 export function createProfileQueries(client: Client) {
+	const reviews = createReviewQueries(client);
+
 	return {
 		async findByUsername(username: string, viewerId: number) {
 			const user = hasUsername(username);
@@ -82,20 +99,21 @@ export function createProfileQueries(client: Client) {
 			});
 		},
 
-		async list(userId: number, tab: ProfileTab, page: PageRequest) {
+		async list(userId: number, viewerId: number, tab: ProfileTab, page: PageRequest) {
 			switch (tab) {
 				case "reviews":
-					return { tab, page: await listReviews(client, userId, page) };
+					return { tab, page: await reviews.listPublicByAuthor(userId, viewerId, page) };
 				case "favorites":
 					return { tab, page: await listFavorites(client, userId, page) };
 				case "bucket-list":
 					return { tab, page: await listBucketList(client, userId, page) };
+				case "followers":
+					return { tab, page: await listFollowers(client, userId, viewerId, page) };
+				case "following":
+					return { tab, page: await listFollowing(client, userId, viewerId, page) };
 			}
 		},
 	};
 }
 
-type Item<List> = List extends Page<infer Row> ? Row : never;
-
-export type ProfileReview = Item<Awaited<ReturnType<typeof listReviews>>>;
-export type CollectedRestaurant = Item<Awaited<ReturnType<typeof listFavorites>>>;
+export type CollectedRestaurant = PageItem<Awaited<ReturnType<typeof listFavorites>>>;

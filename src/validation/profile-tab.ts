@@ -1,4 +1,4 @@
-export const profileTabs = ["reviews", "favorites", "bucket-list"] as const;
+export const profileTabs = ["reviews", "favorites", "bucket-list", "followers", "following"] as const;
 export type ProfileTab = (typeof profileTabs)[number];
 
 export function parseProfileTab(params: URLSearchParams): ProfileTab {

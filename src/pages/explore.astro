@@ -1,46 +1,78 @@
 ---
 import BaseLayout from "@src/layouts/BaseLayout.astro";
+import MapView from "@src/components/MapView.astro";
+import RestaurantList from "@src/components/RestaurantList.astro";
+import { defaultMapCenter, defaultMapZoom, exploreMapSize, mapMarkerLimit, nearbyRestaurantCount } from "@src/data/map";
+import { formatDistance } from "@src/format/distance";
+import { exploreHref, restaurantHref, settingsHref } from "@src/hrefs";
+import { distanceInMeters, type Coordinates } from "@src/map/coordinates";
+import { maxZoom, minZoom, viewport } from "@src/map/viewport";
+import { parseMapView } from "@src/validation/map-view";
 
 const session = Astro.locals.session;
 if (!session) {
 	return Astro.redirect("/login");
 }
 
-const cityParam = Astro.url.searchParams.get("city");
-const city = cityParam && cityParam.trim() !== "" ? cityParam : 'Odense';
+const { latitude, longitude } = session.user;
+const home: Coordinates | undefined = latitude !== null && longitude !== null ? { latitude, longitude } : undefined;
+const view = parseMapView(Astro.url.searchParams, { center: home ?? defaultMapCenter, zoom: defaultMapZoom });
+const map = viewport(view.center, view.zoom, exploreMapSize);
 
+const { restaurants } = Astro.locals.db.queries;
+const [pins, nearest] = await Promise.all([
+	restaurants.listInBounds(map.bounds, map.center, mapMarkerLimit),
+	restaurants.listNearest(map.center, nearbyRestaurantCount),
+]);
+
+const controls = {
+	zoomIn: map.zoom < maxZoom ? exploreHref({ center: map.center, zoom: map.zoom + 1 }) : undefined,
+	zoomOut: map.zoom > minZoom ? exploreHref({ center: map.center, zoom: map.zoom - 1 }) : undefined,
+	pan: {
+		north: exploreHref({ center: map.panned("north"), zoom: map.zoom }),
+		south: exploreHref({ center: map.panned("south"), zoom: map.zoom }),
+		east: exploreHref({ center: map.panned("east"), zoom: map.zoom }),
+		west: exploreHref({ center: map.panned("west"), zoom: map.zoom }),
+	},
+};
+const markers = pins.map((pin) => ({
+	coordinates: pin,
+	href: restaurantHref(pin.restaurant.id),
+	label: pin.restaurant.name,
+}));
+const nearby = nearest.map((pin) => ({
+	...pin.restaurant,
+	details: [formatDistance(distanceInMeters(map.center, pin)), pin.city],
+}));
+const isAtHome = home !== undefined && distanceInMeters(home, map.center) < 1;
 ---
 
 <BaseLayout
 	title="Explore"
-	description="Browse and search kebab spots"
+	description="Kebab restaurants on a map"
 	includeSidebar={true}
-	prefetchUrls={["/", "/reviews"]}
+	prefetchUrls={[controls.zoomIn, controls.zoomOut, "/restaurants"].filter((href) => href !== undefined)}
 	session={session}
 	user={session.user}
-	class="max-w-none! lg:max-w-none!"
 >
-	<div data-city={city} class="flex flex-col gap-6">
-		<header>
-			<h1>Explore</h1>
-			<p class="t-lead mt-2 text-fg-muted">
-				Viewing <span class="font-semibold text-fg">{city}</span>
-			</p>
-		</header>
-
-		<div class="grid grid-cols-1 lg:grid-cols-[1fr_16rem] gap-6">
-			<section
-				data-explore-map
-				class="relative min-h-80 w-full rounded-box border-2 border-line-strong bg-subtle overflow-hidden"
-				aria-label={`Map of ${city}`}
-			>
-			</section>
-
-			<aside data-nearby-cities class="min-h-24 rounded-box border-2 border-line-strong bg-subtle p-4">
-			</aside>
-		</div>
-
-		<section data-city-timeline class="min-h-24 rounded-box border-2 border-line-strong bg-subtle p-4">
-		</section>
+	<div class="flex flex-wrap items-baseline justify-between gap-2">
+		<h1>Explore</h1>
+		{home && !isAtHome && (
+			<a class="t-body-sm link" href={exploreHref({ center: home, zoom: map.zoom })}>Back to your location</a>
+		)}
+		{!home && (
+			<a class="t-body-sm link" href={`${settingsHref(session.user.username)}#location`}>Set your location</a>
+		)}
 	</div>
+
+	<MapView class="mt-4" viewport={map} size={exploreMapSize} markers={markers} here={home} controls={controls} />
+
+	<section class="mt-8" aria-labelledby="nearby-heading">
+		<h2 id="nearby-heading">Nearby</h2>
+		{nearby.length === 0 ? (
+			<p class="t-body mt-2 text-fg-muted">There are no restaurants yet.</p>
+		) : (
+			<RestaurantList class="mt-3" restaurants={nearby} />
+		)}
+	</section>
 </BaseLayout>

@@ -375,6 +375,22 @@
     outline-color: var(--ds-color-danger-default);
   }
 
+  input[type="file"].input {
+    padding-block: 0.3125rem;
+    padding-inline: 0.3125rem;
+  }
+  input[type="file"].input::file-selector-button {
+    height: 100%;
+    margin-right: 0.75rem;
+    padding-inline: 0.75rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: var(--ds-color-bg-active);
+    color: var(--ds-color-fg-default);
+    font-weight: 550;
+    cursor: pointer;
+  }
+
   textarea.input {
     height: auto;
     min-height: 6rem;
@@ -753,6 +769,98 @@
     background: var(--ds-color-brand-subtle);
     color: var(--ds-color-brand-text);
     font-weight: 600;
+  }
+
+  .map {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    width: 100%;
+    border: 1px solid var(--ds-color-border-subtle);
+    border-radius: var(--ds-radius-box);
+    background: var(--ds-color-bg-subtle);
+  }
+  .map-tile {
+    position: absolute;
+    max-width: none;
+    user-select: none;
+    pointer-events: none;
+  }
+  .map-marker {
+    position: absolute;
+    z-index: 1;
+    translate: -50% -100%;
+  }
+  .map-marker a {
+    display: block;
+    color: var(--ds-color-brand-text);
+    filter: drop-shadow(0 1px 1px oklch(0 0 0 / 0.45));
+    transition: scale 120ms ease;
+  }
+  .map-marker a:hover,
+  .map-marker a:focus-visible {
+    scale: 1.15;
+  }
+  .map-here {
+    position: absolute;
+    z-index: 1;
+    width: 1rem;
+    height: 1rem;
+    translate: -50% -50%;
+    border: 3px solid var(--ds-color-bg-surface);
+    border-radius: 9999px;
+    background: var(--ds-color-focus);
+    box-shadow: var(--ds-shadow-lift);
+  }
+  .map-controls {
+    position: absolute;
+    z-index: 2;
+    right: 0.5rem;
+    display: flex;
+    gap: 0.125rem;
+    padding: 0.125rem;
+    border: 1px solid var(--ds-color-border-subtle);
+    border-radius: var(--ds-radius-field);
+    background: var(--ds-color-bg-surface);
+    box-shadow: var(--ds-shadow-card);
+  }
+  .map-controls .icon-btn {
+    width: 2rem;
+    height: 2rem;
+  }
+  .map-controls .icon-btn[aria-disabled="true"] {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+  .map-controls-zoom {
+    top: 0.5rem;
+    flex-direction: column;
+  }
+  .map-controls-pan {
+    bottom: 1.75rem;
+    display: grid;
+    grid-template-areas:
+      ". north ."
+      "west . east"
+      ". south .";
+  }
+  .map-controls-pan [data-direction="north"] { grid-area: north; }
+  .map-controls-pan [data-direction="west"] { grid-area: west; }
+  .map-controls-pan [data-direction="east"] { grid-area: east; }
+  .map-controls-pan [data-direction="south"] { grid-area: south; }
+  .map-attribution {
+    position: absolute;
+    z-index: 2;
+    right: 0;
+    bottom: 0;
+    padding: 0.125rem 0.5rem;
+    border-top-left-radius: 0.5rem;
+    background: color-mix(in oklab, var(--ds-color-bg-surface) 85%, transparent);
+    color: var(--ds-color-fg-muted);
+    font-size: var(--pr-fs-300);
+  }
+  .map-attribution a {
+    text-decoration: underline;
   }
 }
 

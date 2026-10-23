@@ -3,9 +3,10 @@ import { actions } from "astro:actions";
 import { adminSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import FieldSelect from "@src/components/FieldSelect.astro";
-import type { Toast } from "@src/components/Toast.astro";
 import { changeUserRoleSchema } from "@src/actions/admin";
 import { can } from "@src/auth/permissions";
+import { resultToast } from "@src/format/action-toast";
+import { submittedForm } from "@src/actions/submitted-input";
 import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
 import { adminUserHref, settingsHref } from "@src/hrefs";
 
@@ -46,17 +47,6 @@ const lastActiveAt = devices.at(0)?.history.at(0)?.requestedAt;
 const banResult = Astro.getActionResult(actions.admin.banUser);
 const unbanResult = Astro.getActionResult(actions.admin.unbanUser);
 const roleResult = Astro.getActionResult(actions.admin.changeUserRole);
-
-function resultToast(
-  result: { error?: { message: string } | undefined } | undefined,
-  failedTitle: string,
-  success: { title: string; text: string },
-): Toast | undefined {
-  if (!result) return undefined;
-  return result.error
-    ? { kind: "title", variant: "error", title: failedTitle, text: result.error.message }
-    : { kind: "title", ...success };
-}
 
 const toast =
   resultToast(banResult, "Ban failed", {
@@ -150,7 +140,7 @@ const userSettingsHref = settingsHref(user.username);
           <FieldSelect
             label="Role"
             name="role"
-            selected={user.role}
+            selected={submittedForm(Astro.locals, actions.admin.changeUserRole)?.get("role") ?? user.role}
             description="Admins can manage every user and all content."
             zodField={changeUserRoleSchema.shape.role}
           />

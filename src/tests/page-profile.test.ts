@@ -259,12 +259,13 @@ describe("ProfilePage database queries", () => {
 		for (const table of [s.favorites, s.bucketList]) {
 			client.insert(table).values(restaurants.map((restaurant) => ({ userId: bob.id, restaurantId: restaurant.id }))).run();
 		}
+		const fans = Array.from({ length: 11 }, (_, i) => insertUser(client, `fan_${i}`));
 		client
 			.insert(s.followers)
-			.values([
-				{ followerId: ada.id, followingId: bob.id },
-				{ followerId: bob.id, followingId: ada.id },
-			])
+			.values([ada, ...fans].flatMap((user) => [
+				{ followerId: user.id, followingId: bob.id },
+				{ followerId: bob.id, followingId: user.id },
+			]))
 			.run();
 		const session = await signIn(db, ada.id);
 		const visit = async (search: string) => {
@@ -280,7 +281,13 @@ describe("ProfilePage database queries", () => {
 			queries[tab] = [first.queries, second.queries, back.queries];
 		}
 
-		expect(queries).toEqual({ reviews: [2, 2, 2], favorites: [2, 2, 2], "bucket-list": [2, 2, 2] });
+		expect(queries).toEqual({
+			reviews: [2, 2, 2],
+			favorites: [2, 2, 2],
+			"bucket-list": [2, 2, 2],
+			followers: [2, 2, 2],
+			following: [2, 2, 2],
+		});
 	});
 
 	it("reads a suspended profile, a missing one and one in other letter case in one query each", async () => {

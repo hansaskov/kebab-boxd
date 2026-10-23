@@ -8,7 +8,7 @@ import ForbiddenPage from "@src/pages/403.astro";
 import NotFoundPage from "@src/pages/404.astro";
 import type { SessionWithUser } from "@src/auth/session";
 import type { Database } from "@src/db";
-import { createTestDatabase, insertUser, signIn } from "@src/tests/database";
+import { createTestDatabase, insertRestaurant, insertUser, signIn } from "@src/tests/database";
 
 async function render(
 	page: AstroComponentFactory,
@@ -89,17 +89,27 @@ describe("admin console", () => {
 		expect(percent.html).toContain("No users match “%”.");
 	});
 
-	it("counts all users, admins and banned users", async () => {
+	it("counts all users, admins and banned users, and the restaurants by status", async () => {
 		const { client, db } = createTestDatabase("admin-console-counts");
 		const admin = insertUser(client, "root_admin", "admin");
 		const ada = insertUser(client, "ada");
 		insertUser(client, "bob");
 		await db.mutations.users.ban(ada.id, admin.id);
+		insertRestaurant(client, "Bosporus Grill", { status: "approved" });
+		insertRestaurant(client, "Mangal Express");
+		insertRestaurant(client, "Hasir Kebab");
 
 		const { html } = await render(AdminPage, db, await signIn(db, admin.id), "/admin");
 		const counts = [...html.matchAll(/text-fg-muted">(\w+)<\/span>\s*<span class="t-body block font-medium">(\d+)</g)];
 
-		expect(Object.fromEntries(counts.map((match) => [match[1], Number(match[2])]))).toEqual({ Users: 3, Admins: 1, Banned: 1 });
+		expect(Object.fromEntries(counts.map((match) => [match[1], Number(match[2])]))).toEqual({
+			Users: 3,
+			Admins: 1,
+			Banned: 1,
+			Waiting: 2,
+			Approved: 1,
+			Rejected: 0,
+		});
 	});
 
 	it("sends a username in other letter case to the address of the user", async () => {

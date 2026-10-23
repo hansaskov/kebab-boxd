@@ -1,0 +1,111 @@
+---
+import { actions, isInputError } from "astro:actions";
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+import DeleteReviewButton from "@src/components/DeleteReviewButton.astro";
+import FieldFile from "@src/components/FieldFile.astro";
+import FieldRating from "@src/components/FieldRating.astro";
+import FieldTextArea from "@src/components/FieldTextArea.astro";
+import { canOn } from "@src/auth/permissions";
+import { failureToast } from "@src/format/action-toast";
+import { submittedForm } from "@src/actions/submitted-input";
+import { restaurantHref, reviewHref } from "@src/hrefs";
+import { parseId } from "@src/validation/id";
+import { maxPicturesPerReview, updateReviewSchema } from "@src/validation/review";
+
+const session = Astro.locals.session;
+if (!session) {
+  return Astro.redirect("/login");
+}
+
+const id = parseId(Astro.params.id);
+const review = id && (await Astro.locals.db.queries.reviews.findById(id, session.user.id));
+
+if (!review || !canOn(session.user, "review:view", review)) {
+  return Astro.rewrite("/404");
+}
+
+if (!canOn(session.user, "review:edit", review)) {
+  return Astro.rewrite("/403");
+}
+
+const result = Astro.getActionResult(actions.reviews.update);
+const submitted = submittedForm(Astro.locals, actions.reviews.update);
+const submittedRating = Number(submitted?.get("rating")) || undefined;
+const fieldErrors = result?.error && isInputError(result.error) ? result.error.fields : undefined;
+const toast =
+  (fieldErrors ? undefined : failureToast(result, "Saving failed")) ??
+  failureToast(Astro.getActionResult(actions.reviews.delete), "Deletion failed");
+---
+
+<BaseLayout
+  title={`Edit review of ${review.restaurant.name}`}
+  description={`Change your review of ${review.restaurant.name}`}
+  includeSidebar={true}
+  prefetchUrls={[reviewHref(review.id), restaurantHref(review.restaurant.id)]}
+  session={session}
+  user={session.user}
+  toast={toast}
+>
+  <h1>Edit review of <a class="link-hover" href={restaurantHref(review.restaurant.id)}>{review.restaurant.name}</a></h1>
+
+  <form class="mt-4" method="post" action={actions.reviews.update} enctype="multipart/form-data">
+    <input type="hidden" name="reviewId" value={review.id} />
+    <fieldset class="settings-card">
+      <FieldRating
+        label="Rating"
+        name="rating"
+        selected={submittedRating ?? review.rating}
+        zodField={updateReviewSchema.shape.rating}
+        errors={fieldErrors?.rating}
+      />
+      <FieldTextArea
+        label="Review"
+        name="description"
+        description="What was good, and what was not?"
+        value={submitted?.get("description") ?? review.description}
+        zodField={updateReviewSchema.shape.description}
+        errors={fieldErrors?.description}
+      />
+      {review.pictures.length > 0 && (
+        <div class="settings-row">
+          <div class="settings-row-text">
+            <p class="field-label">Remove pictures</p>
+          </div>
+          <ul class="settings-row-field grid grid-cols-2 gap-2">
+            {review.pictures.map((picture, i) => (
+              <li>
+                <label class="block cursor-pointer space-y-1">
+                  <img class="aspect-square w-full rounded-field bg-subtle object-cover" src={picture.url} alt="" />
+                  <span class="t-body-sm flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      name="removePictureIds"
+                      value={picture.id}
+                      checked={submitted?.getAll("removePictureIds").includes(String(picture.id))}
+                    />
+                    Picture {i + 1}
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <FieldFile
+        label="Add pictures"
+        name="pictures"
+        description={`A review can have up to ${maxPicturesPerReview}.`}
+        multiple
+        errors={fieldErrors?.pictures}
+      />
+      <div class="settings-card-footer">
+        <button class="btn btn-primary btn-md" type="submit">Save review</button>
+      </div>
+    </fieldset>
+  </form>
+
+  <section class="mt-8">
+    <h2 class="text-danger">Danger zone</h2>
+    <DeleteReviewButton class="mt-3" reviewId={review.id} />
+  </section>
+</BaseLayout>

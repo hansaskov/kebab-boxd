@@ -1,21 +1,62 @@
 ---
+import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
+import Pagination from "@src/components/Pagination.astro";
+import ReviewList from "@src/components/ReviewList.astro";
+import TabNav from "@src/components/TabNav.astro";
+import type { Feed } from "@src/db/queries/reviews";
+import { failureToast } from "@src/format/action-toast";
+import { firstPageHref, pageNavigation, parsePageRequest } from "@src/pagination";
+import { parseFeed } from "@src/validation/feed";
 
 const session = Astro.locals.session;
 
 if (!session) {
   return Astro.redirect("/login");
 }
+
+const feed = parseFeed(Astro.url.searchParams);
+const page = await Astro.locals.db.queries.reviews.listFeed(session.user.id, feed, parsePageRequest(Astro.url));
+const navigation = pageNavigation(Astro.url, page);
+
+const feedHref = (option: Feed) => firstPageHref(Astro.url, { feed: option === "following" ? undefined : option });
+const tabs = [
+  { label: "Following", href: feedHref("following"), current: feed === "following" },
+  { label: "Everyone", href: feedHref("everyone"), current: feed === "everyone" },
+];
+
+const toast =
+  failureToast(Astro.getActionResult(actions.reviews.like), "Like failed") ??
+  failureToast(Astro.getActionResult(actions.reviews.unlike), "Unlike failed");
 ---
 
 <BaseLayout
-  title="Home"
-  description="Homepage"
+  title="Feed"
+  description="Reviews from the people you follow"
   includeSidebar={true}
-  prefetchUrls={["/explore", "/reviews"]}
+  prefetchUrls={[feedHref(feed === "following" ? "everyone" : "following"), "/explore", "/restaurants"]}
   session={session}
   user={session.user}
+  toast={toast}
 >
   <h1>Feed</h1>
-  <p class="t-lead mt-2 text-fg-muted">Recent reviews and activity from people you follow.</p>
+
+  <TabNav class="mt-4" aria-label="Feeds" tabs={tabs} />
+
+  <section class="mt-4" aria-label="Reviews">
+    {page.items.length === 0 ? (
+      page.isPastEnd ? (
+        <p class="t-body text-fg-muted">There is nothing on this page.</p>
+      ) : feed === "following" ? (
+        <p class="t-body text-fg-muted">
+          Reviews of the people you follow show up here. <a class="link" href="/people">Find people to follow</a>.
+        </p>
+      ) : (
+        <p class="t-body text-fg-muted">No one has written a review yet.</p>
+      )
+    ) : (
+      <ReviewList reviews={page.items} viewer={session.user} />
+    )}
+    {navigation && <Pagination id="feed-pages" class="mt-4" aria-label="Feed pages" navigation={navigation} />}
+  </section>
 </BaseLayout>

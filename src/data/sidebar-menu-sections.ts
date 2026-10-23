@@ -1,4 +1,4 @@
-import { Rss, Compass, SquarePen, UserRoundCog, Shield, Bell, MonitorSmartphone, TriangleAlert, LayoutDashboard, Users, Download } from "@lucide/astro";
+import { Rss, Compass, SquarePen, UserRoundCog, Shield, Bell, MonitorSmartphone, TriangleAlert, LayoutDashboard, Users, Download, Store, UserRoundSearch, Lightbulb, Image, MapPin } from "@lucide/astro";
 import { settingsHref } from "@src/hrefs";
 
 export type SidebarMenuItem = {
@@ -25,6 +25,16 @@ export const defaultSidebarMenuSections: SidebarMenuSection[] = [
           href: "/explore",
           icon: Compass,
         },
+        {
+          name: "Restaurants",
+          href: "/restaurants",
+          icon: Store,
+        },
+        {
+          name: "People",
+          href: "/people",
+          icon: UserRoundSearch,
+        },
       ],
     },
     {
@@ -34,6 +44,11 @@ export const defaultSidebarMenuSections: SidebarMenuSection[] = [
           name: "Reviews",
           href: "/reviews",
           icon: SquarePen,
+        },
+        {
+          name: "Suggestions",
+          href: "/restaurants/suggest",
+          icon: Lightbulb,
         },
       ],
     },
@@ -47,6 +62,8 @@ export function settingsSidebarMenuSections(username: string): SidebarMenuSectio
       title: "Settings",
       items: [
         { name: "Account", href: `${href}#account`, icon: UserRoundCog },
+        { name: "Picture", href: `${href}#picture`, icon: Image },
+        { name: "Location", href: `${href}#location`, icon: MapPin },
         { name: "Security", href: `${href}#security`, icon: Shield },
         { name: "Devices", href: `${href}#devices`, icon: MonitorSmartphone },
         { name: "Notifications", href: `${href}#notifications`, icon: Bell },
@@ -64,6 +81,7 @@ export function adminSidebarMenuSections(): SidebarMenuSection[] {
       items: [
         { name: "Overview", href: "/admin", icon: LayoutDashboard },
         { name: "Users", href: "/admin/users", icon: Users },
+        { name: "Restaurants", href: "/admin/restaurants", icon: Store },
       ],
     },
   ]);

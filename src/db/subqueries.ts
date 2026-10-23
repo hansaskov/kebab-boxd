@@ -1,4 +1,4 @@
-import { sql, type SQLWrapper } from "drizzle-orm";
+import { sql, type SQL, type SQLWrapper } from "drizzle-orm";
 import type { Client } from "@src/db/client";
 import type { Filter, TableName } from "@src/db/filters";
 
@@ -19,4 +19,8 @@ export function countRows<Table extends TableName>(client: Client, table: Table,
 
 export function hasRows<Table extends TableName>(client: Client, table: Table, where: Filter<Table>) {
 	return sql`exists ${rows(client, table, where)}`.mapWith(Boolean);
+}
+
+export function asBoolean(condition: SQL) {
+	return sql<boolean>`${condition}`.mapWith(Boolean);
 }

@@ -1,0 +1,52 @@
+---
+import { ChevronDown } from "@lucide/astro";
+import type { ZodNumber } from "astro/zod";
+import { describeStars, toStars } from "@src/format/rating";
+import { getConstraintsFromZodSchema } from "@src/validation/constraint";
+import { isNumber } from "@src/validation/type-guards";
+
+interface Props extends astroHTML.JSX.SelectHTMLAttributes {
+    name: string;
+    zodField: ZodNumber;
+    label: string;
+    selected?: number | undefined;
+    errors?: string[] | undefined;
+}
+
+const { zodField, selected, label, errors, class: className, ...props } = Astro.props;
+const { min, max, ...constraints } = getConstraintsFromZodSchema(zodField) ?? {};
+if (!isNumber(min) || !isNumber(max)) {
+    throw new Error(`FieldRating "${props.name}" needs a schema with a minimum and a maximum.`);
+}
+const ratings = Array.from({ length: max - min + 1 }, (_, i) => max - i);
+const fieldId = props.id ?? props.name;
+const errorId = `${fieldId}-error`;
+const hasErrors = errors !== undefined && errors.length > 0;
+---
+
+<div class="settings-row">
+    <div class="settings-row-text">
+        <label class="field-label" for={fieldId}>{label}</label>
+    </div>
+    <div class="settings-row-field space-y-2">
+        <div class="select">
+            <select
+                id={fieldId}
+                class:list={["input", className]}
+                aria-describedby={hasErrors ? errorId : undefined}
+                aria-invalid={hasErrors ? "true" : undefined}
+                {...constraints}
+                {...props}
+            >
+                {selected === undefined && <option value="" selected disabled>Choose a rating</option>}
+                {ratings.map((rating) => (
+                    <option value={rating} selected={selected === rating}>{describeStars(toStars(rating))}</option>
+                ))}
+            </select>
+            <ChevronDown size={16} aria-hidden="true" class="select-icon" />
+        </div>
+        {hasErrors && (
+            <p id={errorId} class="t-caption text-danger" role="alert">{errors.join(" ")}</p>
+        )}
+    </div>
+</div>

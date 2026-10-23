@@ -1,0 +1,29 @@
+---
+import type { HTMLAttributes } from "astro/types";
+
+export interface Tab {
+  label: string;
+  href: string;
+  current: boolean;
+  count?: number;
+}
+
+interface Props extends HTMLAttributes<"nav"> {
+  tabs: Tab[];
+}
+
+const { tabs, class: className, ...props } = Astro.props;
+---
+
+<nav class:list={["flex flex-wrap gap-2", className]} {...props}>
+  {tabs.map((tab) => (
+    <a
+      class:list={["btn btn-sm", tab.current ? "btn-primary" : "btn-secondary"]}
+      href={tab.href}
+      aria-current={tab.current ? "page" : undefined}
+    >
+      {tab.label}
+      {tab.count !== undefined && <span class="tabular-nums opacity-70">{tab.count}</span>}
+    </a>
+  ))}
+</nav>

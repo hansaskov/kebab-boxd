@@ -1,0 +1,12 @@
+---
+import type { RestaurantStatus } from "@src/db/schema";
+
+interface Props {
+  status: RestaurantStatus;
+}
+
+const { status } = Astro.props;
+const labels: Record<RestaurantStatus, string> = { approved: "Approved", pending: "Waiting for approval", rejected: "Rejected" };
+---
+
+<span class:list={["tag", { "text-danger": status === "rejected", "text-brand-text": status === "approved" }]}>{labels[status]}</span>

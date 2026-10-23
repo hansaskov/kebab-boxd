@@ -50,6 +50,32 @@ async function renderSessionPage(db: Database, viewer: SessionWithUser, username
 }
 
 describe("SessionPage", () => {
+	it("records every request, also those that arrive in the same millisecond, and pages through them", async () => {
+		const { client, db } = createTestDatabase("session-page-same-millisecond");
+		const ada = insertUser(client, "ada");
+		const session = await signIn(db, ada.id);
+		const requestedAt = new Date("2026-10-01T12:00:00.123Z");
+		for (let i = 1; i <= 12; i++) {
+			await db.mutations.history.record({
+				sessionId: session.id,
+				requestedAt,
+				method: "GET",
+				route: "/explore",
+				path: `/request-${i}`,
+				action: null,
+				status: 200,
+				prefetched: true,
+			});
+		}
+
+		const first = await renderSessionPage(db, session, "ada", session.id, "?rows=10");
+		const second = await renderSessionPage(db, session, "ada", session.id, pageSearch(first.html, "next"));
+
+		expect([...listedPaths(first.html), ...listedPaths(second.html)]).toEqual(
+			Array.from({ length: 12 }, (_, i) => `/request-${12 - i}`),
+		);
+	});
+
 	it("pages through the requests of the session from the newest to the oldest and back again", async () => {
 		const { client, db } = createTestDatabase("session-page-history");
 		const ada = insertUser(client, "ada");
@@ -76,10 +102,10 @@ describe("SessionPage", () => {
 		const session = await signIn(db, ada.id);
 		insertRequests(client, session.id, 3);
 
-		const { html } = await renderSessionPage(db, session, "ada", session.id, "?after=1000");
+		const { html } = await renderSessionPage(db, session, "ada", session.id, "?after=1000_1");
 
 		expect(html).toContain("There are no older requests.");
-		expect(pageSearch(html, "prev")).toBe("?before=1000");
+		expect(pageSearch(html, "prev")).toBe("?before=1000_1");
 	});
 
 	it("does not show a session that timed out", async () => {

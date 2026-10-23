@@ -1,0 +1,96 @@
+---
+import { actions } from "astro:actions";
+import { adminSidebarMenuSections } from "@src/data/sidebar-menu-sections";
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+import Pagination from "@src/components/Pagination.astro";
+import SuggestionDecision from "@src/components/SuggestionDecision.astro";
+import TabNav from "@src/components/TabNav.astro";
+import { can } from "@src/auth/permissions";
+import { restaurantStatuses, type RestaurantStatus } from "@src/db/schema";
+import { failureToast } from "@src/format/action-toast";
+import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
+import { profileHref, restaurantHref } from "@src/hrefs";
+import { firstPageHref, pageNavigation, parsePageRequest } from "@src/pagination";
+
+const session = Astro.locals.session;
+
+if (!session) {
+  return Astro.redirect("/login");
+}
+
+if (!can(session.user, "admin-console:view")) {
+  return Astro.rewrite("/403");
+}
+
+const status = restaurantStatuses.find((option) => option === Astro.url.searchParams.get("status")) ?? "pending";
+const { restaurants } = Astro.locals.db.queries;
+const [page, counts] = await Promise.all([
+  restaurants.listByStatus(status, parsePageRequest(Astro.url)),
+  restaurants.countByStatus(),
+]);
+const navigation = pageNavigation(Astro.url, page);
+
+const statusLabels: Record<RestaurantStatus, string> = { pending: "Waiting", approved: "Approved", rejected: "Rejected" };
+const statusTabs = (["pending", "approved", "rejected"] as const).map((option) => ({
+  label: statusLabels[option],
+  count: counts[option],
+  href: firstPageHref(Astro.url, { status: option === "pending" ? undefined : option }),
+  current: option === status,
+}));
+const emptyMessages: Record<RestaurantStatus, string> = {
+  pending: "No suggestions are waiting.",
+  approved: "No restaurants are approved.",
+  rejected: "No suggestions are rejected.",
+};
+
+const toast =
+  failureToast(Astro.getActionResult(actions.admin.approveRestaurant), "Approval failed") ??
+  failureToast(Astro.getActionResult(actions.admin.rejectRestaurant), "Rejection failed");
+---
+
+<BaseLayout
+  title="Restaurants"
+  description="Approve or reject the restaurants that users suggest"
+  includeSidebar={true}
+  prefetchUrls={["/admin", "/admin/users"]}
+  session={session}
+  user={session.user}
+  sidebarMenuSections={adminSidebarMenuSections()}
+  toast={toast}
+>
+  <h1>Restaurants</h1>
+
+  <TabNav class="mt-4" aria-label="Filter restaurants" tabs={statusTabs} />
+
+  <section class="mt-4" aria-label="Restaurants">
+    {page.items.length === 0 ? (
+      <p class="t-body text-fg-muted">{page.isPastEnd ? "There is nothing on this page." : emptyMessages[status]}</p>
+    ) : (
+      <ul class="divide-y divide-line rounded-box border border-line bg-surface">
+        {page.items.map((restaurant) => (
+          <li class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
+            <div class="min-w-0 flex-1">
+              <a class="field-label block truncate link-hover" href={restaurantHref(restaurant.id)}>{restaurant.name}</a>
+              <p class="t-body-sm truncate text-fg-muted">
+                {[restaurant.location.addressLine1, restaurant.location.city, restaurant.location.country].filter(Boolean).join(", ")}
+              </p>
+              <p class="t-body-sm text-fg-muted">
+                {restaurant.suggester ? (
+                  <a class="link-hover" href={profileHref(restaurant.suggester.username)}>{restaurant.suggester.fullname}</a>
+                ) : (
+                  "Added by an admin"
+                )}
+                {" · "}
+                <time datetime={restaurant.createdAt.toISOString()} title={formatExactTime(restaurant.createdAt)}>
+                  {formatRelativeTime(restaurant.createdAt)}
+                </time>
+              </p>
+            </div>
+            <SuggestionDecision class="shrink-0" restaurantId={restaurant.id} status={restaurant.status} />
+          </li>
+        ))}
+      </ul>
+    )}
+    {navigation && <Pagination id="restaurant-pages" class="mt-4" aria-label="Restaurant pages" navigation={navigation} />}
+  </section>
+</BaseLayout>

@@ -3,6 +3,7 @@ x-base: &base
   env_file: .env
   volumes:
     - ./${DB_FILE_NAME}:/app/${DB_FILE_NAME}
+    - ./${PICTURES_DIR:-pictures}:/app/${PICTURES_DIR:-pictures}
 
 services:
   migrate:

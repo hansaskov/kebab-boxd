@@ -25,7 +25,7 @@ export function createSessionQueries(client: Client) {
 	return {
 		async findWithUser(id: string) {
 			return client.query.sessions.findFirst({
-				with: { user: true },
+				with: { user: { with: { profilePicture: { columns: { url: true } } } } },
 				where: { id },
 			});
 		},

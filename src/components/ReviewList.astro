@@ -1,36 +1,20 @@
 ---
-import type { HTMLAttributes } from "astro/types";
-import Rating from "@src/components/Rating.astro";
-import type { ProfileReview } from "@src/db/queries/profiles";
-import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
+import type { ComponentProps } from "astro/types";
+import ReviewCard from "@src/components/ReviewCard.astro";
+import type { ReviewCard as ReviewCardData } from "@src/db/queries/reviews";
 
-interface Props extends HTMLAttributes<"ol"> {
-  reviews: ProfileReview[];
+interface Props extends Omit<ComponentProps<typeof ReviewCard>, "review" | "class"> {
+  reviews: ReviewCardData[];
+  class?: string;
 }
 
 const { reviews, class: className, ...props } = Astro.props;
 ---
 
-<ol class:list={["divide-y divide-line rounded-box border border-line bg-surface", className]} {...props}>
+<ol class:list={["divide-y divide-line rounded-box border border-line bg-surface", className]}>
   {reviews.map((review) => (
-    <li class="px-4 py-4">
-      <div class="flex items-baseline justify-between gap-3">
-        <p class="field-label min-w-0 truncate">{review.restaurant.name}</p>
-        <time
-          class="t-body-sm shrink-0 text-fg-muted"
-          datetime={review.createdAt.toISOString()}
-          title={formatExactTime(review.createdAt)}
-        >
-          {formatRelativeTime(review.createdAt)}
-        </time>
-      </div>
-      <Rating rating={review.rating} />
-      {review.description && <p class="t-body mt-1 whitespace-pre-line">{review.description}</p>}
-      {review.likeCount > 0 && (
-        <p class="t-caption mt-2 text-fg-muted">
-          {review.likeCount} {review.likeCount === 1 ? "like" : "likes"}
-        </p>
-      )}
+    <li>
+      <ReviewCard review={review} {...props} />
     </li>
   ))}
 </ol>

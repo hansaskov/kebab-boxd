@@ -1,0 +1,84 @@
+---
+import { Heart, Pencil } from "@lucide/astro";
+import type { HTMLAttributes } from "astro/types";
+import Avatar from "@src/components/Avatar.astro";
+import LikeButton from "@src/components/LikeButton.astro";
+import Rating from "@src/components/Rating.astro";
+import { canOn, type Subject } from "@src/auth/permissions";
+import type { ReviewCard } from "@src/db/queries/reviews";
+import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
+import { editReviewHref, profileHref, restaurantHref, reviewHref } from "@src/hrefs";
+
+interface Props extends HTMLAttributes<"article"> {
+  review: ReviewCard;
+  viewer: Subject;
+  showAuthor?: boolean;
+  showRestaurant?: boolean;
+}
+
+const { review, viewer, showAuthor = true, showRestaurant = true, class: className, ...props } = Astro.props;
+const { author, restaurant } = review;
+
+const canLike = canOn(viewer, "review:like", review) || (review.isLikedByViewer && canOn(viewer, "review:unlike", review));
+const canEdit = canOn(viewer, "review:edit", review);
+---
+
+<article class:list={["px-4 py-4", className]} {...props}>
+  <header class="flex items-center gap-3">
+    {showAuthor && (
+      <a href={profileHref(author.username)} tabindex="-1">
+        <Avatar class="size-9 text-xs" name={author.fullname} picture={author.profilePicture} />
+      </a>
+    )}
+    <div class="min-w-0 flex-1">
+      <p class="t-body-sm truncate">
+        {showAuthor && <a class="font-semibold link-hover" href={profileHref(author.username)}>{author.fullname}</a>}
+        {showAuthor && showRestaurant && <span class="text-fg-muted"> on </span>}
+        {showRestaurant && <a class="field-label inline link-hover" href={restaurantHref(restaurant.id)}>{restaurant.name}</a>}
+      </p>
+      <a class="t-body-sm text-fg-muted link-hover" href={reviewHref(review.id)}>
+        <time class="t-body-sm shrink-0 text-fg-muted" datetime={review.createdAt.toISOString()} title={formatExactTime(review.createdAt)}>
+          {formatRelativeTime(review.createdAt)}
+        </time>
+      </a>
+    </div>
+    {!review.isListed && (
+      <span class="tag" title="Only your three most recent reviews of a restaurant are public.">Hidden</span>
+    )}
+  </header>
+
+  <Rating class="mt-2" rating={review.rating} />
+  {review.description && <p class="t-body mt-1 whitespace-pre-line">{review.description}</p>}
+
+  {review.pictures.length > 0 && (
+    <ul class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {review.pictures.map((picture) => (
+        <li>
+          <a href={picture.url}>
+            <img class="aspect-square w-full rounded-field bg-subtle object-cover" src={picture.url} alt="" loading="lazy" decoding="async" />
+          </a>
+        </li>
+      ))}
+    </ul>
+  )}
+
+  {(canLike || canEdit || review.likeCount > 0) && (
+    <footer class="mt-3 flex items-center gap-2">
+      {canLike ? (
+        <LikeButton reviewId={review.id} liked={review.isLikedByViewer} likeCount={review.likeCount} />
+      ) : (
+        review.likeCount > 0 && (
+          <p class="t-body-sm flex items-center gap-1 text-fg-muted">
+            <Heart size={16} aria-hidden="true" />
+            {review.likeCount} {review.likeCount === 1 ? "like" : "likes"}
+          </p>
+        )
+      )}
+      {canEdit && (
+        <a class="btn btn-sm btn-secondary" href={editReviewHref(review.id)}>
+          <Pencil size={16} aria-hidden="true" />Edit
+        </a>
+      )}
+    </footer>
+  )}
+</article>

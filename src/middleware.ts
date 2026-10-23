@@ -1,4 +1,4 @@
-import { DB_FILE_NAME } from "astro:env/server";
+import { DB_FILE_NAME, PICTURES_DIR } from "astro:env/server";
 import { createDatabase } from "@src/db";
 import { createClient } from "@src/db/client";
 import { getSessionAndUserFromCookie } from "@src/auth/session";
@@ -8,10 +8,17 @@ import { compressMiddleware } from "@src/middleware/compress";
 import { sameOriginReferer } from "@src/middleware/referer";
 import { hasStringRedirect } from "@src/validation/type-guards";
 import { scheduleRetentionPurge } from "@src/retention";
+import { createPictureStore, picturePathPrefix } from "@src/pictures/store";
+import { readSubmittedInput } from "@src/actions/submitted-input";
 
-const db = createDatabase(createClient(DB_FILE_NAME));
+const db = createDatabase(createClient(DB_FILE_NAME), createPictureStore(PICTURES_DIR));
 const stopRetentionPurge = scheduleRetentionPurge(db);
 import.meta.hot?.dispose(stopRetentionPurge);
+
+// The history holds the pages a device opened, not the pictures on them or signing out.
+function isPage(routePattern: string) {
+	return !routePattern.startsWith("/api/logout") && !routePattern.startsWith(picturePathPrefix);
+}
 
 const sessionMiddleware = defineMiddleware(async (context, next) => {
 
@@ -27,11 +34,14 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 
 	const { action, setActionResult, serializeActionResult } = getActionContext(context);
 	if (action?.calledFrom === "form") {
+		// The handler reads the body, so a copy is kept to give the form back what the user typed if it fails.
+		const submitted = context.request.clone();
 		const actionResult = await action.handler();
 
 		await context.locals.db.mutations.sessions.setActionData(session.id, {
 			actionName: action.name,
 			actionResult: serializeActionResult(actionResult),
+			...(actionResult.error && { input: await readSubmittedInput(submitted) }),
 		});
 
 		if (!actionResult.error && hasStringRedirect(actionResult.data)) {
@@ -46,11 +56,14 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 		await context.locals.db.mutations.sessions.setActionData(session.id, null);
 
 		setActionResult(session.actionData.actionName, session.actionData.actionResult);
+		if (session.actionData.input) {
+			context.locals.submittedAction = { actionName: session.actionData.actionName, input: session.actionData.input };
+		}
 	}
 
 	const response = await next();
 
-	if (!context.routePattern.startsWith("/api/logout")) {
+	if (isPage(context.routePattern)) {
 		const entry = {
 			sessionId: session.id,
 			requestedAt,

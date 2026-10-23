@@ -9,11 +9,11 @@ A kebab-serving establishment that users review, rate, favorite, and add to thei
 _Avoid_: Kebab, KebabShop, Place, Venue
 
 **Suggest**:
-The action of a user proposing a new Restaurant that does not yet exist in the database. Creates a Restaurant with Status:pending, which an admin must review. Duplicate suggestions are caught via GooglePlaceId before entering the queue.
+The action of a user proposing a new Restaurant that does not yet exist in the database. Creates a Restaurant with Status:pending, which an admin must approve or reject. A suggestion with the same name, ignoring letter case, as an approved or pending Restaurant within 150 m of it is a duplicate and does not enter the queue. A rejected Restaurant may be suggested again. Restaurants seeded from Google Places are kept unique by GooglePlaceId.
 _Avoid_: Propose, Request, Submit
 
 **Review**:
-A user's written verdict on a Restaurant, tied to one experience or visit. A user may write unlimited Reviews for a Restaurant, but only their 3 most recent (the ReviewWindow) are publicly visible and count toward RatingAvg.
+A user's written verdict on a Restaurant, tied to one experience or visit, with up to 4 Pictures. A user may write unlimited Reviews for a Restaurant, but only their 3 most recent (the ReviewWindow) are publicly visible and count toward RatingAvg. Only the author can edit a Review; the author or an Admin can delete it. A Review is listed (in Feeds, on its Restaurant and to Like) when it is in the ReviewWindow, its Restaurant is approved, and its author is not banned.
 _Avoid_: Post, Entry, Diary
 
 **ReviewWindow**:
@@ -25,7 +25,7 @@ An integer 2–10 stored on a Review, representing the user's star rating for th
 _Avoid_: Score, Grade, Stars
 
 **RatingAvg**:
-The user-weighted average rating cached on a Restaurant. For each user who has reviewed the Restaurant, their Ratings within the ReviewWindow are averaged first into a per-user average; then those per-user averages are averaged to produce the final score. This ensures every user's opinion counts equally, regardless of how many reviews they've written.
+The user-weighted average rating cached on a Restaurant. For each user who has reviewed the Restaurant, their Ratings within the ReviewWindow are averaged first into a per-user average; then those per-user averages are averaged to produce the final score. This ensures every user's opinion counts equally, regardless of how many reviews they've written. The Reviews of banned users do not count until the ban is lifted.
 _Avoid_: MeanRating, AverageScore, aggregateRating
 
 **Favorites**:
@@ -41,11 +41,11 @@ A directed relationship between two users: a Follower follows a Following. The F
 _Avoid_: Subscribe, Friend, Buddy
 
 **Feed**:
-The chronological timeline of Reviews from users the current user Follows. The user's personal stream of social activity.
+The chronological timeline of listed Reviews from users the current user Follows. The user's personal stream of social activity. A second Feed, Everyone, shows the listed Reviews of all users.
 _Avoid_: Timeline, Wall, Stream
 
 **Like**:
-A social signal from one user on another user's Review. Counted in LikeCount:c on the Review. Does not affect Restaurant ratings.
+A social signal from one user on another user's listed Review. Counted in LikeCount on the Review. Does not affect Restaurant ratings.
 _Avoid_: Upvote, ThumbsUp, Heart
 
 **User**:
@@ -77,15 +77,15 @@ A named operation on a kind of resource, written `resource:operation`, such as `
 _Avoid_: Right, Privilege, Scope, Grant
 
 **Picture**:
-A hosted image stored in blob storage (only the URL is in the database). Used for profile pictures, Review pictures, and potentially future picture types. Kept in a single generic table to centralize image logic.
+A hosted image stored in blob storage (only the URL is in the database). Used for profile pictures, Review pictures, and potentially future picture types. Kept in a single generic table to centralize image logic. Uploads are re-encoded as WebP, which removes their metadata, and the file is removed with the row.
 _Avoid_: Image, Photo, Avatar
 
 **Location**:
-A structured physical address for a Restaurant: address lines, city, postal code, region, country, plus required latitude/longitude coordinates. Not used for Users, users store coordinates directly on their own record.
+A structured physical address for a Restaurant: address lines, city, postal code, region, country, plus required latitude/longitude coordinates. Not used for Users, users store coordinates directly on their own record, and only they can see them. The map starts at the coordinates of the User.
 _Avoid_: Address, Spot, Place
 
 **ReviewCount**:
-The cached count of total Reviews a Restaurant has received. A display field only (e.g. "123 reviews"). Does not participate in the RatingAvg calculation, which requires the actual Review data to compute user-weighted averages.
+The cached count of total Reviews a Restaurant has received from users who are not banned. A display field only (e.g. "123 reviews"). Does not participate in the RatingAvg calculation, which requires the actual Review data to compute user-weighted averages.
 
 **LikeCount**:
 The cached count of Likes a Review has received. A display field updated synchronously with Like creation/deletion.

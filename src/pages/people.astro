@@ -1,0 +1,48 @@
+---
+import { actions } from "astro:actions";
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+import Pagination from "@src/components/Pagination.astro";
+import PersonList from "@src/components/PersonList.astro";
+import SearchForm from "@src/components/SearchForm.astro";
+import { failureToast } from "@src/format/action-toast";
+import { pageNavigation, parsePageRequest } from "@src/pagination";
+import { parseSearch } from "@src/validation/search";
+
+const session = Astro.locals.session;
+if (!session) {
+  return Astro.redirect("/login");
+}
+
+const search = parseSearch(Astro.url.searchParams);
+const page = search ? await Astro.locals.db.queries.people.search(search, session.user.id, parsePageRequest(Astro.url)) : undefined;
+const navigation = page && pageNavigation(Astro.url, page);
+
+const toast =
+  failureToast(Astro.getActionResult(actions.profile.follow), "Follow failed") ??
+  failureToast(Astro.getActionResult(actions.profile.unfollow), "Unfollow failed");
+---
+
+<BaseLayout
+  title="People"
+  description="Find people to follow on Kebab Boxd"
+  includeSidebar={true}
+  prefetchUrls={["/"]}
+  session={session}
+  user={session.user}
+  toast={toast}
+>
+  <h1>People</h1>
+
+  <SearchForm class="mt-4" id="people-search" label="Search people" value={search} placeholder="Name or username" />
+
+  {page && (
+    <section class="mt-4" aria-label="People">
+      {page.items.length === 0 ? (
+        <p class="t-body text-fg-muted">{page.isPastEnd ? "There is nothing on this page." : `No one matches “${search}”.`}</p>
+      ) : (
+        <PersonList people={page.items} viewer={session.user} />
+      )}
+      {navigation && <Pagination id="people-pages" class="mt-4" aria-label="People pages" navigation={navigation} />}
+    </section>
+  )}
+</BaseLayout>

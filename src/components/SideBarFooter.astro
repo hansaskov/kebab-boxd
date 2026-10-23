@@ -3,12 +3,12 @@ import { ChevronUp, CircleUser, Settings, DoorOpen, Shield } from "@lucide/astro
 import Avatar from "@src/components/Avatar.astro";
 import ThemeSelector from "@src/components/ThemeSelector.astro";
 import type { ComponentProps } from "astro/types";
-import type { User } from "@src/db/schema"
+import type { SessionWithUser } from "@src/auth/session";
 import { can } from "@src/auth/permissions";
 import { profileHref, settingsHref } from "@src/hrefs";
 
 interface Props extends ComponentProps<typeof ThemeSelector> {
-  user?: User;
+  user?: NonNullable<SessionWithUser>["user"];
 }
 
 const { user } = Astro.props;
@@ -21,7 +21,7 @@ const { user } = Astro.props;
       style="anchor-name:--sidebar-user-menu"
       class="flex items-center gap-3 px-2 py-2 rounded-field hover:bg-active cursor-pointer w-full text-left"
     >
-      <Avatar class="size-10" name={user.fullname} />
+      <Avatar class="size-10" name={user.fullname} picture={user.profilePicture} />
       <div class="flex-1 text-left min-w-0">
         <div class="font-semibold text-sm truncate">{user.fullname}</div>
         <div class="text-xs text-fg-muted truncate">@{user.username}</div>

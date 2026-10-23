@@ -34,7 +34,7 @@ export function createPersonalDataQueries(client: Client) {
 						with: {
 							history: {
 								columns: { requestedAt: true, method: true, path: true, action: true, status: true, prefetched: true },
-								orderBy: { requestedAt: "asc" },
+								orderBy: { requestedAt: "asc", id: "asc" },
 							},
 						},
 						...oldestFirst,

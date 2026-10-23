@@ -1,0 +1,95 @@
+---
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, MapPin, Minus, Plus } from "@lucide/astro";
+import type { HTMLAttributes } from "astro/types";
+import type { Coordinates } from "@src/map/coordinates";
+import type { PanDirection, Placement, Viewport, ViewportSize } from "@src/map/viewport";
+
+export interface Marker {
+  coordinates: Coordinates;
+  href: string;
+  label: string;
+}
+
+export interface MapControls {
+  zoomIn: string | undefined;
+  zoomOut: string | undefined;
+  pan: Record<PanDirection, string>;
+}
+
+interface Props extends HTMLAttributes<"div"> {
+  viewport: Viewport;
+  size: ViewportSize;
+  markers: Marker[];
+  here?: Coordinates | undefined;
+  controls?: MapControls | undefined;
+}
+
+const { viewport, size, markers, here, controls, class: className, ...props } = Astro.props;
+
+const position = ({ left, top }: Placement) => `left:${left.toFixed(3)}%;top:${top.toFixed(3)}%`;
+const isInside = ({ left, top }: Placement) => left >= 0 && left <= 100 && top >= 0 && top <= 100;
+
+const placedMarkers = markers
+  .map((marker) => ({ ...marker, placement: viewport.place(marker.coordinates) }))
+  .filter((marker) => isInside(marker.placement));
+const herePlacement = here && viewport.place(here);
+
+const panButtons = [
+  { direction: "north", label: "Move north", icon: ArrowUp },
+  { direction: "west", label: "Move west", icon: ArrowLeft },
+  { direction: "east", label: "Move east", icon: ArrowRight },
+  { direction: "south", label: "Move south", icon: ArrowDown },
+] as const;
+---
+
+<div class:list={["map", className]} style={`aspect-ratio:${size.width}/${size.height}`} {...props}>
+  {viewport.tiles.map((tile) => (
+    <img
+      class="map-tile"
+      src={tile.url}
+      alt=""
+      style={`${position(tile)};width:${tile.width.toFixed(3)}%;height:${tile.height.toFixed(3)}%`}
+      loading="lazy"
+      decoding="async"
+    />
+  ))}
+
+  {herePlacement && isInside(herePlacement) && (
+    <span class="map-here" style={position(herePlacement)} title="Your location"><span class="sr-only">Your location</span></span>
+  )}
+
+  <ul>
+    {placedMarkers.map((marker) => (
+      <li class="map-marker" style={position(marker.placement)}>
+        <a href={marker.href} title={marker.label}>
+          <MapPin size={28} fill="currentColor" aria-hidden="true" />
+          <span class="sr-only">{marker.label}</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+
+  {controls && (
+    <>
+      <div class="map-controls map-controls-zoom">
+        <a class="icon-btn" href={controls.zoomIn} aria-disabled={controls.zoomIn ? undefined : "true"} title="Zoom in">
+          <Plus size={18} aria-hidden="true" /><span class="sr-only">Zoom in</span>
+        </a>
+        <a class="icon-btn" href={controls.zoomOut} aria-disabled={controls.zoomOut ? undefined : "true"} title="Zoom out">
+          <Minus size={18} aria-hidden="true" /><span class="sr-only">Zoom out</span>
+        </a>
+      </div>
+      <div class="map-controls map-controls-pan">
+        {panButtons.map(({ direction, label, icon: Icon }) => (
+          <a class="icon-btn" data-direction={direction} href={controls.pan[direction]} title={label}>
+            <Icon size={18} aria-hidden="true" /><span class="sr-only">{label}</span>
+          </a>
+        ))}
+      </div>
+    </>
+  )}
+
+  <p class="map-attribution">
+    © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors
+  </p>
+</div>

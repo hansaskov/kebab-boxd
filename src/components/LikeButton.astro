@@ -1,0 +1,22 @@
+---
+import { Heart } from "@lucide/astro";
+import { actions } from "astro:actions";
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends HTMLAttributes<"form"> {
+  reviewId: number;
+  liked: boolean;
+  likeCount: number;
+}
+
+const { reviewId, liked, likeCount, class: className, ...props } = Astro.props;
+---
+
+<form class:list={["flex", className]} method="post" action={liked ? actions.reviews.unlike : actions.reviews.like} {...props}>
+  <input type="hidden" name="reviewId" value={reviewId} />
+  <button class="btn btn-sm btn-secondary" type="submit" aria-pressed={liked ? "true" : "false"}>
+    <Heart class:list={{ "text-danger": liked }} size={16} fill={liked ? "currentColor" : "none"} aria-hidden="true" />
+    <span class="sr-only">Like</span>
+    <span class="tabular-nums">{likeCount}</span>
+  </button>
+</form>

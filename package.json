@@ -22,7 +22,8 @@
     "astro": "7.4.2",
     "drizzle-kit": "1.0.0-rc.5",
     "drizzle-orm": "1.0.0-rc.5",
-    "drizzle-seed": "1.0.0-rc.5"
+    "drizzle-seed": "1.0.0-rc.5",
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",

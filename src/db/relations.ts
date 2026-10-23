@@ -36,6 +36,17 @@ export const relations = defineRelations(s, (r) => ({
       to: r.locations.id,
       optional: false,
     }),
+    suggester: r.one.users({
+      from: r.restaurants.suggestedBy,
+      to: r.users.id,
+    }),
+  },
+
+  locations: {
+    restaurant: r.one.restaurants({
+      from: r.locations.id,
+      to: r.restaurants.locationId,
+    }),
   },
 
   reviews: {

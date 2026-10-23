@@ -1,10 +1,10 @@
 ---
 import { getConstraintsFromZodSchema } from '@src/validation/constraint';
-import type { ZodString } from 'astro/zod';
+import type { ZodNullable, ZodString } from 'astro/zod';
 
 interface Props extends astroHTML.JSX.InputHTMLAttributes {
     name: string;
-    zodField: ZodString;
+    zodField: ZodString | ZodNullable<ZodString>;
     label?: string;
     description?: string;
     errors?: string[] | undefined;

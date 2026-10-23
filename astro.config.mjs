@@ -16,12 +16,17 @@ export default defineConfig({
     provider: memoryCache(),
   },
   session: false,
+  security: {
+    // Room for the four pictures a review can have, at most 10 MB each.
+    actionBodySizeLimit: 41 * 1024 * 1024,
+  },
   adapter: node({
     mode: "standalone",
   }),
   env: {
     schema: {
       DB_FILE_NAME: envField.string({ context: "server", access: "secret" }),
+      PICTURES_DIR: envField.string({ context: "server", access: "secret", default: "pictures" }),
       GOOGLE_CLIENT_ID: envField.string({ context: "server", access: "secret" }),
       GOOGLE_CLIENT_SECRET: envField.string({ context: "server", access: "secret" }),
       GOOGLE_REDIRECT_URI: envField.string({ context: "server", access: "secret" }),

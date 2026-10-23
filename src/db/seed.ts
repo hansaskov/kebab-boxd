@@ -6,6 +6,8 @@ import { pronouns } from "@src/data/pronouns";
 import { createSession } from "@src/auth/session";
 import { buildUsername } from "@src/db/mutations/accounts";
 import { eq } from "drizzle-orm";
+import { refreshLikeCounts, refreshRestaurantStats } from "@src/db/mutations/cached-stats";
+import type { PictureStore } from "@src/pictures/store";
 
 const imageUrls = [
   "https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?w=800",
@@ -77,7 +79,10 @@ function uniquePairs(
   return result;
 }
 
-export async function seedDatabase(client: Client) {
+// Around Funen, so that the restaurants show up near each other on the map.
+const area = { minLatitude: 55.0, maxLatitude: 55.7, minLongitude: 9.7, maxLongitude: 10.9 };
+
+export async function seedDatabase(client: Client, pictures: PictureStore) {
   await seed(client, parentSchema).refine((funcs) => ({
     users: {
       count: 50,
@@ -93,8 +98,8 @@ export async function seedDatabase(client: Client) {
           { weight: 0.4, value: funcs.default({ defaultValue: null }) },
         ]),
         pronoun: funcs.valuesFromArray({ values: [...pronouns] }),
-        latitude: funcs.number({ minValue: -90, maxValue: 90, precision: 10000 }),
-        longitude: funcs.number({ minValue: -180, maxValue: 180, precision: 10000 }),
+        latitude: funcs.number({ minValue: area.minLatitude, maxValue: area.maxLatitude, precision: 10000 }),
+        longitude: funcs.number({ minValue: area.minLongitude, maxValue: area.maxLongitude, precision: 10000 }),
         bannedAt: funcs.default({ defaultValue: null }),
       },
     },
@@ -111,8 +116,8 @@ export async function seedDatabase(client: Client) {
         postalCode: funcs.postcode(),
         region: funcs.state(),
         country: funcs.country(),
-        latitude: funcs.number({ minValue: -90, maxValue: 90, precision: 10000 }),
-        longitude: funcs.number({ minValue: -180, maxValue: 180, precision: 10000 }),
+        latitude: funcs.number({ minValue: area.minLatitude, maxValue: area.maxLatitude, precision: 10000 }),
+        longitude: funcs.number({ minValue: area.minLongitude, maxValue: area.maxLongitude, precision: 10000 }),
       },
     },
 
@@ -180,7 +185,7 @@ export async function seedDatabase(client: Client) {
     await client.insert(schema.accounts).values(accountRows);
   }
 
-  const db = createDatabase(client);
+  const db = createDatabase(client, pictures);
   for (const id of userIds.slice(10)) {
     await createSession(id, db);
   }
@@ -221,14 +226,20 @@ export async function seedDatabase(client: Client) {
     await client.insert(schema.bucketList).values(bucketListRows);
   }
 
-  const reviewPicturesRows = uniquePairs(150, reviewIds, pictureIds).map(([reviewId, pictureId]) => ({
-    reviewId,
-    pictureId,
-    updatedAt: now,
-  }));
+  // A picture belongs to one review at most, so deleting a review never takes the pictures of another.
+  const shuffledReviewIds = reviewIds.toSorted(() => Math.random() - 0.5);
+  const reviewPicturesRows = pictureIds.flatMap((pictureId, i) => {
+    const reviewId = shuffledReviewIds[i];
+    return reviewId === undefined ? [] : [{ reviewId, pictureId, updatedAt: now }];
+  });
   if (reviewPicturesRows.length > 0) {
     await client.insert(schema.reviewPictures).values(reviewPicturesRows);
   }
+
+  client.transaction((tx) => {
+    refreshLikeCounts(tx, reviewIds);
+    refreshRestaurantStats(tx, restaurantIds);
+  });
 }
 
 export async function nukeDatabase(client: Client) {

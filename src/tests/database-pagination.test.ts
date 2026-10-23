@@ -5,7 +5,7 @@ import * as s from "@src/db/schema";
 describe("cursorList", () => {
 	it("refuses to order by several columns when one of them is text", () => {
 		expect(() => cursorList(s.history, ["requestedAt", "path"], "desc")).toThrow(
-			"A cursor list ordered by several columns can only use integer columns.",
+			"A cursor list ordered by several columns can only use number columns.",
 		);
 	});
 });

@@ -8,7 +8,7 @@ interface Props extends astroHTML.JSX.SelectHTMLAttributes {
     zodField: ZodEnum | ZodNullable<ZodEnum>;
     selected?: string | undefined | null;
     label: string;
-    description: string;
+    description?: string;
     noneOption?: string;
     errors?: string[] | undefined;
 }
@@ -23,19 +23,20 @@ const fieldId = props.id ?? props.name
 const descriptionId = `${fieldId}-description`
 const errorId = `${fieldId}-error`
 const hasErrors = errors !== undefined && errors.length > 0
+const describedBy = [description && descriptionId, hasErrors && errorId].filter(Boolean).join(" ") || undefined
 ---
 
 <div class="settings-row">
     <div class="settings-row-text">
         <label class="field-label" for={fieldId}>{label}</label>
-        <p id={descriptionId} class="t-body-sm text-fg-muted">{description}</p>
+        {description && <p id={descriptionId} class="t-body-sm text-fg-muted">{description}</p>}
     </div>
     <div class="settings-row-field space-y-2">
         <div class="select">
             <select
                 id={fieldId}
                 class:list={["input", className]}
-                aria-describedby={hasErrors ? `${descriptionId} ${errorId}` : descriptionId}
+                aria-describedby={describedBy}
                 aria-invalid={hasErrors ? "true" : undefined}
                 {...constraints}
                 {...props}

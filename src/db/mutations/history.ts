@@ -4,7 +4,7 @@ import type { NewHistoryEntry } from "@src/db/schema";
 
 export function createHistoryMutations(client: Client) {
 	return {
-		async record(entry: Required<NewHistoryEntry>) {
+		async record(entry: Required<Omit<NewHistoryEntry, "id">>) {
 			await client.insert(s.history).values(entry);
 		},
 	};

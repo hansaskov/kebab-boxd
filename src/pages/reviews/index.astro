@@ -1,0 +1,46 @@
+---
+import { actions } from "astro:actions";
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+import Pagination from "@src/components/Pagination.astro";
+import ReviewList from "@src/components/ReviewList.astro";
+import { resultToast } from "@src/format/action-toast";
+import { pageNavigation, parsePageRequest } from "@src/pagination";
+
+const session = Astro.locals.session;
+if (!session) {
+  return Astro.redirect("/login");
+}
+
+const page = await Astro.locals.db.queries.reviews.listAllByAuthor(session.user.id, session.user.id, parsePageRequest(Astro.url));
+const navigation = pageNavigation(Astro.url, page);
+
+const toast = resultToast(Astro.getActionResult(actions.reviews.delete), "Deletion failed", {
+  title: "Review deleted",
+  text: "The review and its pictures are deleted.",
+});
+---
+
+<BaseLayout
+  title="Your reviews"
+  description="The reviews you have written"
+  includeSidebar={true}
+  prefetchUrls={["/", "/restaurants"]}
+  session={session}
+  user={session.user}
+  toast={toast}
+>
+  <h1>Your reviews</h1>
+
+  <section class="mt-4" aria-label="Reviews">
+    {page.items.length === 0 ? (
+      <p class="t-body text-fg-muted">
+        {page.isPastEnd
+          ? "There is nothing on this page."
+          : <>You have not written a review yet. <a class="link" href="/restaurants">Find a restaurant to review</a>.</>}
+      </p>
+    ) : (
+      <ReviewList reviews={page.items} viewer={session.user} showAuthor={false} />
+    )}
+    {navigation && <Pagination id="review-pages" class="mt-4" aria-label="Review pages" navigation={navigation} />}
+  </section>
+</BaseLayout>

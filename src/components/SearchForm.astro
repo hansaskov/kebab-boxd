@@ -1,0 +1,34 @@
+---
+import { Search } from "@lucide/astro";
+import type { HTMLAttributes } from "astro/types";
+import { firstPageFields } from "@src/pagination";
+import { searchMaxLength } from "@src/validation/search";
+
+interface Props extends HTMLAttributes<"form"> {
+  id: string;
+  label: string;
+  value: string;
+  placeholder: string;
+}
+
+const { id, label, value, placeholder, class: className, ...props } = Astro.props;
+---
+
+<form class:list={["flex gap-2", className]} method="get" action={Astro.url.pathname} role="search" {...props}>
+  <label class="sr-only" for={id}>{label}</label>
+  <input
+    id={id}
+    class="input"
+    type="search"
+    name="q"
+    value={value}
+    maxlength={searchMaxLength}
+    placeholder={placeholder}
+  />
+  {firstPageFields(Astro.url, { q: undefined }).map(([name, fieldValue]) => (
+    <input type="hidden" name={name} value={fieldValue} />
+  ))}
+  <button class="btn btn-secondary btn-md shrink-0" type="submit">
+    <Search size={16} aria-hidden="true" /><span class="max-sm:sr-only">Search</span>
+  </button>
+</form>

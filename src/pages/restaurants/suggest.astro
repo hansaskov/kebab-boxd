@@ -1,0 +1,93 @@
+---
+import { actions, isInputError } from "astro:actions";
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+import FieldInput from "@src/components/FieldInput.astro";
+import FieldSelect from "@src/components/FieldSelect.astro";
+import Pagination from "@src/components/Pagination.astro";
+import RestaurantStatusTag from "@src/components/RestaurantStatusTag.astro";
+import { can } from "@src/auth/permissions";
+import { defaultCountry } from "@src/data/countries";
+import { failureToast } from "@src/format/action-toast";
+import { submittedForm } from "@src/actions/submitted-input";
+import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
+import { restaurantHref } from "@src/hrefs";
+import { pageNavigation, parsePageRequest } from "@src/pagination";
+import { suggestionSchema } from "@src/validation/restaurant";
+
+const session = Astro.locals.session;
+if (!session) {
+  return Astro.redirect("/login");
+}
+
+if (!can(session.user, "restaurant:suggest")) {
+  return Astro.rewrite("/403");
+}
+
+const page = await Astro.locals.db.queries.restaurants.listSuggestedBy(session.user.id, parsePageRequest(Astro.url));
+const navigation = pageNavigation(Astro.url, page);
+
+const result = Astro.getActionResult(actions.restaurants.suggest);
+const fieldErrors = result?.error && isInputError(result.error) ? result.error.fields : undefined;
+const toast = fieldErrors ? undefined : failureToast(result, "Suggestion failed");
+const submitted = submittedForm(Astro.locals, actions.restaurants.suggest);
+const { shape } = suggestionSchema;
+---
+
+<BaseLayout
+  title="Suggest a restaurant"
+  description="Suggest a kebab restaurant that is missing from Kebab Boxd"
+  includeSidebar={true}
+  prefetchUrls={["/restaurants"]}
+  session={session}
+  user={session.user}
+  toast={toast}
+>
+  <h1>Suggest a restaurant</h1>
+
+  <form class="mt-4" method="post" action={actions.restaurants.suggest}>
+    <fieldset class="settings-card">
+      <FieldInput label="Name" name="name" value={submitted?.get("name")} type="text" zodField={shape.name} errors={fieldErrors?.name} />
+      <FieldInput label="Address" name="addressLine1" value={submitted?.get("addressLine1")} type="text" autocomplete="off" zodField={shape.addressLine1} errors={fieldErrors?.addressLine1} />
+      <FieldInput label="Postal code" name="postalCode" value={submitted?.get("postalCode")} type="text" autocomplete="off" zodField={shape.postalCode} errors={fieldErrors?.postalCode} />
+      <FieldInput label="City" name="city" value={submitted?.get("city")} type="text" autocomplete="off" zodField={shape.city} errors={fieldErrors?.city} />
+      <FieldSelect label="Country" name="country" selected={submitted?.get("country") ?? defaultCountry} zodField={shape.country} errors={fieldErrors?.country} />
+      <FieldInput
+        label="Coordinates"
+        name="coordinates"
+        value={submitted?.get("coordinates")}
+        type="text"
+        inputmode="decimal"
+        autocomplete="off"
+        placeholder="55.3959, 10.3883"
+        description="Right-click the restaurant in Google Maps or OpenStreetMap and copy its coordinates."
+        zodField={shape.coordinates}
+        errors={fieldErrors?.coordinates}
+      />
+      <div class="settings-card-footer">
+        <button class="btn btn-primary btn-md" type="submit">Send suggestion</button>
+      </div>
+    </fieldset>
+  </form>
+
+  {page.items.length > 0 && (
+    <section class="mt-8" aria-labelledby="suggestions-heading">
+      <h2 id="suggestions-heading">Your suggestions</h2>
+      <ul class="mt-3 divide-y divide-line rounded-box border border-line bg-surface">
+        {page.items.map((restaurant) => (
+          <li>
+            <a class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-active" href={restaurantHref(restaurant.id)}>
+              <span class="min-w-0">
+                <span class="field-label block truncate">{restaurant.name}</span>
+                <time class="t-body-sm block text-fg-muted" datetime={restaurant.createdAt.toISOString()} title={formatExactTime(restaurant.createdAt)}>
+                  {formatRelativeTime(restaurant.createdAt)}
+                </time>
+              </span>
+              <RestaurantStatusTag status={restaurant.status} />
+            </a>
+          </li>
+        ))}
+      </ul>
+      {navigation && <Pagination id="suggestion-pages" class="mt-4" aria-label="Suggestion pages" navigation={navigation} />}
+    </section>
+  )}
+</BaseLayout>

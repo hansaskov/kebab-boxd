@@ -4,7 +4,7 @@ Review your favorite kebab restaurants.
 
 ## Installation
 
-Copy `.env.example` to `.env`. and add the google credentials before you begin.
+Copy `.env.example` to `.env`. and add the google credentials before you begin. Uploaded pictures are stored in the folder `PICTURES_DIR`.
 
 ```bash
 pnpm install
@@ -53,3 +53,9 @@ pnpm run dev
 - [x] Admin console with user management
 - [x] GDPR basics
 - [x] Profile page with Follow
+- [x] Reviews with pictures and likes
+- [x] Feeds, people search and follower lists
+- [x] Restaurants, suggestions and moderation
+- [x] Favorites and BucketList
+- [x] Map of nearby restaurants
+- [ ] Notifications

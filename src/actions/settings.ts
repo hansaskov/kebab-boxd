@@ -2,9 +2,11 @@ import { ActionError, defineAction } from "astro:actions";
 import { z } from "astro/zod";
 import { pronouns } from "@src/data/pronouns";
 import { deleteSessionTokenCookie } from "@src/auth/session";
-import { authorizeTargetUser } from "@src/actions/authorize";
+import { authorizeTargetUser, refusedSinceRequestStarted } from "@src/actions/authorize";
 import { settingsHref } from "@src/hrefs";
 import { usernameSchema } from "@src/validation/username";
+import { coordinatesSchema } from "@src/validation/coordinates";
+import { maxPictureBytes } from "@src/validation/review";
 
 export const updateAccountSchema = z.object({
   currentUsername: z.string().trim().min(1).max(50),
@@ -14,7 +16,20 @@ export const updateAccountSchema = z.object({
   bio: z.string().trim().max(200).nullable(),
 });
 
-export const signOutEverywhereSchema = z.object({
+export const updateProfilePictureSchema = z.object({
+  currentUsername: z.string().trim().min(1).max(50),
+  picture: z
+    .instanceof(File)
+    .refine((file) => file.size > 0, "Choose a picture.")
+    .refine((file) => file.size <= maxPictureBytes, "A picture can be at most 10 MB."),
+});
+
+export const updateLocationSchema = z.object({
+  currentUsername: z.string().trim().min(1).max(50),
+  location: coordinatesSchema.nullable(),
+});
+
+export const currentUserSchema = z.object({
   currentUsername: z.string().trim().min(1).max(50),
 });
 
@@ -56,9 +71,51 @@ export const settingsActions = {
       return { redirect: settingsHref(input.username) };
     },
   }),
+  updateProfilePicture: defineAction({
+    accept: "form",
+    input: updateProfilePictureSchema,
+    handler: async (input, context) => {
+      const { session, targetUser } = await authorizeTargetUser(context.locals, input.currentUsername, "user:edit-settings");
+
+      const result = await context.locals.db.mutations.users.setProfilePicture(targetUser.id, input.picture, session.user.id);
+
+      if (result === "refused") throw refusedSinceRequestStarted();
+      if (result === "invalid-picture") {
+        throw new ActionError({ code: "BAD_REQUEST", message: "The file is not a picture. Use JPEG, PNG, WebP, AVIF or GIF." });
+      }
+
+      return { redirect: settingsHref(targetUser.username) };
+    },
+  }),
+  removeProfilePicture: defineAction({
+    accept: "form",
+    input: currentUserSchema,
+    handler: async (input, context) => {
+      const { session, targetUser } = await authorizeTargetUser(context.locals, input.currentUsername, "user:edit-settings");
+
+      if ((await context.locals.db.mutations.users.removeProfilePicture(targetUser.id, session.user.id)) === "refused") {
+        throw refusedSinceRequestStarted();
+      }
+
+      return { redirect: settingsHref(targetUser.username) };
+    },
+  }),
+  updateLocation: defineAction({
+    accept: "form",
+    input: updateLocationSchema,
+    handler: async (input, context) => {
+      const { session, targetUser } = await authorizeTargetUser(context.locals, input.currentUsername, "user:edit-settings");
+
+      if ((await context.locals.db.mutations.users.setLocation(targetUser.id, input.location, session.user.id)) === "refused") {
+        throw refusedSinceRequestStarted();
+      }
+
+      return { redirect: settingsHref(targetUser.username) };
+    },
+  }),
   signOutEverywhere: defineAction({
     accept: "form",
-    input: signOutEverywhereSchema,
+    input: currentUserSchema,
     handler: async (input, context) => {
       const { session, targetUser } = await authorizeTargetUser(
         context.locals,

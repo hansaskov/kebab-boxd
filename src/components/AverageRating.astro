@@ -1,0 +1,23 @@
+---
+import { Star } from "@lucide/astro";
+import type { HTMLAttributes } from "astro/types";
+import { describeStars, formatAverageStars } from "@src/format/rating";
+
+interface Props extends HTMLAttributes<"span"> {
+  ratingAvg: number;
+}
+
+const { ratingAvg, class: className, ...props } = Astro.props;
+---
+
+{ratingAvg > 0 && (
+  <span
+    class:list={["t-body-sm flex shrink-0 items-center gap-1 text-fg-muted", className]}
+    role="img"
+    aria-label={describeStars(formatAverageStars(ratingAvg))}
+    {...props}
+  >
+    <Star class="text-brand-text" size={14} fill="currentColor" aria-hidden="true" />
+    {formatAverageStars(ratingAvg)}
+  </span>
+)}
