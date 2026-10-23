@@ -1,27 +1,12 @@
-import { ActionError, defineAction } from "astro:actions";
+import { defineAction } from "astro:actions";
 import { z } from "astro/zod";
-import { authorizeTargetUser } from "@src/actions/authorize";
+import { authorizeTargetUser, refusedSinceRequestStarted, targetUserSchema } from "@src/actions/authorize";
 import { roles } from "@src/db/schema";
-import { usernameSchema } from "@src/validation/username";
-
-export const targetUserSchema = z.object({
-  username: usernameSchema,
-});
+import { adminUserHref } from "@src/hrefs";
 
 export const changeUserRoleSchema = targetUserSchema.extend({
   role: z.enum(roles),
 });
-
-function refusedSinceRequestStarted() {
-  return new ActionError({
-    code: "CONFLICT",
-    message: "Your role or this user changed. Reload the page and try again.",
-  });
-}
-
-export function adminUserHref(username: string) {
-  return `/admin/users/${encodeURIComponent(username)}`;
-}
 
 export const adminActions = {
   banUser: defineAction({

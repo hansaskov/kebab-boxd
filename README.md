@@ -52,3 +52,4 @@ pnpm run dev
 - [x] Sidebar layout and placeholder pages
 - [x] Admin console with user management
 - [x] GDPR basics
+- [x] Profile page with Follow

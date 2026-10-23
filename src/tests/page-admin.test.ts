@@ -72,4 +72,15 @@ describe("admin console", () => {
 		expect(listedUsernames(second.html)).toEqual(["kebab_0"]);
 		expect(nextHref(second.html)).toBeUndefined();
 	});
+
+	it("sends a username in other letter case to the address of the user", async () => {
+		const { client, db } = createTestDatabase("admin-user-page-case");
+		const admin = insertUser(client, "root_admin", "admin");
+		insertUser(client, "ada");
+
+		const { response } = await render(AdminUserPage, db, await signIn(db, admin.id), "/admin/users/Ada?x=1", { username: "Ada" });
+
+		expect(response.status).toBe(301);
+		expect(response.headers.get("Location")).toBe("/admin/users/ada?x=1");
+	});
 });

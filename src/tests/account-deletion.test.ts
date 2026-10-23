@@ -8,16 +8,7 @@ import type { Client } from "@src/db/client";
 import * as s from "@src/db/schema";
 import { actionContext, form } from "@src/tests/actions";
 import { renderEndpoint } from "@src/tests/container";
-import { createTestDatabase, insertUser, signIn } from "@src/tests/database";
-
-function insertRestaurant(client: Client, name: string, suggestedBy: number | null = null) {
-	const location = client.insert(s.locations).values({ latitude: 55.68, longitude: 12.57 }).returning().get();
-	return client.insert(s.restaurants).values({ name, locationId: location.id, suggestedBy }).returning().get();
-}
-
-function insertReview(client: Client, authorId: number, restaurantId: number, rating: number, createdAt = new Date()) {
-	return client.insert(s.reviews).values({ authorId, restaurantId, rating, createdAt }).returning().get();
-}
+import { createTestDatabase, insertRestaurant, insertReview, insertUser, signIn } from "@src/tests/database";
 
 function insertPicture(client: Client, url: string) {
 	return client.insert(s.pictures).values({ url }).returning().get();
@@ -39,7 +30,7 @@ describe("users.delete", () => {
 		client.update(s.users).set({ profilePictureId: adaPicture.id }).where(eq(s.users.id, ada.id)).run();
 		client.update(s.users).set({ profilePictureId: bobPicture.id }).where(eq(s.users.id, bob.id)).run();
 		const grill = insertRestaurant(client, "Bosporus Grill");
-		const suggested = insertRestaurant(client, "Mangal Express", ada.id);
+		const suggested = insertRestaurant(client, "Mangal Express", { suggestedBy: ada.id });
 		const adaReview = insertReview(client, ada.id, grill.id, 10);
 		const bobReview = insertReview(client, bob.id, grill.id, 4);
 		client.insert(s.reviewPictures).values([

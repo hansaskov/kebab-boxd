@@ -4,11 +4,12 @@ import BaseLayout from "@src/layouts/BaseLayout.astro";
 import { oauthCookieOptions } from "@src/auth/oauth";
 import { googleCookieNames } from "@src/auth/providers/google";
 import { sessionCookieName } from "@src/auth/session";
+import { settingsHref } from "@src/hrefs";
 import { historyRetentionSeconds } from "@src/db/mutations/retention";
 import { inactivityTimeoutSeconds } from "@src/db/queries/sessions";
 
 const session = Astro.locals.session;
-const settingsHref = session && `/${encodeURIComponent(session.user.username)}/settings`;
+const userSettingsHref = session && settingsHref(session.user.username);
 
 const days = (seconds: number) => `${seconds / (60 * 60 * 24)} days`;
 const minutes = (seconds: number) => `${seconds / 60} minutes`;
@@ -24,7 +25,7 @@ const cookies = [
   title="Privacy"
   description="How Kebab Boxd uses your personal data"
   includeSidebar={session !== null}
-  prefetchUrls={settingsHref ? ["/", settingsHref] : ["/login"]}
+  prefetchUrls={userSettingsHref ? ["/", userSettingsHref] : ["/login"]}
   {...session && { session, user: session.user }}
 >
   <h1>Privacy</h1>
@@ -101,15 +102,15 @@ const cookies = [
     <ul class="t-body mt-2 list-disc space-y-2 pl-5">
       <li>
         Download all your data:{" "}
-        {settingsHref ? <a class="link" href={`${settingsHref}#your-data`}>Settings, Your data</a> : "Settings, Your data"}.
+        {userSettingsHref ? <a class="link" href={`${userSettingsHref}#your-data`}>Settings, Your data</a> : "Settings, Your data"}.
       </li>
       <li>
         Correct your profile:{" "}
-        {settingsHref ? <a class="link" href={`${settingsHref}#account`}>Settings, Account</a> : "Settings, Account"}.
+        {userSettingsHref ? <a class="link" href={`${userSettingsHref}#account`}>Settings, Account</a> : "Settings, Account"}.
       </li>
       <li>
         Delete your account and data:{" "}
-        {settingsHref ? <a class="link" href={`${settingsHref}#danger-zone`}>Settings, Danger zone</a> : "Settings, Danger zone"}.
+        {userSettingsHref ? <a class="link" href={`${userSettingsHref}#danger-zone`}>Settings, Danger zone</a> : "Settings, Danger zone"}.
       </li>
       <li>
         Object to how we use your data, or ask us to limit it: email <a class="link" href={`mailto:${DATA_CONTROLLER_EMAIL}`}>{DATA_CONTROLLER_EMAIL}</a>.

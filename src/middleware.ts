@@ -5,6 +5,7 @@ import { getSessionAndUserFromCookie } from "@src/auth/session";
 import { defineMiddleware, sequence } from "astro:middleware";
 import { getActionContext } from "astro:actions";
 import { compressMiddleware } from "@src/middleware/compress";
+import { sameOriginReferer } from "@src/middleware/referer";
 import { hasStringRedirect } from "@src/validation/type-guards";
 import { scheduleRetentionPurge } from "@src/retention";
 
@@ -33,18 +34,11 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 			actionResult: serializeActionResult(actionResult),
 		});
 
-		if (actionResult.error) {
-			const referer = context.request.headers.get("Referer");
-			if (referer) {
-				return context.redirect(referer);
-			}
-		}
-
-		if (hasStringRedirect(actionResult.data)) {
+		if (!actionResult.error && hasStringRedirect(actionResult.data)) {
 			return context.redirect(actionResult.data.redirect);
 		}
 
-		return context.redirect(context.originPathname);
+		return context.redirect(sameOriginReferer(context.request, context.url.origin) ?? context.originPathname);
 	}
 
 	if (context.request.method === "GET" && session.actionData) {

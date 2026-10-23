@@ -1,4 +1,5 @@
 import { Rss, Compass, SquarePen, UserRoundCog, Shield, Bell, MonitorSmartphone, TriangleAlert, LayoutDashboard, Users, Download } from "@lucide/astro";
+import { settingsHref } from "@src/hrefs";
 
 export type SidebarMenuItem = {
   name: string;
@@ -39,18 +40,18 @@ export const defaultSidebarMenuSections: SidebarMenuSection[] = [
   ];
 
 export function settingsSidebarMenuSections(username: string): SidebarMenuSection[] {
-  const settingsHref = `/${encodeURIComponent(username)}/settings`;
+  const href = settingsHref(username);
 
   return defaultSidebarMenuSections.concat([
     {
       title: "Settings",
       items: [
-        { name: "Account", href: `${settingsHref}#account`, icon: UserRoundCog },
-        { name: "Security", href: `${settingsHref}#security`, icon: Shield },
-        { name: "Devices", href: `${settingsHref}#devices`, icon: MonitorSmartphone },
-        { name: "Notifications", href: `${settingsHref}#notifications`, icon: Bell },
-        { name: "Your data", href: `${settingsHref}#your-data`, icon: Download },
-        { name: "Danger zone", href: `${settingsHref}#danger-zone`, icon: TriangleAlert },
+        { name: "Account", href: `${href}#account`, icon: UserRoundCog },
+        { name: "Security", href: `${href}#security`, icon: Shield },
+        { name: "Devices", href: `${href}#devices`, icon: MonitorSmartphone },
+        { name: "Notifications", href: `${href}#notifications`, icon: Bell },
+        { name: "Your data", href: `${href}#your-data`, icon: Download },
+        { name: "Danger zone", href: `${href}#danger-zone`, icon: TriangleAlert },
       ],
     },
   ]);

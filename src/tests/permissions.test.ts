@@ -10,6 +10,7 @@ const otherAdmin = { id: 5, role: "admin", bannedAt: null } as const;
 const pairs = {
 	"user on themselves": [user, user],
 	"user on another user": [user, otherUser],
+	"user on a banned user": [user, bannedUser],
 	"admin on themselves": [admin, admin],
 	"admin on a user": [admin, otherUser],
 	"admin on a banned user": [admin, bannedUser],
@@ -19,6 +20,9 @@ const pairs = {
 type Pair = keyof typeof pairs;
 
 const allowed = {
+	"user:view-profile": ["user on themselves", "user on another user", "admin on themselves", "admin on a user", "admin on a banned user", "admin on another admin"],
+	"user:follow": ["user on another user", "admin on a user", "admin on another admin"],
+	"user:unfollow": ["user on another user", "user on a banned user", "admin on a user", "admin on a banned user", "admin on another admin"],
 	"user:edit-settings": ["user on themselves", "admin on themselves", "admin on a user", "admin on a banned user", "admin on another admin"],
 	"user:manage-sessions": ["user on themselves", "admin on themselves", "admin on a user", "admin on a banned user", "admin on another admin"],
 	"user:export-data": ["user on themselves", "admin on themselves"],

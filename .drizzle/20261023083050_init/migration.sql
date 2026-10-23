@@ -154,27 +154,22 @@ CREATE TABLE `users` (
 --> statement-breakpoint
 CREATE INDEX `accounts_user_id_idx` ON `accounts` (`user_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `accounts_provider_id_account_id_unique` ON `accounts` (`provider_id`,`account_id`);--> statement-breakpoint
-CREATE INDEX `bucket_list_user_id_idx` ON `bucket_list` (`user_id`);--> statement-breakpoint
+CREATE INDEX `bucket_list_user_id_created_at_restaurant_id_idx` ON `bucket_list` (`user_id`,`created_at`,`restaurant_id`);--> statement-breakpoint
 CREATE INDEX `bucket_list_restaurant_id_idx` ON `bucket_list` (`restaurant_id`);--> statement-breakpoint
-CREATE INDEX `bucket_list_user_id_restaurant_id_idx` ON `bucket_list` (`user_id`,`restaurant_id`);--> statement-breakpoint
-CREATE INDEX `favorites_user_id_idx` ON `favorites` (`user_id`);--> statement-breakpoint
+CREATE INDEX `favorites_user_id_created_at_restaurant_id_idx` ON `favorites` (`user_id`,`created_at`,`restaurant_id`);--> statement-breakpoint
 CREATE INDEX `favorites_restaurant_id_idx` ON `favorites` (`restaurant_id`);--> statement-breakpoint
-CREATE INDEX `favorites_user_id_restaurant_id_idx` ON `favorites` (`user_id`,`restaurant_id`);--> statement-breakpoint
-CREATE INDEX `followers_follower_id_idx` ON `followers` (`follower_id`);--> statement-breakpoint
 CREATE INDEX `followers_following_id_idx` ON `followers` (`following_id`);--> statement-breakpoint
-CREATE INDEX `followers_follower_id_following_id_idx` ON `followers` (`follower_id`,`following_id`);--> statement-breakpoint
-CREATE INDEX `likes_user_id_idx` ON `likes` (`user_id`);--> statement-breakpoint
+CREATE INDEX `history_requested_at_idx` ON `history` (`requested_at`);--> statement-breakpoint
 CREATE INDEX `likes_review_id_idx` ON `likes` (`review_id`);--> statement-breakpoint
-CREATE INDEX `likes_user_id_review_id_idx` ON `likes` (`user_id`,`review_id`);--> statement-breakpoint
 CREATE INDEX `restaurants_location_id_idx` ON `restaurants` (`location_id`);--> statement-breakpoint
 CREATE INDEX `restaurants_suggested_by_idx` ON `restaurants` (`suggested_by`);--> statement-breakpoint
 CREATE UNIQUE INDEX `restaurants_google_place_id_unique` ON `restaurants` (`google_place_id`);--> statement-breakpoint
 CREATE INDEX `review_pictures_review_id_idx` ON `review_pictures` (`review_id`);--> statement-breakpoint
-CREATE INDEX `review_pictures_picture_id_idx` ON `review_pictures` (`picture_id`);--> statement-breakpoint
-CREATE INDEX `review_pictures_picture_id_review_id_idx` ON `review_pictures` (`picture_id`,`review_id`);--> statement-breakpoint
-CREATE INDEX `reviews_author_id_idx` ON `reviews` (`author_id`);--> statement-breakpoint
+CREATE INDEX `reviews_author_id_created_at_id_idx` ON `reviews` (`author_id`,`created_at`,`id`);--> statement-breakpoint
+CREATE INDEX `reviews_author_id_restaurant_id_created_at_id_idx` ON `reviews` (`author_id`,`restaurant_id`,"created_at" desc,"id" desc);--> statement-breakpoint
 CREATE INDEX `reviews_restaurant_id_idx` ON `reviews` (`restaurant_id`);--> statement-breakpoint
 CREATE INDEX `sessions_user_id_idx` ON `sessions` (`user_id`);--> statement-breakpoint
+CREATE INDEX `sessions_last_verified_at_idx` ON `sessions` (`last_verified_at`);--> statement-breakpoint
 CREATE INDEX `users_profile_picture_id_idx` ON `users` (`profile_picture_id`);--> statement-breakpoint
 CREATE INDEX `users_name_idx` ON `users` (`username`);--> statement-breakpoint
 CREATE INDEX `users_email_idx` ON `users` (`email`);--> statement-breakpoint

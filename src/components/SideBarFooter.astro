@@ -1,23 +1,17 @@
 ---
 import { ChevronUp, CircleUser, Settings, DoorOpen, Shield } from "@lucide/astro";
+import Avatar from "@src/components/Avatar.astro";
 import ThemeSelector from "@src/components/ThemeSelector.astro";
 import type { ComponentProps } from "astro/types";
 import type { User } from "@src/db/schema"
 import { can } from "@src/auth/permissions";
+import { profileHref, settingsHref } from "@src/hrefs";
 
 interface Props extends ComponentProps<typeof ThemeSelector> {
   user?: User;
 }
 
 const { user } = Astro.props;
-
-const initials = user?.fullname
-      .split(/\s+/)
-      .map((p) => p[0])
-      .filter(Boolean)
-      .slice(0, 2)
-      .join("")
-      .toUpperCase();
 ---
 
  {user && (
@@ -27,9 +21,7 @@ const initials = user?.fullname
       style="anchor-name:--sidebar-user-menu"
       class="flex items-center gap-3 px-2 py-2 rounded-field hover:bg-active cursor-pointer w-full text-left"
     >
-      <div class="grid size-10 shrink-0 place-items-center rounded-full bg-brand text-on-brand font-bold">
-        {initials}
-      </div>
+      <Avatar class="size-10" name={user.fullname} />
       <div class="flex-1 text-left min-w-0">
         <div class="font-semibold text-sm truncate">{user.fullname}</div>
         <div class="text-xs text-fg-muted truncate">@{user.username}</div>
@@ -41,8 +33,8 @@ const initials = user?.fullname
       popover
       id="sidebar-user-menu"
     >
-      <li><a href={`/${encodeURIComponent(user.username)}/profile`}><CircleUser size={16} aria-hidden="true" />Profile</a></li>
-      <li><a href={`/${encodeURIComponent(user.username)}/settings`}><Settings size={16} aria-hidden="true" />Settings</a></li>
+      <li><a href={profileHref(user.username)}><CircleUser size={16} aria-hidden="true" />Profile</a></li>
+      <li><a href={settingsHref(user.username)}><Settings size={16} aria-hidden="true" />Settings</a></li>
       <ThemeSelector {...Astro.props} />
       {
         can(user, "admin-console:view") && (

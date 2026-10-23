@@ -5,7 +5,7 @@ import * as s from "@src/db/schema";
 import type { PageRequest } from "@src/pagination";
 
 export function createHistoryQueries(client: Client) {
-	const bySession = cursorList(s.history, "requestedAt", "desc", (seek) =>
+	const bySession = cursorList(s.history, ["requestedAt"], "desc", (seek) =>
 		client
 			.select({
 				requestedAt: s.history.requestedAt,
@@ -17,7 +17,7 @@ export function createHistoryQueries(client: Client) {
 			})
 			.from(s.history)
 			.where(and(eq(s.history.sessionId, sql.placeholder("sessionId")), seek.where))
-			.orderBy(seek.orderBy)
+			.orderBy(...seek.orderBy)
 			.limit(seek.limit)
 			.prepare(),
 	);

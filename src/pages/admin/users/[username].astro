@@ -7,6 +7,7 @@ import type { Toast } from "@src/components/Toast.astro";
 import { changeUserRoleSchema } from "@src/actions/admin";
 import { can } from "@src/auth/permissions";
 import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
+import { adminUserHref, settingsHref } from "@src/hrefs";
 
 const { username } = Astro.params;
 
@@ -28,6 +29,10 @@ const user = await Astro.locals.db.queries.users.findByUsername(username);
 
 if (!user) {
   return Astro.rewrite("/404");
+}
+
+if (user.username !== username) {
+  return Astro.redirect(`${adminUserHref(user.username)}${Astro.url.search}`, 301);
 }
 
 const canBan = can(session.user, "user:ban", user);
@@ -67,14 +72,14 @@ const toast =
     text: `${user.fullname} is now ${user.role === "admin" ? "an admin" : "a user"}.`,
   });
 
-const settingsHref = `/${encodeURIComponent(user.username)}/settings`;
+const userSettingsHref = settingsHref(user.username);
 ---
 
 <BaseLayout
   title={user.fullname}
   description={`Manage the account of ${user.fullname}`}
   includeSidebar={true}
-  prefetchUrls={["/admin/users", settingsHref, "/admin"]}
+  prefetchUrls={["/admin/users", userSettingsHref, "/admin"]}
   session={session}
   user={session.user}
   sidebarMenuSections={adminSidebarMenuSections()}
@@ -119,14 +124,14 @@ const settingsHref = `/${encodeURIComponent(user.username)}/settings`;
     <div class="settings-card mt-3">
       <ul>
         <li>
-          <a class="settings-link" href={`${settingsHref}#account`}>
+          <a class="settings-link" href={`${userSettingsHref}#account`}>
             <span class="field-label">Profile</span>
             <span class="t-body-sm text-fg-muted">Name, username, pronouns and bio</span>
           </a>
         </li>
         {canManageSessions && (
           <li>
-            <a class="settings-link" href={`${settingsHref}#devices`}>
+            <a class="settings-link" href={`${userSettingsHref}#devices`}>
               <span class="field-label">Devices</span>
               <span class="t-body-sm text-fg-muted">History and sign out</span>
             </a>

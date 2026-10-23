@@ -1,0 +1,30 @@
+---
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends HTMLAttributes<"span"> {
+  name: string;
+  pictureUrl?: string | null;
+}
+
+const { name, pictureUrl, class: className, ...props } = Astro.props;
+
+const initials = name
+  .split(/\s+/)
+  .map((part) => part[0])
+  .filter(Boolean)
+  .slice(0, 2)
+  .join("")
+  .toUpperCase();
+---
+
+<span
+  class:list={[
+    "grid shrink-0 place-items-center overflow-hidden rounded-full font-bold",
+    pictureUrl ? "bg-subtle" : "bg-brand text-on-brand",
+    className,
+  ]}
+  aria-hidden="true"
+  {...props}
+>
+  {pictureUrl ? <img class="size-full object-cover" src={pictureUrl} alt="" /> : initials}
+</span>

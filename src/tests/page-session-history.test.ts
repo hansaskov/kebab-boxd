@@ -46,4 +46,15 @@ describe("SessionPage", () => {
 
 		expect(response.status).toBe(403);
 	});
+
+	it("sends a username in other letter case to the address of the user", async () => {
+		const { client, db } = createTestDatabase("session-page-case");
+		const ada = insertUser(client, "ada");
+		const session = await signIn(db, ada.id);
+
+		const { response } = await renderSessionPage(db, session, "Ada", session.id);
+
+		expect(response.status).toBe(301);
+		expect(response.headers.get("Location")).toBe(`/ada/settings/sessions/${session.id}`);
+	});
 });

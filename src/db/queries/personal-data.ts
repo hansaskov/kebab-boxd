@@ -2,6 +2,7 @@ import { asc, eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import type { Client } from "@src/db/client";
 import * as s from "@src/db/schema";
+import { toStars } from "@src/format/rating";
 
 function prepareRestaurantList(client: Client, table: typeof s.favorites | typeof s.bucketList) {
 	return client
@@ -121,7 +122,7 @@ export function createPersonalDataQueries(client: Client) {
 				sessions: await sessions.execute(values),
 				reviews: (await reviews.execute(values)).map(({ rating, restaurant, pictures, ...review }) => ({
 					restaurant: restaurant.name,
-					stars: rating / 2,
+					stars: toStars(rating),
 					...review,
 					pictures: pictures.map((picture) => picture.url),
 				})),

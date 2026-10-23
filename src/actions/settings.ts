@@ -3,6 +3,7 @@ import { z } from "astro/zod";
 import { pronouns } from "@src/data/pronouns";
 import { deleteSessionTokenCookie } from "@src/auth/session";
 import { authorizeTargetUser } from "@src/actions/authorize";
+import { settingsHref } from "@src/hrefs";
 import { usernameSchema } from "@src/validation/username";
 
 export const updateAccountSchema = z.object({
@@ -42,7 +43,7 @@ export const settingsActions = {
         fullname: input.fullname,
         username: input.username,
         pronoun: input.pronoun,
-        bio: input.bio,
+        bio: input.bio || null,
       });
 
       if (result === "username-taken") {
@@ -52,7 +53,7 @@ export const settingsActions = {
         });
       }
 
-      return { redirect: `/${encodeURIComponent(input.username)}/settings` };
+      return { redirect: settingsHref(input.username) };
     },
   }),
   signOutEverywhere: defineAction({
@@ -68,7 +69,7 @@ export const settingsActions = {
       await context.locals.db.mutations.sessions.deleteAllForUser(targetUser.id);
 
       if (session.user.id !== targetUser.id) {
-        return { redirect: `/${encodeURIComponent(targetUser.username)}/settings` };
+        return { redirect: settingsHref(targetUser.username) };
       }
 
       deleteSessionTokenCookie(context.cookies);

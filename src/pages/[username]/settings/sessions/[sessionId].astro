@@ -6,6 +6,7 @@ import Pagination from "@src/components/Pagination.astro";
 import { pageNavigation, parsePageRequest } from "@src/pagination";
 import { deviceName } from "@src/format/device-name";
 import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
+import { sessionHistoryHref, settingsHref } from "@src/hrefs";
 
 const { username, sessionId } = Astro.params;
 
@@ -23,6 +24,10 @@ const owner = await Astro.locals.db.queries.users.findByUsername(username);
 
 if (!owner) {
     return Astro.rewrite("/404");
+}
+
+if (owner.username !== username) {
+    return Astro.redirect(`${sessionHistoryHref(owner.username, sessionId)}${Astro.url.search}`, 301);
 }
 
 if (!can(session.user, "user:manage-sessions", owner)) {
@@ -46,14 +51,14 @@ const history = page.items;
 const navigation = pageNavigation(Astro.url, page);
 
 const name = deviceName(selectedSession, session.id);
-const settingsHref = `/${encodeURIComponent(owner.username)}/settings`;
+const ownerSettingsHref = settingsHref(owner.username);
 ---
 
 <BaseLayout
     title={name}
     description={`History for ${name.toLowerCase()} of ${owner.fullname}`}
     includeSidebar={true}
-    prefetchUrls={[settingsHref, "/explore", "/reviews", "/"]}
+    prefetchUrls={[ownerSettingsHref, "/explore", "/reviews", "/"]}
     session={session}
     user={session.user}
     sidebarMenuSections={settingsSidebarMenuSections(owner.username)}

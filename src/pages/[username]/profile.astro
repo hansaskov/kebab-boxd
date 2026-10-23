@@ -1,5 +1,176 @@
 ---
+import { actions } from "astro:actions";
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+import Avatar from "@src/components/Avatar.astro";
+import FollowButton from "@src/components/FollowButton.astro";
+import Pagination from "@src/components/Pagination.astro";
+import RestaurantList from "@src/components/RestaurantList.astro";
+import ReviewList from "@src/components/ReviewList.astro";
+import SuspendedProfile from "@src/components/SuspendedProfile.astro";
+import type { Toast } from "@src/components/Toast.astro";
+import { can } from "@src/auth/permissions";
+import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
+import { profileHref, settingsHref } from "@src/hrefs";
+import { firstPageHref, pageNavigation, parsePageRequest, type PageRequest } from "@src/pagination";
+import { parseProfileTab, profileTabs, type ProfileTab } from "@src/validation/profile-tab";
 
-return Astro.rewrite("404")
+const { username } = Astro.params;
 
+if (!username) {
+  return Astro.rewrite("/404");
+}
+
+const session = Astro.locals.session;
+
+if (!session) {
+  return Astro.redirect("/login");
+}
+
+const profiles = Astro.locals.db.queries.profiles;
+const user = await profiles.findByUsername(username);
+
+if (!user) {
+  return Astro.rewrite("/404");
+}
+
+if (user.username !== username) {
+  return Astro.redirect(`${profileHref(user.username)}${Astro.url.search}`, 301);
+}
+
+const canViewProfile = can(session.user, "user:view-profile", user);
+const canEditProfile = can(session.user, "user:edit-settings", user);
+const canFollow = can(session.user, "user:follow", user);
+const canUnfollow = can(session.user, "user:unfollow", user);
+const isFollowing = canUnfollow && (await profiles.isFollowing(session.user.id, user.id));
+
+const listLoaders = {
+  reviews: async (userId: number, page: PageRequest) => ({
+    tab: "reviews" as const,
+    page: await profiles.listReviews(userId, page),
+  }),
+  favorites: async (userId: number, page: PageRequest) => ({
+    tab: "favorites" as const,
+    page: await profiles.listFavorites(userId, page),
+  }),
+  "bucket-list": async (userId: number, page: PageRequest) => ({
+    tab: "bucket-list" as const,
+    page: await profiles.listBucketList(userId, page),
+  }),
+} satisfies Record<ProfileTab, unknown>;
+
+async function loadProfile(userId: number) {
+  const tab = parseProfileTab(Astro.url.searchParams);
+  const list = await listLoaders[tab](userId, parsePageRequest(Astro.url));
+
+  const totals = await profiles.countTotals(userId);
+  const tabs: Record<ProfileTab, { label: string; total: number; empty: string }> = {
+    reviews: { label: "Reviews", total: totals.reviews, empty: "No reviews yet." },
+    favorites: { label: "Favorites", total: totals.favorites, empty: "No favorites yet." },
+    "bucket-list": { label: "Bucket list", total: totals.bucketList, empty: "The bucket list is empty." },
+  };
+  const tabOptions = profileTabs.map((option) => ({
+    tab: option,
+    ...tabs[option],
+    href: firstPageHref(Astro.url, { tab: option === "reviews" ? undefined : option }),
+  }));
+
+  return {
+    tab,
+    list,
+    totals,
+    tabOptions,
+    label: tabs[tab].label,
+    navigation: pageNavigation(Astro.url, list.page),
+    emptyMessage: list.page.isPastEnd ? "There is nothing on this page." : tabs[tab].empty,
+    otherTabHrefs: tabOptions.filter((option) => option.tab !== tab).map((option) => option.href),
+  };
+}
+
+const profile = canViewProfile ? await loadProfile(user.id) : undefined;
+
+function failureToast(result: { error?: { message: string } | undefined } | undefined, title: string): Toast | undefined {
+  return result?.error ? { kind: "title", variant: "error", title, text: result.error.message } : undefined;
+}
+
+const toast =
+  failureToast(Astro.getActionResult(actions.profile.follow), "Follow failed") ??
+  failureToast(Astro.getActionResult(actions.profile.unfollow), "Unfollow failed");
+
+const editProfileHref = `${settingsHref(user.username)}#account`;
+const layout = profile
+  ? {
+      title: user.fullname,
+      description: user.bio ?? `Reviews, favorites and bucket list of ${user.fullname}`,
+      prefetchUrls: [...profile.otherTabHrefs, ...(canEditProfile ? [settingsHref(user.username)] : []), "/"],
+    }
+  : { title: "Account suspended", description: "This account has been suspended", prefetchUrls: ["/"] };
 ---
+<BaseLayout {...layout} includeSidebar={true} session={session} user={session.user} toast={toast}>
+  {profile ? (
+    <>
+      <header class="flex flex-wrap items-center gap-4">
+        <Avatar class="size-20 text-2xl" name={user.fullname} pictureUrl={user.profilePicture} />
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <h1 class="t-subheading">{user.fullname}</h1>
+            {user.bannedAt && <span class="tag text-danger">Banned</span>}
+          </div>
+          <p class="t-body-sm text-fg-muted">
+            @{user.username}{user.pronoun && <> · {user.pronoun}</>}
+          </p>
+        </div>
+        {(canEditProfile || canFollow || isFollowing) && (
+          <div class="flex w-full gap-2 sm:w-auto">
+            {canEditProfile && (
+              <a class="btn btn-secondary btn-md flex-1 sm:flex-none" href={editProfileHref}>Edit profile</a>
+            )}
+            {(isFollowing || canFollow) && (
+              <FollowButton class="flex-1 sm:flex-none" username={user.username} following={isFollowing} />
+            )}
+          </div>
+        )}
+      </header>
+
+      {user.bio && <p class="t-body mt-4 max-w-prose whitespace-pre-line">{user.bio}</p>}
+
+      <p class="t-body-sm mt-4 text-fg-muted">
+        <span class="font-semibold text-fg">{profile.totals.followers}</span> {profile.totals.followers === 1 ? "follower" : "followers"}
+        {" · "}
+        <span class="font-semibold text-fg">{profile.totals.following}</span> following
+        {" · "}
+        Joined{" "}
+        <time datetime={user.createdAt.toISOString()} title={formatExactTime(user.createdAt)}>
+          {formatRelativeTime(user.createdAt)}
+        </time>
+      </p>
+
+      <nav class="mt-8 flex flex-wrap gap-2" aria-label="Profile lists">
+        {profile.tabOptions.map((option) => (
+          <a
+            class:list={["btn btn-sm", option.tab === profile.tab ? "btn-primary" : "btn-secondary"]}
+            href={option.href}
+            aria-current={option.tab === profile.tab ? "page" : undefined}
+          >
+            {option.label}
+            <span class="tabular-nums opacity-70">{option.total}</span>
+          </a>
+        ))}
+      </nav>
+
+      <section class="mt-4" aria-label={profile.label}>
+        {profile.list.page.items.length === 0 ? (
+          <p class="t-body text-fg-muted">{profile.emptyMessage}</p>
+        ) : profile.list.tab === "reviews" ? (
+          <ReviewList reviews={profile.list.page.items} />
+        ) : (
+          <RestaurantList restaurants={profile.list.page.items} />
+        )}
+        {profile.navigation && (
+          <Pagination id="profile-pages" class="mt-4" aria-label={`${profile.label} pages`} navigation={profile.navigation} />
+        )}
+      </section>
+    </>
+  ) : (
+    <SuspendedProfile username={user.username} isFollowing={isFollowing} />
+  )}
+</BaseLayout>

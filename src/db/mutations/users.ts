@@ -1,6 +1,6 @@
 import { and, eq, isNotNull, isNull, ne, sql } from "drizzle-orm";
-import { can, type UserPermission } from "@src/auth/permissions";
 import type { Client } from "@src/db/client";
+import { prepareAuthorizedWrite } from "@src/db/mutations/authorized-write";
 import { prepareRefreshLikeCounts, prepareRefreshRestaurantStats } from "@src/db/mutations/cached-stats";
 import { prepareDeleteAllForUser } from "@src/db/mutations/sessions";
 import * as s from "@src/db/schema";
@@ -96,29 +96,9 @@ export function createUserMutations(client: Client) {
 	const refreshLikeCounts = prepareRefreshLikeCounts(client);
 	const refreshRestaurantStats = prepareRefreshRestaurantStats(client);
 
-	const authorizationAttributes = client
-		.select({ id: s.users.id, role: s.users.role, bannedAt: s.users.bannedAt })
-		.from(s.users)
-		.where(eq(s.users.id, sql.placeholder("id")))
-		.prepare();
-
-	function writeIfAuthorized(actorId: number, id: number, permission: UserPermission, write: () => void) {
-		return client.transaction(
-			(): "updated" | "refused" => {
-				const actor = authorizationAttributes.get({ id: actorId });
-				const target = authorizationAttributes.get({ id });
-				if (!actor || !target || !can(actor, permission, target)) {
-					return "refused";
-				}
-				write();
-				return "updated";
-			},
-			{ behavior: "immediate" },
-		);
-	}
+	const writeIfAuthorized = prepareAuthorizedWrite(client);
 
 	return {
-
 		async updateProfile(id: number, profile: Profile): Promise<"updated" | "username-taken"> {
 			try {
 				updateProfile.run({ id, ...profile });

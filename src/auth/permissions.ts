@@ -5,6 +5,9 @@ export type Subject = Pick<User, "id" | "role">;
 export type TargetUser = Pick<User, "id" | "role" | "bannedAt">;
 
 interface Permissions {
+	"user:view-profile": TargetUser;
+	"user:follow": TargetUser;
+	"user:unfollow": TargetUser;
 	"user:edit-settings": TargetUser;
 	"user:manage-sessions": TargetUser;
 	"user:export-data": TargetUser;
@@ -38,6 +41,18 @@ function isSelfWithoutAdminRole(subject: Subject, user: TargetUser) {
 	return isSelf(subject, user) && !isAdmin(user);
 }
 
+function isAdminOrUnbanned(subject: Subject, user: TargetUser) {
+	return isAdmin(subject) || !user.bannedAt;
+}
+
+function isOther(subject: Subject, user: TargetUser) {
+	return !isSelf(subject, user);
+}
+
+function isOtherUnbanned(subject: Subject, user: TargetUser) {
+	return isOther(subject, user) && !user.bannedAt;
+}
+
 function isAdminActingOnOther(subject: Subject, user: TargetUser) {
 	return isAdmin(subject) && !isSelf(subject, user);
 }
@@ -45,11 +60,15 @@ function isAdminActingOnOther(subject: Subject, user: TargetUser) {
 function isAdminActingOnNonAdmin(subject: Subject, user: TargetUser) {
 	return isAdmin(subject) && !isAdmin(user);
 }
+
 function isAdminActingOnOtherUnbanned(subject: Subject, user: TargetUser) {
 	return isAdminActingOnOther(subject, user) && !user.bannedAt;
 }
 
 const policies: { [P in Permission]: Policy<P> } = {
+	"user:view-profile": isAdminOrUnbanned,
+	"user:follow": isOtherUnbanned,
+	"user:unfollow": isOther,
 	"user:edit-settings": isSelfOrAdmin,
 	"user:manage-sessions": isSelfOrAdmin,
 	"user:export-data": isSelf,

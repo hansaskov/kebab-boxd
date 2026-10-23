@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "e134ec56-defc-446e-ac1a-b482e91b9463",
+  "id": "6a9c19da-8b55-48a6-abcb-d925355ae2d6",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -982,10 +982,18 @@
     },
     {
       "table": "bucket_list",
-      "name": "bucket_list_user_id_idx",
+      "name": "bucket_list_user_id_created_at_restaurant_id_idx",
       "columns": [
         {
           "value": "user_id",
+          "isExpression": false
+        },
+        {
+          "value": "created_at",
+          "isExpression": false
+        },
+        {
+          "value": "restaurant_id",
           "isExpression": false
         }
       ],
@@ -1009,29 +1017,19 @@
       "entityType": "indexes"
     },
     {
-      "table": "bucket_list",
-      "name": "bucket_list_user_id_restaurant_id_idx",
+      "table": "favorites",
+      "name": "favorites_user_id_created_at_restaurant_id_idx",
       "columns": [
         {
           "value": "user_id",
           "isExpression": false
         },
         {
-          "value": "restaurant_id",
+          "value": "created_at",
           "isExpression": false
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "origin": "manual",
-      "entityType": "indexes"
-    },
-    {
-      "table": "favorites",
-      "name": "favorites_user_id_idx",
-      "columns": [
+        },
         {
-          "value": "user_id",
+          "value": "restaurant_id",
           "isExpression": false
         }
       ],
@@ -1055,38 +1053,6 @@
       "entityType": "indexes"
     },
     {
-      "table": "favorites",
-      "name": "favorites_user_id_restaurant_id_idx",
-      "columns": [
-        {
-          "value": "user_id",
-          "isExpression": false
-        },
-        {
-          "value": "restaurant_id",
-          "isExpression": false
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "origin": "manual",
-      "entityType": "indexes"
-    },
-    {
-      "table": "followers",
-      "name": "followers_follower_id_idx",
-      "columns": [
-        {
-          "value": "follower_id",
-          "isExpression": false
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "origin": "manual",
-      "entityType": "indexes"
-    },
-    {
       "table": "followers",
       "name": "followers_following_id_idx",
       "columns": [
@@ -1101,29 +1067,11 @@
       "entityType": "indexes"
     },
     {
-      "table": "followers",
-      "name": "followers_follower_id_following_id_idx",
+      "table": "history",
+      "name": "history_requested_at_idx",
       "columns": [
         {
-          "value": "follower_id",
-          "isExpression": false
-        },
-        {
-          "value": "following_id",
-          "isExpression": false
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "origin": "manual",
-      "entityType": "indexes"
-    },
-    {
-      "table": "likes",
-      "name": "likes_user_id_idx",
-      "columns": [
-        {
-          "value": "user_id",
+          "value": "requested_at",
           "isExpression": false
         }
       ],
@@ -1136,24 +1084,6 @@
       "table": "likes",
       "name": "likes_review_id_idx",
       "columns": [
-        {
-          "value": "review_id",
-          "isExpression": false
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "origin": "manual",
-      "entityType": "indexes"
-    },
-    {
-      "table": "likes",
-      "name": "likes_user_id_review_id_idx",
-      "columns": [
-        {
-          "value": "user_id",
-          "isExpression": false
-        },
         {
           "value": "review_id",
           "isExpression": false
@@ -1221,29 +1151,19 @@
       "entityType": "indexes"
     },
     {
-      "table": "review_pictures",
-      "name": "review_pictures_picture_id_idx",
+      "table": "reviews",
+      "name": "reviews_author_id_created_at_id_idx",
       "columns": [
         {
-          "value": "picture_id",
-          "isExpression": false
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "origin": "manual",
-      "entityType": "indexes"
-    },
-    {
-      "table": "review_pictures",
-      "name": "review_pictures_picture_id_review_id_idx",
-      "columns": [
-        {
-          "value": "picture_id",
+          "value": "author_id",
           "isExpression": false
         },
         {
-          "value": "review_id",
+          "value": "created_at",
+          "isExpression": false
+        },
+        {
+          "value": "id",
           "isExpression": false
         }
       ],
@@ -1254,11 +1174,23 @@
     },
     {
       "table": "reviews",
-      "name": "reviews_author_id_idx",
+      "name": "reviews_author_id_restaurant_id_created_at_id_idx",
       "columns": [
         {
           "value": "author_id",
           "isExpression": false
+        },
+        {
+          "value": "restaurant_id",
+          "isExpression": false
+        },
+        {
+          "value": "\"created_at\" desc",
+          "isExpression": true
+        },
+        {
+          "value": "\"id\" desc",
+          "isExpression": true
         }
       ],
       "isUnique": false,
@@ -1286,6 +1218,20 @@
       "columns": [
         {
           "value": "user_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "sessions",
+      "name": "sessions_last_verified_at_idx",
+      "columns": [
+        {
+          "value": "last_verified_at",
           "isExpression": false
         }
       ],

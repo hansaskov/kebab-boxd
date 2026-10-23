@@ -94,6 +94,8 @@ export const restaurants = p.snakeCase.table("restaurants", {
   p.uniqueIndex("restaurants_google_place_id_unique").on(t.googlePlaceId)
 ])
 
+export type NewRestaurant = typeof restaurants.$inferInsert
+
 export const reviews = p.snakeCase.table("reviews", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
   authorId: p.int({ mode: "number" }).notNull().references(() => users.id, {onDelete: "cascade"}),
@@ -104,7 +106,8 @@ export const reviews = p.snakeCase.table("reviews", {
   updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(now),
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
 }, (t) => [
-  p.index("reviews_author_id_idx").on(t.authorId),
+  p.index("reviews_author_id_created_at_id_idx").on(t.authorId, t.createdAt, t.id),
+  p.index("reviews_author_id_restaurant_id_created_at_id_idx").on(t.authorId, t.restaurantId, sql`${t.createdAt} desc`, sql`${t.id} desc`),
   p.index("reviews_restaurant_id_idx").on(t.restaurantId),
   p.check("reviews_rating_range", sql`${t.rating} BETWEEN 2 AND 10`)
 ])
@@ -123,9 +126,7 @@ export const followers = p.snakeCase.table("followers", {
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
 }, (t) => [
   p.primaryKey({ columns: [t.followerId, t.followingId] }),
-  p.index("followers_follower_id_idx").on(t.followerId),
   p.index("followers_following_id_idx").on(t.followingId),
-  p.index("followers_follower_id_following_id_idx").on(t.followerId, t.followingId),
   p.check("followers_no_self_follow", sql`${t.followerId} != ${t.followingId}`),
 ])
 
@@ -136,9 +137,8 @@ export const favorites = p.snakeCase.table("favorites", {
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
 }, (t) => [
   p.primaryKey({ columns: [t.userId, t.restaurantId] }),
-  p.index("favorites_user_id_idx").on(t.userId),
+  p.index("favorites_user_id_created_at_restaurant_id_idx").on(t.userId, t.createdAt, t.restaurantId),
   p.index("favorites_restaurant_id_idx").on(t.restaurantId),
-  p.index("favorites_user_id_restaurant_id_idx").on(t.userId, t.restaurantId),
 ])
 
 export const likes = p.snakeCase.table("likes", {
@@ -148,9 +148,7 @@ export const likes = p.snakeCase.table("likes", {
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
 }, (t) => [
   p.primaryKey({ columns: [t.userId, t.reviewId] }),
-  p.index("likes_user_id_idx").on(t.userId),
   p.index("likes_review_id_idx").on(t.reviewId),
-  p.index("likes_user_id_review_id_idx").on(t.userId, t.reviewId),
 ])
 
 export const bucketList = p.snakeCase.table("bucket_list", {
@@ -160,9 +158,8 @@ export const bucketList = p.snakeCase.table("bucket_list", {
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
 }, (t) => [
   p.primaryKey({ columns: [t.userId, t.restaurantId] }),
-  p.index("bucket_list_user_id_idx").on(t.userId),
+  p.index("bucket_list_user_id_created_at_restaurant_id_idx").on(t.userId, t.createdAt, t.restaurantId),
   p.index("bucket_list_restaurant_id_idx").on(t.restaurantId),
-  p.index("bucket_list_user_id_restaurant_id_idx").on(t.userId, t.restaurantId),
 ])
 
 export const reviewPictures = p.snakeCase.table("review_pictures", {
@@ -173,8 +170,6 @@ export const reviewPictures = p.snakeCase.table("review_pictures", {
 }, (t) => [
   p.primaryKey({ columns: [t.pictureId, t.reviewId] }),
   p.index("review_pictures_review_id_idx").on(t.reviewId),
-  p.index("review_pictures_picture_id_idx").on(t.pictureId),
-  p.index("review_pictures_picture_id_review_id_idx").on(t.pictureId, t.reviewId),
 ])
 
 export const history = p.snakeCase.table("history", {

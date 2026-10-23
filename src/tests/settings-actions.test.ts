@@ -21,6 +21,17 @@ describe("updateSettings action", () => {
 		expect((await db.queries.users.findByUsername("ada"))?.id).toBe(ada.id);
 	});
 
+	it("saves a bio of only spaces as no bio", async () => {
+		const { client, db } = createTestDatabase("settings-blank-bio");
+		const ada = insertUser(client, "ada");
+		const fields = { currentUsername: "ada", username: "ada", fullname: "Ada user", pronoun: "", bio: "   " };
+
+		const result = await server.updateSettings.call(actionContext(db, await signIn(db, ada.id)), form(fields));
+
+		expect(result.error).toBeUndefined();
+		expect((await db.queries.users.findByUsername("ada"))?.bio).toBeNull();
+	});
+
 	it("does not let a user change someone else's profile", async () => {
 		const { client, db } = createTestDatabase("settings-forbidden");
 		const ada = insertUser(client, "ada");

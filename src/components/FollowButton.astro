@@ -1,0 +1,23 @@
+---
+import { actions } from "astro:actions";
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends HTMLAttributes<"form"> {
+  username: string;
+  following: boolean;
+}
+
+const { username, following, class: className, ...props } = Astro.props;
+---
+
+<form
+  class:list={["flex", className]}
+  method="post"
+  action={following ? actions.profile.unfollow : actions.profile.follow}
+  {...props}
+>
+  <input type="hidden" name="username" value={username} />
+  <button class:list={["btn", following ? "btn-secondary" : "btn-primary", "btn-md w-full"]} type="submit">
+    {following ? "Unfollow" : "Follow"}
+  </button>
+</form>

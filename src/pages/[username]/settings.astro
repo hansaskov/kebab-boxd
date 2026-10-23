@@ -13,6 +13,7 @@ import {
 } from "@src/actions/settings";
 import { can } from "@src/auth/permissions";
 import { deviceName } from "@src/format/device-name";
+import { personalDataExportHref, sessionHistoryHref, settingsHref } from "@src/hrefs";
 import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
 
 const { username } = Astro.params;
@@ -31,6 +32,10 @@ const user = await Astro.locals.db.queries.users.findByUsername(username);
 
 if (!user) {
     return Astro.rewrite("/404");
+}
+
+if (user.username !== username) {
+    return Astro.redirect(`${settingsHref(user.username)}${Astro.url.search}`, 301);
 }
 
 if (!can(session.user, "user:edit-settings", user)) {
@@ -113,7 +118,7 @@ if (deleteResult?.error) {
     }
 }
 
-const exportHref = `/api/users/${encodeURIComponent(user.username)}/export`;
+const exportHref = personalDataExportHref(user.username);
 const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
 ---
 
@@ -201,7 +206,7 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                             <li>
                                 <a
                                     class="settings-link"
-                                    href={`/${encodeURIComponent(user.username)}/settings/sessions/${encodeURIComponent(activeSession.id)}`}
+                                    href={sessionHistoryHref(user.username, activeSession.id)}
                                 >
                                     <span class="field-label">
                                         {deviceName(activeSession, session.id)}

@@ -169,6 +169,8 @@
   --spacing-gutter: var(--ds-space-gutter);
   --spacing-section: var(--ds-space-section);
 
+  --max-width-prose: var(--ds-measure-prose);
+
   --radius-field: var(--ds-radius-field);
   --radius-box: var(--ds-radius-box);
 

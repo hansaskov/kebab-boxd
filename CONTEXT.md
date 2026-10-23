@@ -52,6 +52,10 @@ _Avoid_: Upvote, ThumbsUp, Heart
 A person with a Kebab-Boxd account. Signs in through one or more Accounts. Has a profile (picture, bio, pronouns) and optional coordinates for the nearby-Restaurants feature. May have the Admin role.
 _Avoid_: Member, Account, Person
 
+**Profile**:
+The public page of a User. Shows their Picture, name, Username, pronouns, bio and Follow counts, and lists their public Reviews, Favorites and BucketList. The Profile of a banned User is visible only to Admins.
+_Avoid_: Account page, UserPage, Wall
+
 **Account**:
 One authentication method linked to a User, identified by the Provider and the Provider's stable subject id rather than by email. Holds the Provider's tokens once the app needs them, and the password hash once local sign-in exists. A User may have several.
 _Avoid_: Identity, Login, Credential

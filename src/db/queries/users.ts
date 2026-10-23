@@ -52,7 +52,7 @@ function prepareUserList(client: Client, filter: UserFilter, seek: Seek) {
 		})
 		.from(s.users)
 		.where(and(matchesSearch(), filterConditions[filter], seek.where))
-		.orderBy(seek.orderBy)
+		.orderBy(...seek.orderBy)
 		.limit(seek.limit)
 		.prepare();
 }
@@ -71,7 +71,7 @@ export function createUserQueries(client: Client) {
 		.prepare();
 
 	const lists = forEachFilter((filter) =>
-		cursorList(s.users, "id", "desc", (seek) => prepareUserList(client, filter, seek)),
+		cursorList(s.users, ["id"], "desc", (seek) => prepareUserList(client, filter, seek)),
 	);
 	const counts = forEachFilter((filter) => prepareUserCount(client, filter));
 
@@ -82,7 +82,7 @@ export function createUserQueries(client: Client) {
 
 	return {
 		async findByUsername(username: string) {
-			return byUsername.execute({ username });
+			return byUsername.execute({ username: username.toLowerCase() });
 		},
 
 		async list({ search, filter }: UserListCriteria, page: PageRequest) {
