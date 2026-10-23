@@ -1,18 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
 import { server } from "@src/actions/index";
 import { createSession } from "@src/auth/session";
 import type { Client } from "@src/db/client";
-import { sessions, users } from "@src/db/schema";
 import { actionContext, form } from "@src/tests/actions";
 import { createTestDatabase, insertUser, signIn } from "@src/tests/database";
 
 function userRow(client: Client, id: number) {
-	return client.select().from(users).where(eq(users.id, id)).get();
+	return client.query.users.findFirst({ where: { id } }).sync();
 }
 
 function sessionIdsOf(client: Client, userId: number) {
-	return client.select({ id: sessions.id }).from(sessions).where(eq(sessions.userId, userId)).all().map((row) => row.id);
+	return client.query.sessions.findMany({ columns: { id: true }, where: { userId } }).sync().map((row) => row.id);
 }
 
 describe("banUser action", () => {

@@ -159,20 +159,15 @@ export async function seedDatabase(client: Client) {
 
   }));
 
-  const seededUsers = await client
-    .select({ id: schema.users.id, username: schema.users.username })
-    .from(schema.users);
+  const seededUsers = await client.query.users.findMany({ columns: { id: true, username: true } });
   for (const { id, username } of seededUsers) {
-    await client
-      .update(schema.users)
-      .set({ username: buildUsername(username, id) })
-      .where(eq(schema.users.id, id));
+    await client.update(schema.users).set({ username: buildUsername(username, id) }).where(eq(schema.users.id, id));
   }
 
-  const userIds = seededUsers.map((r) => r.id);
-  const restaurantIds = (await client.select({ id: schema.restaurants.id }).from(schema.restaurants)).map((r) => r.id);
-  const reviewIds = (await client.select({ id: schema.reviews.id }).from(schema.reviews)).map((r) => r.id);
-  const pictureIds = (await client.select({ id: schema.pictures.id }).from(schema.pictures)).map((r) => r.id);
+  const userIds = seededUsers.map((user) => user.id);
+  const restaurantIds = (await client.query.restaurants.findMany({ columns: { id: true } })).map((restaurant) => restaurant.id);
+  const reviewIds = (await client.query.reviews.findMany({ columns: { id: true } })).map((review) => review.id);
+  const pictureIds = (await client.query.pictures.findMany({ columns: { id: true } })).map((picture) => picture.id);
 
   const now = new Date();
 
@@ -190,19 +185,11 @@ export async function seedDatabase(client: Client) {
     await createSession(id, db);
   }
 
-  const admin = client
-    .select({ id: schema.users.id })
-    .from(schema.users)
-    .where(eq(schema.users.role, "admin"))
-    .get();
+  const admin = await client.query.users.findFirst({ columns: { id: true }, where: { role: "admin" } });
   if (!admin) {
     throw new Error("The seed has no Admin to ban users with.");
   }
-  const bannableUsers = await client
-    .select({ id: schema.users.id })
-    .from(schema.users)
-    .where(eq(schema.users.role, "user"))
-    .limit(3);
+  const bannableUsers = await client.query.users.findMany({ columns: { id: true }, where: { role: "user" }, limit: 3 });
   for (const { id } of bannableUsers) {
     await db.mutations.users.ban(id, admin.id);
   }

@@ -1,107 +1,43 @@
-import { and, eq, isNotNull, isNull, ne, sql } from "drizzle-orm";
-import type { Client } from "@src/db/client";
-import { prepareAuthorizedWrite } from "@src/db/mutations/authorized-write";
-import { prepareRefreshLikeCounts, prepareRefreshRestaurantStats } from "@src/db/mutations/cached-stats";
-import { prepareDeleteAllForUser } from "@src/db/mutations/sessions";
+import { and, eq, inArray, isNull } from "drizzle-orm";
+import type { Client, Transaction } from "@src/db/client";
+import { writeIfAuthorized } from "@src/db/mutations/authorized-write";
+import { refreshLikeCounts, refreshRestaurantStats } from "@src/db/mutations/cached-stats";
+import { deleteAllSessionsOf } from "@src/db/mutations/sessions";
 import * as s from "@src/db/schema";
 import type { Role, User } from "@src/db/schema";
 import { getSQLiteError, isUniqueConstraintError } from "@src/db/sqlite-errors";
 
 export type Profile = Pick<User, "fullname" | "username" | "pronoun" | "bio">;
 
-function idList(rows: { id: number | null }[]) {
-	return JSON.stringify(rows.map((row) => row.id));
+function findDependentsOf(tx: Transaction, id: number) {
+	const user = tx.query.users
+		.findFirst({
+			columns: { profilePictureId: true },
+			with: {
+				reviews: {
+					columns: { restaurantId: true },
+					with: { pictures: { columns: { id: true } } },
+				},
+				likes: { columns: { id: true }, where: { authorId: { ne: id } } },
+			},
+			where: { id },
+		})
+		.sync();
+	if (!user) throw new Error(`User ${id} does not exist.`);
+
+	const reviewPictureIds = user.reviews.flatMap((review) => review.pictures.map((picture) => picture.id));
+	return {
+		restaurantIds: user.reviews.map((review) => review.restaurantId),
+		likedReviewIds: user.likes.map((review) => review.id),
+		pictureIds: user.profilePictureId === null ? reviewPictureIds : [user.profilePictureId, ...reviewPictureIds],
+	};
 }
 
 export function createUserMutations(client: Client) {
-	const updateProfile = client
-		.update(s.users)
-		.set({
-			fullname: sql.placeholder("fullname"),
-			username: sql.placeholder("username"),
-			pronoun: sql.placeholder("pronoun"),
-			bio: sql.placeholder("bio"),
-		})
-		.where(eq(s.users.id, sql.placeholder("id")))
-		.prepare();
-
-	const verifyEmail = client
-		.update(s.users)
-		.set({ emailVerified: true })
-		.where(eq(s.users.id, sql.placeholder("id")))
-		.prepare();
-
-	const setRole = client
-		.update(s.users)
-		.set({ role: sql.placeholder("role") })
-		.where(eq(s.users.id, sql.placeholder("id")))
-		.prepare();
-
-	const setBannedAt = client
-		.update(s.users)
-		.set({ bannedAt: sql.placeholder("bannedAt") })
-		.where(and(eq(s.users.id, sql.placeholder("id")), isNull(s.users.bannedAt)))
-		.prepare();
-
-	const clearBannedAt = client
-		.update(s.users)
-		.set({ bannedAt: null })
-		.where(eq(s.users.id, sql.placeholder("id")))
-		.prepare();
-
-	const deleteSessions = prepareDeleteAllForUser(client);
-
-	const reviewedRestaurantIds = client
-		.selectDistinct({ id: s.reviews.restaurantId })
-		.from(s.reviews)
-		.where(eq(s.reviews.authorId, sql.placeholder("id")))
-		.prepare();
-
-	const reviewIdsLikedFromOthers = client
-		.select({ id: s.likes.reviewId })
-		.from(s.likes)
-		.innerJoin(s.reviews, eq(s.reviews.id, s.likes.reviewId))
-		.where(and(eq(s.likes.userId, sql.placeholder("id")), ne(s.reviews.authorId, sql.placeholder("id"))))
-		.prepare();
-
-	const profilePictureId = client
-		.select({ id: s.users.profilePictureId })
-		.from(s.users)
-		.where(and(eq(s.users.id, sql.placeholder("id")), isNotNull(s.users.profilePictureId)))
-		.prepare();
-
-	const reviewPictureIds = client
-		.select({ id: s.reviewPictures.pictureId })
-		.from(s.reviewPictures)
-		.innerJoin(s.reviews, eq(s.reviews.id, s.reviewPictures.reviewId))
-		.where(eq(s.reviews.authorId, sql.placeholder("id")))
-		.prepare();
-
-	const clearSuggestedBy = client
-		.update(s.restaurants)
-		.set({ suggestedBy: null })
-		.where(eq(s.restaurants.suggestedBy, sql.placeholder("id")))
-		.prepare();
-
-	const deleteUser = client
-		.delete(s.users)
-		.where(eq(s.users.id, sql.placeholder("id")))
-		.prepare();
-
-	const deletePictures = client
-		.delete(s.pictures)
-		.where(sql`${s.pictures.id} in (select value from json_each(${sql.placeholder("pictureIds")}))`)
-		.prepare();
-
-	const refreshLikeCounts = prepareRefreshLikeCounts(client);
-	const refreshRestaurantStats = prepareRefreshRestaurantStats(client);
-
-	const writeIfAuthorized = prepareAuthorizedWrite(client);
-
 	return {
 		async updateProfile(id: number, profile: Profile): Promise<"updated" | "username-taken"> {
 			try {
-				updateProfile.run({ id, ...profile });
+				await client.update(s.users).set(profile).where(eq(s.users.id, id));
 				return "updated";
 			} catch (error) {
 				if (isUniqueConstraintError(getSQLiteError(error))) {
@@ -112,39 +48,40 @@ export function createUserMutations(client: Client) {
 		},
 
 		async verifyEmail(id: number) {
-			verifyEmail.run({ id });
+			await client.update(s.users).set({ emailVerified: true }).where(eq(s.users.id, id));
 		},
 
 		async setRole(id: number, role: Role, actorId: number) {
-			return writeIfAuthorized(actorId, id, "user:change-role", () => {
-				setRole.run({ id, role });
+			return writeIfAuthorized(client, actorId, id, "user:change-role", (tx) => {
+				tx.update(s.users).set({ role }).where(eq(s.users.id, id)).run();
 			});
 		},
 
 		async ban(id: number, actorId: number) {
-			return writeIfAuthorized(actorId, id, "user:ban", () => {
-				setBannedAt.run({ id, bannedAt: new Date() });
-				deleteSessions.run({ userId: id });
+			return writeIfAuthorized(client, actorId, id, "user:ban", (tx) => {
+				tx.update(s.users)
+					.set({ bannedAt: new Date() })
+					.where(and(eq(s.users.id, id), isNull(s.users.bannedAt)))
+					.run();
+				deleteAllSessionsOf(tx, id);
 			});
 		},
 
 		async unban(id: number, actorId: number) {
-			return writeIfAuthorized(actorId, id, "user:ban", () => {
-				clearBannedAt.run({ id });
+			return writeIfAuthorized(client, actorId, id, "user:ban", (tx) => {
+				tx.update(s.users).set({ bannedAt: null }).where(eq(s.users.id, id)).run();
 			});
 		},
 
 		async delete(id: number, actorId: number) {
-			return writeIfAuthorized(actorId, id, "user:delete-account", () => {
-				const restaurantIds = idList(reviewedRestaurantIds.all({ id }));
-				const reviewIds = idList(reviewIdsLikedFromOthers.all({ id }));
-				const pictureIds = idList([...profilePictureId.all({ id }), ...reviewPictureIds.all({ id })]);
+			return writeIfAuthorized(client, actorId, id, "user:delete-account", (tx) => {
+				const { restaurantIds, likedReviewIds, pictureIds } = findDependentsOf(tx, id);
 
-				clearSuggestedBy.run({ id });
-				deleteUser.run({ id });
-				deletePictures.run({ pictureIds });
-				refreshLikeCounts.run({ reviewIds });
-				refreshRestaurantStats.run({ restaurantIds });
+				tx.update(s.restaurants).set({ suggestedBy: null }).where(eq(s.restaurants.suggestedBy, id)).run();
+				tx.delete(s.users).where(eq(s.users.id, id)).run();
+				tx.delete(s.pictures).where(inArray(s.pictures.id, pictureIds)).run();
+				refreshLikeCounts(tx, likedReviewIds);
+				refreshRestaurantStats(tx, restaurantIds);
 			});
 		},
 	};

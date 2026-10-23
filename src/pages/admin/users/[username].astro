@@ -41,7 +41,7 @@ const canManageSessions = can(session.user, "user:manage-sessions", user);
 const isOwnAccount = session.user.id === user.id;
 
 const devices = canManageSessions ? await Astro.locals.db.queries.sessions.listActive(user.id) : [];
-const lastActiveAt = devices.at(0)?.lastRequestAt;
+const lastActiveAt = devices.at(0)?.history.at(0)?.requestedAt;
 
 const banResult = Astro.getActionResult(actions.admin.banUser);
 const unbanResult = Astro.getActionResult(actions.admin.unbanUser);

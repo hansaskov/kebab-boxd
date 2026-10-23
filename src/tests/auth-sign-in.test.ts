@@ -3,7 +3,7 @@ import { accounts, users } from "@src/db/schema";
 import { EmailAlreadyRegisteredError, signInWithProviderAccount } from "@src/auth/sign-in";
 import type { ProviderAccount } from "@src/auth/provider-account";
 import { usernameSchema } from "@src/validation/username";
-import { createTestDatabase } from "@src/tests/database";
+import { createTestDatabase, insertUser } from "@src/tests/database";
 
 function googleAccount(overrides: Partial<ProviderAccount> = {}): ProviderAccount {
 	return {
@@ -46,5 +46,17 @@ describe("signInWithProviderAccount", () => {
 		const result = await signInWithProviderAccount(db, googleAccount({ fullname: "Søren-Émile O'Brien" }));
 
 		expect(usernameSchema.parse(result.username)).toBe(result.username);
+	});
+
+	it("gives the new user another username when the preferred one is taken", async () => {
+		const { client, db } = createTestDatabase("sign-in-username-taken");
+		insertUser(client, "ada_2");
+
+		const result = await signInWithProviderAccount(db, googleAccount());
+
+		expect(result.id).toBe(2);
+		expect(result.username).not.toBe("ada_2");
+		expect(result.username).toMatch(/^ada_/);
+		expect(await db.queries.users.findByUsername(result.username)).toMatchObject({ id: result.id });
 	});
 });

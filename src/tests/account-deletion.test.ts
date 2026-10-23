@@ -15,7 +15,7 @@ function insertPicture(client: Client, url: string) {
 }
 
 function restaurant(client: Client, id: number) {
-	return client.select().from(s.restaurants).where(eq(s.restaurants.id, id)).get();
+	return client.query.restaurants.findFirst({ where: { id } }).sync();
 }
 
 describe("users.delete", () => {
@@ -54,15 +54,15 @@ describe("users.delete", () => {
 
 		expect(await db.queries.users.findByUsername("ada")).toBeUndefined();
 		expect((await db.queries.users.findByUsername("bob"))?.id).toBe(bob.id);
-		expect(client.select().from(s.sessions).all()).toEqual([]);
-		expect(client.select().from(s.history).all()).toEqual([]);
-		expect(client.select().from(s.accounts).all()).toEqual([]);
-		expect(client.select({ id: s.reviews.id }).from(s.reviews).all()).toEqual([{ id: bobReview.id }]);
-		expect(client.select().from(s.likes).all()).toEqual([]);
-		expect(client.select().from(s.followers).all()).toEqual([]);
-		expect(client.select().from(s.favorites).all()).toEqual([]);
-		expect(client.select().from(s.bucketList).all()).toEqual([]);
-		expect(client.select({ id: s.pictures.id }).from(s.pictures).orderBy(s.pictures.id).all()).toEqual([
+		expect(client.query.sessions.findMany().sync()).toEqual([]);
+		expect(client.query.history.findMany().sync()).toEqual([]);
+		expect(client.query.accounts.findMany().sync()).toEqual([]);
+		expect(client.query.reviews.findMany({ columns: { id: true } }).sync()).toEqual([{ id: bobReview.id }]);
+		expect(client.query.likes.findMany().sync()).toEqual([]);
+		expect(client.query.followers.findMany().sync()).toEqual([]);
+		expect(client.query.favorites.findMany().sync()).toEqual([]);
+		expect(client.query.bucketList.findMany().sync()).toEqual([]);
+		expect(client.query.pictures.findMany({ columns: { id: true }, orderBy: { id: "asc" } }).sync()).toEqual([
 			{ id: bobPicture.id },
 			{ id: bobReviewPicture.id },
 		]);
@@ -83,7 +83,7 @@ describe("users.delete", () => {
 
 		await db.mutations.users.delete(ada.id, ada.id);
 
-		expect(client.select().from(s.reviews).where(eq(s.reviews.id, bobReview.id)).get()?.likeCount).toBe(1);
+		expect(client.query.reviews.findFirst({ where: { id: bobReview.id } }).sync()?.likeCount).toBe(1);
 	});
 
 	it("removes the reviews of the user from the rating and review count of restaurants", async () => {

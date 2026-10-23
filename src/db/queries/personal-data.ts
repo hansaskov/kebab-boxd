@@ -1,37 +1,18 @@
-import { asc, eq, sql } from "drizzle-orm";
-import { alias } from "drizzle-orm/sqlite-core";
 import type { Client } from "@src/db/client";
-import * as s from "@src/db/schema";
 import { toStars } from "@src/format/rating";
 
-function prepareRestaurantList(client: Client, table: typeof s.favorites | typeof s.bucketList) {
-	return client
-		.select({ restaurant: s.restaurants.name, addedAt: table.createdAt })
-		.from(table)
-		.innerJoin(s.restaurants, eq(s.restaurants.id, table.restaurantId))
-		.where(eq(table.userId, sql.placeholder("userId")))
-		.orderBy(asc(table.createdAt))
-		.prepare();
-}
-
-function prepareFollowList(client: Client, direction: "followers" | "following") {
-	const [self, other] =
-		direction === "following"
-			? [s.followers.followerId, s.followers.followingId]
-			: [s.followers.followingId, s.followers.followerId];
-
-	return client
-		.select({ username: s.users.username, since: s.followers.createdAt })
-		.from(s.followers)
-		.innerJoin(s.users, eq(s.users.id, other))
-		.where(eq(self, sql.placeholder("userId")))
-		.orderBy(asc(s.followers.createdAt))
-		.prepare();
+function collectedRestaurant(userId: number) {
+	return {
+		columns: { createdAt: true },
+		with: { restaurant: { columns: { name: true } } },
+		where: { userId },
+		orderBy: { createdAt: "asc" },
+	} as const;
 }
 
 export function createPersonalDataQueries(client: Client) {
-	const profile = client.query.users
-		.findFirst({
+	const findProfile = (userId: number) =>
+		client.query.users.findFirst({
 			columns: {
 				fullname: true,
 				username: true,
@@ -47,20 +28,18 @@ export function createPersonalDataQueries(client: Client) {
 				updatedAt: true,
 			},
 			with: { profilePicture: { columns: { url: true } } },
-			where: { id: sql.placeholder("userId") },
-		})
-		.prepare();
+			where: { id: userId },
+		});
 
-	const accounts = client.query.accounts
-		.findMany({
+	const listAccounts = (userId: number) =>
+		client.query.accounts.findMany({
 			columns: { providerId: true, accountId: true, createdAt: true },
-			where: { userId: sql.placeholder("userId") },
+			where: { userId },
 			orderBy: { createdAt: "asc" },
-		})
-		.prepare();
+		});
 
-	const sessions = client.query.sessions
-		.findMany({
+	const listSessions = (userId: number) =>
+		client.query.sessions.findMany({
 			columns: { createdAt: true, lastVerifiedAt: true, theme: true },
 			with: {
 				history: {
@@ -68,70 +47,108 @@ export function createPersonalDataQueries(client: Client) {
 					orderBy: { requestedAt: "asc" },
 				},
 			},
-			where: { userId: sql.placeholder("userId") },
+			where: { userId },
 			orderBy: { createdAt: "asc" },
-		})
-		.prepare();
+		});
 
-	const reviews = client.query.reviews
-		.findMany({
+	const listReviews = (userId: number) =>
+		client.query.reviews.findMany({
 			columns: { rating: true, description: true, likeCount: true, createdAt: true, updatedAt: true },
 			with: {
 				restaurant: { columns: { name: true } },
 				pictures: { columns: { url: true } },
 			},
-			where: { authorId: sql.placeholder("userId") },
+			where: { authorId: userId },
 			orderBy: { createdAt: "asc" },
-		})
-		.prepare();
+		});
 
-	const reviewAuthor = alias(s.users, "review_author");
-	const likes = client
-		.select({ author: reviewAuthor.username, restaurant: s.restaurants.name, likedAt: s.likes.createdAt })
-		.from(s.likes)
-		.innerJoin(s.reviews, eq(s.reviews.id, s.likes.reviewId))
-		.innerJoin(reviewAuthor, eq(reviewAuthor.id, s.reviews.authorId))
-		.innerJoin(s.restaurants, eq(s.restaurants.id, s.reviews.restaurantId))
-		.where(eq(s.likes.userId, sql.placeholder("userId")))
-		.orderBy(asc(s.likes.createdAt))
-		.prepare();
+	const listLikes = (userId: number) =>
+		client.query.likes.findMany({
+			columns: { createdAt: true },
+			with: {
+				review: {
+					columns: {},
+					with: {
+						author: { columns: { username: true } },
+						restaurant: { columns: { name: true } },
+					},
+				},
+			},
+			where: { userId },
+			orderBy: { createdAt: "asc" },
+		});
 
-	const following = prepareFollowList(client, "following");
-	const followers = prepareFollowList(client, "followers");
-	const favorites = prepareRestaurantList(client, s.favorites);
-	const bucketList = prepareRestaurantList(client, s.bucketList);
+	const listFollowing = (userId: number) =>
+		client.query.followers.findMany({
+			columns: { createdAt: true },
+			with: { following: { columns: { username: true } } },
+			where: { followerId: userId },
+			orderBy: { createdAt: "asc" },
+		});
 
-	const suggestions = client
-		.select({ restaurant: s.restaurants.name, status: s.restaurants.status, suggestedAt: s.restaurants.createdAt })
-		.from(s.restaurants)
-		.where(eq(s.restaurants.suggestedBy, sql.placeholder("userId")))
-		.orderBy(asc(s.restaurants.createdAt))
-		.prepare();
+	const listFollowers = (userId: number) =>
+		client.query.followers.findMany({
+			columns: { createdAt: true },
+			with: { follower: { columns: { username: true } } },
+			where: { followingId: userId },
+			orderBy: { createdAt: "asc" },
+		});
+
+	const listFavorites = (userId: number) => client.query.favorites.findMany(collectedRestaurant(userId));
+
+	const listBucketList = (userId: number) => client.query.bucketList.findMany(collectedRestaurant(userId));
+
+	const listSuggestions = (userId: number) =>
+		client.query.restaurants.findMany({
+			columns: { name: true, status: true, createdAt: true },
+			where: { suggestedBy: userId },
+			orderBy: { createdAt: "asc" },
+		});
 
 	return {
 		async findByUser(userId: number) {
-			const values = { userId };
-			const user = await profile.execute(values);
+			const user = await findProfile(userId);
 			if (!user) return undefined;
 
-			const { profilePicture, ...details } = user;
+			const [accounts, sessions, reviews, likes, following, followers, favorites, bucketList, suggestions] =
+				await Promise.all([
+					listAccounts(userId),
+					listSessions(userId),
+					listReviews(userId),
+					listLikes(userId),
+					listFollowing(userId),
+					listFollowers(userId),
+					listFavorites(userId),
+					listBucketList(userId),
+					listSuggestions(userId),
+				]);
+
+			const { profilePicture, ...profile } = user;
 
 			return {
-				profile: { ...details, profilePicture: profilePicture?.url ?? null },
-				accounts: await accounts.execute(values),
-				sessions: await sessions.execute(values),
-				reviews: (await reviews.execute(values)).map(({ rating, restaurant, pictures, ...review }) => ({
+				profile: { ...profile, profilePicture: profilePicture?.url ?? null },
+				accounts,
+				sessions,
+				reviews: reviews.map(({ rating, restaurant, pictures, ...review }) => ({
 					restaurant: restaurant.name,
 					stars: toStars(rating),
 					...review,
 					pictures: pictures.map((picture) => picture.url),
 				})),
-				likes: likes.all(values),
-				following: following.all(values),
-				followers: followers.all(values),
-				favorites: favorites.all(values),
-				bucketList: bucketList.all(values),
-				suggestions: suggestions.all(values),
+				likes: likes.map(({ review, createdAt }) => ({
+					author: review.author.username,
+					restaurant: review.restaurant.name,
+					likedAt: createdAt,
+				})),
+				following: following.map((follow) => ({ username: follow.following.username, since: follow.createdAt })),
+				followers: followers.map((follow) => ({ username: follow.follower.username, since: follow.createdAt })),
+				favorites: favorites.map(({ restaurant, createdAt }) => ({ restaurant: restaurant.name, addedAt: createdAt })),
+				bucketList: bucketList.map(({ restaurant, createdAt }) => ({ restaurant: restaurant.name, addedAt: createdAt })),
+				suggestions: suggestions.map(({ name, status, createdAt }) => ({
+					restaurant: name,
+					status,
+					suggestedAt: createdAt,
+				})),
 			};
 		},
 	};

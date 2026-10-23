@@ -1,32 +1,28 @@
-import { count, eq, sql } from "drizzle-orm";
-import type { Client } from "@src/db/client";
-import { reviewWindowPosition, reviewWindowSize } from "@src/db/review-window";
+import { and, avg, eq, inArray, sql } from "drizzle-orm";
+import type { Transaction } from "@src/db/client";
+import { isInReviewWindow } from "@src/db/review-window";
 import * as s from "@src/db/schema";
 
-function inJsonList(column: typeof s.reviews.id | typeof s.restaurants.id, name: string) {
-	return sql`${column} in (select value from json_each(${sql.placeholder(name)}))`;
+export function refreshLikeCounts(tx: Transaction, reviewIds: number[]) {
+	tx.update(s.reviews)
+		.set({ likeCount: tx.$count(s.likes, eq(s.likes.reviewId, s.reviews.id)) })
+		.where(inArray(s.reviews.id, reviewIds))
+		.run();
 }
 
-export function prepareRefreshLikeCounts(client: Client) {
-	return client
-		.update(s.reviews)
-		.set({
-			likeCount: sql`(${client.select({ count: count() }).from(s.likes).where(eq(s.likes.reviewId, s.reviews.id))})`,
-		})
-		.where(inJsonList(s.reviews.id, "reviewIds"))
-		.prepare();
-}
+export function refreshRestaurantStats(tx: Transaction, restaurantIds: number[]) {
+	const authorAverages = tx
+		.select({ rating: avg(s.reviews.rating).as("author_rating") })
+		.from(s.reviews)
+		.where(and(eq(s.reviews.restaurantId, s.restaurants.id), isInReviewWindow(s.reviews)))
+		.groupBy(s.reviews.authorId)
+		.as("author_averages");
 
-export function prepareRefreshRestaurantStats(client: Client) {
-	const reviewWindow = sql`select ${s.reviews.authorId} as author_id, ${s.reviews.rating} as rating, ${reviewWindowPosition()} as position from ${s.reviews} where ${s.reviews.restaurantId} = ${s.restaurants.id}`;
-	const perAuthorAverages = sql`select avg(rating) as author_avg from (${reviewWindow}) where position <= ${reviewWindowSize} group by author_id`;
-
-	return client
-		.update(s.restaurants)
+	tx.update(s.restaurants)
 		.set({
-			reviewCount: sql`(${client.select({ count: count() }).from(s.reviews).where(eq(s.reviews.restaurantId, s.restaurants.id))})`,
-			ratingAvg: sql`coalesce((select avg(author_avg) from (${perAuthorAverages})), 0)`,
+			reviewCount: tx.$count(s.reviews, eq(s.reviews.restaurantId, s.restaurants.id)),
+			ratingAvg: sql`coalesce((${tx.select({ rating: avg(authorAverages.rating) }).from(authorAverages)}), 0)`,
 		})
-		.where(inJsonList(s.restaurants.id, "restaurantIds"))
-		.prepare();
+		.where(inArray(s.restaurants.id, restaurantIds))
+		.run();
 }

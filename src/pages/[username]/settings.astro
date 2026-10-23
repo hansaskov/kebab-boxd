@@ -202,7 +202,7 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                     </p>
                 ) : (
                     <ul>
-                        {activeSessions.map((activeSession) => (
+                        {activeSessions.map(({ history: [lastRequest], ...activeSession }) => (
                             <li>
                                 <a
                                     class="settings-link"
@@ -213,15 +213,15 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                                     </span>
                                     <span class="t-body-sm text-fg-muted">
                                         Last used{" "}
-                                        {activeSession.lastRequestAt ? (
+                                        {lastRequest ? (
                                             <time
-                                                datetime={activeSession.lastRequestAt.toISOString()}
+                                                datetime={lastRequest.requestedAt.toISOString()}
                                                 title={formatExactTime(
-                                                    activeSession.lastRequestAt,
+                                                    lastRequest.requestedAt,
                                                 )}
                                             >
                                                 {formatRelativeTime(
-                                                    activeSession.lastRequestAt,
+                                                    lastRequest.requestedAt,
                                                 )}
                                             </time>
                                         ) : (

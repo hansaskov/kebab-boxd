@@ -12,11 +12,11 @@ const { restaurants, class: className, ...props } = Astro.props;
 ---
 
 <ul class:list={["divide-y divide-line rounded-box border border-line bg-surface", className]} {...props}>
-  {restaurants.map((restaurant) => (
+  {restaurants.map(({ restaurant }) => (
     <li class="flex items-center justify-between gap-3 px-4 py-3">
       <span class="min-w-0">
         <span class="field-label block truncate">{restaurant.name}</span>
-        {restaurant.city && <span class="t-body-sm block truncate text-fg-muted">{restaurant.city}</span>}
+        {restaurant.location.city && <span class="t-body-sm block truncate text-fg-muted">{restaurant.location.city}</span>}
       </span>
       {restaurant.ratingAvg > 0 && (
         <span

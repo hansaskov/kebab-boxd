@@ -5,8 +5,7 @@ import { oauthCookieOptions } from "@src/auth/oauth";
 import { googleCookieNames } from "@src/auth/providers/google";
 import { sessionCookieName } from "@src/auth/session";
 import { settingsHref } from "@src/hrefs";
-import { historyRetentionSeconds } from "@src/db/mutations/retention";
-import { inactivityTimeoutSeconds } from "@src/db/queries/sessions";
+import { historyRetentionSeconds, inactivityTimeoutSeconds } from "@src/data/retention-periods";
 
 const session = Astro.locals.session;
 const userSettingsHref = session && settingsHref(session.user.username);

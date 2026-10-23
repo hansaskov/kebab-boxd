@@ -1,6 +1,7 @@
-import { and, eq, getColumns, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { generateSecureRandomString } from "@src/auth/hash";
 import type { Client } from "@src/db/client";
+import { hasEmail, hasUsername } from "@src/db/filters";
 import * as s from "@src/db/schema";
 import type { User } from "@src/db/schema";
 import { USERNAME_MAX_LENGTH } from "@src/validation/username";
@@ -40,96 +41,51 @@ export type SignInResult =
 	| { status: "email-taken"; user: Pick<User, "id" | "bannedAt"> };
 
 export function createAccountMutations(client: Client) {
-	const userByAccount = client
-		.select(getColumns(s.users))
-		.from(s.accounts)
-		.innerJoin(s.users, eq(s.users.id, s.accounts.userId))
-		.where(
-			and(
-				eq(s.accounts.providerId, sql.placeholder("providerId")),
-				eq(s.accounts.accountId, sql.placeholder("accountId")),
-			),
-		)
-		.prepare();
-
-	const userByEmail = client
-		.select({ id: s.users.id, bannedAt: s.users.bannedAt })
-		.from(s.users)
-		.where(sql`lower(${s.users.email}) = lower(${sql.placeholder("email")})`)
-		.prepare();
-
-	const userIdByUsername = client
-		.select({ id: s.users.id })
-		.from(s.users)
-		.where(sql`lower(${s.users.username}) = lower(${sql.placeholder("username")})`)
-		.prepare();
-
-	const insertUser = client
-		.insert(s.users)
-		.values({
-			fullname: sql.placeholder("fullname"),
-			username: sql.placeholder("username"),
-			email: sql.placeholder("email"),
-			emailVerified: sql.placeholder("emailVerified"),
-		})
-		.returning()
-		.prepare();
-
-	const setUsername = client
-		.update(s.users)
-		.set({ username: sql.placeholder("username") })
-		.where(eq(s.users.id, sql.placeholder("id")))
-		.prepare();
-
-	const insertAccount = client
-		.insert(s.accounts)
-		.values({
-			userId: sql.placeholder("userId"),
-			providerId: sql.placeholder("providerId"),
-			accountId: sql.placeholder("accountId"),
-		})
-		.prepare();
-
 	return {
 		async findOrCreateWithUser(account: NewUserWithAccount): Promise<SignInResult> {
 			return client.transaction(
-				(): SignInResult => {
-					const existing = userByAccount.get({
-						providerId: account.providerId,
-						accountId: account.accountId,
-					});
+				(tx): SignInResult => {
+					const existing = tx.query.accounts
+						.findFirst({
+							columns: {},
+							with: { user: true },
+							where: { providerId: account.providerId, accountId: account.accountId },
+						})
+						.sync();
 					if (existing) {
-						return { status: "existing", user: existing };
+						return { status: "existing", user: existing.user };
 					}
 
-					const emailTakenBy = userByEmail.get({ email: account.email });
+					const emailTakenBy = tx.query.users
+						.findFirst({ columns: { id: true, bannedAt: true }, where: hasEmail(account.email) })
+						.sync();
 					if (emailTakenBy) {
 						return { status: "email-taken", user: emailTakenBy };
 					}
 
-					const inserted = insertUser.get({
-						fullname: account.fullname,
-						username: `pending-${crypto.randomUUID()}`,
-						email: account.email,
-						emailVerified: account.emailVerified,
-					});
-
-					if (!inserted) {
-						throw new Error("Failed to create a user for the provider account.");
-					}
+					const inserted = tx
+						.insert(s.users)
+						.values({
+							fullname: account.fullname,
+							username: `pending-${crypto.randomUUID()}`,
+							email: account.email,
+							emailVerified: account.emailVerified,
+						})
+						.returning()
+						.get();
 
 					const preferredUsername = buildUsername(account.fullname, inserted.id);
-					const username = userIdByUsername.get({ username: preferredUsername })
+					const preferredIsTaken = tx.query.users
+						.findFirst({ columns: { id: true }, where: hasUsername(preferredUsername) })
+						.sync();
+					const username = preferredIsTaken
 						? buildUsername(account.fullname, generateSecureRandomString())
 						: preferredUsername;
 
-          setUsername.run({ id: inserted.id, username });
-
-					insertAccount.run({
-						userId: inserted.id,
-						providerId: account.providerId,
-						accountId: account.accountId,
-					});
+					tx.update(s.users).set({ username }).where(eq(s.users.id, inserted.id)).run();
+					tx.insert(s.accounts)
+						.values({ userId: inserted.id, providerId: account.providerId, accountId: account.accountId })
+						.run();
 
 					return { status: "created", user: { ...inserted, username } };
 				},

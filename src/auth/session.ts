@@ -1,6 +1,6 @@
 import type { Database } from "@src/db";
 import type { NewSession } from "@src/db/schema";
-import { inactivityTimeoutSeconds } from "@src/db/queries/sessions";
+import { inactivityTimeoutSeconds } from "@src/data/retention-periods";
 import { constantTimeEqual, generateSecureRandomString, hashSecret } from "@src/auth/hash";
 import type { AstroCookies } from "astro";
 

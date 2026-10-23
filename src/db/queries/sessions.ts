@@ -1,49 +1,33 @@
-import { and, count, desc, eq, gt, max, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
+import { inactivityTimeoutSeconds } from "@src/data/retention-periods";
 import type { Client } from "@src/db/client";
-import { encodedPlaceholder } from "@src/db/placeholder";
 import * as s from "@src/db/schema";
 
-export const inactivityTimeoutSeconds = 60 * 60 * 24 * 30;
-
-function sessionsActiveSince() {
+function activeSince() {
 	return new Date(Date.now() - inactivityTimeoutSeconds * 1000);
 }
 
 export function createSessionQueries(client: Client) {
-	const withUser = client.query.sessions
-		.findFirst({
-			with: { user: true },
-			where: { id: sql.placeholder("id") },
-		})
-		.prepare();
-
-	const lastRequestAt = max(s.history.requestedAt);
-	const activeByUser = client
-		.select({
-			id: s.sessions.id,
-			createdAt: s.sessions.createdAt,
-			lastVerifiedAt: s.sessions.lastVerifiedAt,
-			lastRequestAt,
-			requestCount: count(s.history.requestedAt),
-			signInOrder: sql<number>`row_number() over (order by ${s.sessions.createdAt}, ${s.sessions.id})`,
-		})
-		.from(s.sessions)
-		.leftJoin(s.history, eq(s.history.sessionId, s.sessions.id))
-		.where(
-			and(
-				eq(s.sessions.userId, sql.placeholder("userId")),
-				gt(s.sessions.lastVerifiedAt, encodedPlaceholder("activeSince", s.sessions.lastVerifiedAt)),
-			),
-		)
-		.groupBy(s.sessions.id)
-		.orderBy(desc(lastRequestAt), desc(s.sessions.createdAt), desc(s.sessions.id))
-		.prepare();
-
-	const listActive = (userId: number) => activeByUser.all({ userId, activeSince: sessionsActiveSince() });
+	const listActive = (userId: number) =>
+		client.query.sessions.findMany({
+			columns: { id: true, createdAt: true, lastVerifiedAt: true },
+			with: {
+				history: { columns: { requestedAt: true }, orderBy: { requestedAt: "desc" }, limit: 1 },
+			},
+			extras: {
+				requestCount: (session) => client.$count(s.history, eq(s.history.sessionId, session.id)),
+				signInOrder: (session) => sql<number>`row_number() over (order by ${session.createdAt}, ${session.id})`,
+			},
+			where: { userId, lastVerifiedAt: { gt: activeSince() } },
+			orderBy: { history: { requestedAt: "desc(max)" }, createdAt: "desc", id: "desc" },
+		});
 
 	return {
 		async findWithUser(id: string) {
-			return withUser.execute({ id });
+			return client.query.sessions.findFirst({
+				with: { user: true },
+				where: { id },
+			});
 		},
 
 		async listActive(userId: number) {
@@ -51,7 +35,7 @@ export function createSessionQueries(client: Client) {
 		},
 
 		async findActive(sessionId: string, userId: number) {
-			return listActive(userId).find((session) => session.id === sessionId);
+			return (await listActive(userId)).find((session) => session.id === sessionId);
 		},
 	};
 }

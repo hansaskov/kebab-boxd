@@ -5,7 +5,7 @@ import { relations } from "@src/db/relations";
 const MIGRATIONS_DIR = ".drizzle";
 
 export function createClient(dbFileName: string) {
-	return drizzle(dbFileName, { relations, jit: true });
+	return drizzle(dbFileName, { relations });
 }
 
 export function migrateClient(client: Client) {
@@ -15,3 +15,4 @@ export function migrateClient(client: Client) {
 }
 
 export type Client = ReturnType<typeof createClient>;
+export type Transaction = Parameters<Parameters<Client["transaction"]>[0]>[0];

@@ -40,11 +40,42 @@ describe("profiles.listReviews", () => {
 		const first = await db.queries.profiles.listReviews(ada.id, { limit: 2, cursor: undefined });
 		const second = await db.queries.profiles.listReviews(ada.id, { limit: 2, cursor: first.next });
 
-		expect([...first.items, ...second.items].map((review) => review.restaurant)).toEqual([
+		expect([...first.items, ...second.items].map((review) => review.restaurant.name)).toEqual([
 			"Dergah Kebab",
 			"Kösk Kebap",
 			"Urfa Grillhaus",
 		]);
+	});
+});
+
+describe("profiles.countTotals", () => {
+	it("counts follows only with users who are not banned, and only approved restaurants", async () => {
+		const { client, db } = createTestDatabase("profile-totals");
+		const admin = insertUser(client, "root", "admin");
+		const ada = insertUser(client, "ada");
+		const bob = insertUser(client, "bob");
+		const cy = insertUser(client, "cy");
+		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
+		const pending = insertRestaurant(client, "Mangal Express", { status: "pending" });
+		client
+			.insert(s.followers)
+			.values([
+				{ followerId: bob.id, followingId: ada.id },
+				{ followerId: cy.id, followingId: ada.id },
+				{ followerId: ada.id, followingId: cy.id },
+			])
+			.run();
+		client.insert(s.favorites).values([grill, pending].map((restaurant) => ({ userId: ada.id, restaurantId: restaurant.id }))).run();
+		client.insert(s.bucketList).values({ userId: ada.id, restaurantId: pending.id }).run();
+		await db.mutations.users.ban(cy.id, admin.id);
+
+		expect(await db.queries.profiles.countTotals(ada.id)).toEqual({
+			followers: 1,
+			following: 0,
+			reviews: 0,
+			favorites: 1,
+			bucketList: 0,
+		});
 	});
 });
 
@@ -65,7 +96,7 @@ describe("profiles.listFavorites", () => {
 		let cursor: Cursor | undefined;
 		do {
 			const page = await db.queries.profiles.listFavorites(ada.id, { limit: 2, cursor });
-			names.push(...page.items.map((restaurant) => restaurant.name));
+			names.push(...page.items.map((favorite) => favorite.restaurant.name));
 			cursor = page.next;
 		} while (cursor);
 
@@ -86,7 +117,7 @@ describe("profiles.listFavorites", () => {
 		const second = await list(first.next);
 		const third = await list(second.next);
 
-		expect(third.items.map((restaurant) => restaurant.name)).toEqual(["Kebab 4"]);
+		expect(third.items.map((favorite) => favorite.restaurant.name)).toEqual(["Kebab 4"]);
 		expect(await list(third.previous)).toEqual(second);
 		expect(await list(second.previous)).toEqual(first);
 	});

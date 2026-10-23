@@ -1,4 +1,4 @@
-import { defineRelations } from "drizzle-orm/relations";
+import { defineRelations } from "drizzle-orm";
 import * as s from "@src/db/schema";
 
 export const relations = defineRelations(s, (r) => ({
@@ -91,6 +91,43 @@ export const relations = defineRelations(s, (r) => ({
     user: r.one.users({
       from: r.accounts.userId,
       to: r.users.id,
+      optional: false,
+    }),
+  },
+
+  followers: {
+    follower: r.one.users({
+      from: r.followers.followerId,
+      to: r.users.id,
+      optional: false,
+    }),
+    following: r.one.users({
+      from: r.followers.followingId,
+      to: r.users.id,
+      optional: false,
+    }),
+  },
+
+  favorites: {
+    restaurant: r.one.restaurants({
+      from: r.favorites.restaurantId,
+      to: r.restaurants.id,
+      optional: false,
+    }),
+  },
+
+  bucketList: {
+    restaurant: r.one.restaurants({
+      from: r.bucketList.restaurantId,
+      to: r.restaurants.id,
+      optional: false,
+    }),
+  },
+
+  likes: {
+    review: r.one.reviews({
+      from: r.likes.reviewId,
+      to: r.reviews.id,
       optional: false,
     }),
   },

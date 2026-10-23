@@ -15,7 +15,7 @@ describe("follow and unfollow actions", () => {
 		await server.profile.follow.call(context, form({ username: "bob" }));
 
 		expect(followed.error).toBeUndefined();
-		expect(client.select().from(followers).all()).toEqual([
+		expect(client.query.followers.findMany().sync()).toEqual([
 			expect.objectContaining({ followerId: ada.id, followingId: bob.id }),
 		]);
 		expect(await db.queries.profiles.isFollowing(ada.id, bob.id)).toBe(true);

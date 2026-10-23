@@ -50,6 +50,7 @@ const page = await Astro.locals.db.queries.history.listBySession(
 const history = page.items;
 const navigation = pageNavigation(Astro.url, page);
 
+const lastRequestAt = selectedSession.history.at(0)?.requestedAt;
 const name = deviceName(selectedSession, session.id);
 const ownerSettingsHref = settingsHref(owner.username);
 ---
@@ -80,12 +81,12 @@ const ownerSettingsHref = settingsHref(owner.username);
         <div class="rounded-box border border-line bg-surface p-3">
             <dt class="text-fg-muted">Last used</dt>
             <dd class="t-body font-medium">
-                {selectedSession.lastRequestAt ? (
+                {lastRequestAt ? (
                     <time
-                        datetime={selectedSession.lastRequestAt.toISOString()}
-                        title={formatExactTime(selectedSession.lastRequestAt)}
+                        datetime={lastRequestAt.toISOString()}
+                        title={formatExactTime(lastRequestAt)}
                     >
-                        {formatRelativeTime(selectedSession.lastRequestAt)}
+                        {formatRelativeTime(lastRequestAt)}
                     </time>
                 ) : (
                     "Never"
