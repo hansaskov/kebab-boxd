@@ -7,6 +7,8 @@ export type TargetUser = Pick<User, "id" | "role" | "bannedAt">;
 interface Permissions {
 	"user:edit-settings": TargetUser;
 	"user:manage-sessions": TargetUser;
+	"user:export-data": TargetUser;
+	"user:delete-account": TargetUser;
 	"user:ban": TargetUser;
 	"user:change-role": TargetUser;
 	"admin-console:view": undefined;
@@ -32,6 +34,10 @@ function isSelfOrAdmin(subject: Subject, user: TargetUser) {
 	return isSelf(subject, user) || isAdmin(subject);
 }
 
+function isSelfWithoutAdminRole(subject: Subject, user: TargetUser) {
+	return isSelf(subject, user) && !isAdmin(user);
+}
+
 function isAdminActingOnOther(subject: Subject, user: TargetUser) {
 	return isAdmin(subject) && !isSelf(subject, user);
 }
@@ -46,6 +52,8 @@ function isAdminActingOnOtherUnbanned(subject: Subject, user: TargetUser) {
 const policies: { [P in Permission]: Policy<P> } = {
 	"user:edit-settings": isSelfOrAdmin,
 	"user:manage-sessions": isSelfOrAdmin,
+	"user:export-data": isSelf,
+	"user:delete-account": isSelfWithoutAdminRole,
 	"user:ban": isAdminActingOnNonAdmin,
 	"user:change-role": isAdminActingOnOtherUnbanned,
 	"admin-console:view": isAdmin,

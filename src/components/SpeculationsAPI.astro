@@ -22,7 +22,7 @@ const { prefetchUrls, eagerness = "immediate" } = Astro.props;
                 where: {
                     and: [
                         { href_matches: "/*" },
-                        { not: { href_matches: "/logout" } },
+                        { not: { href_matches: "/api/*" } },
                     ],
                 },
                 eagerness: "eager",

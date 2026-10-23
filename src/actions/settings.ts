@@ -3,6 +3,7 @@ import { z } from "astro/zod";
 import { pronouns } from "@src/data/pronouns";
 import { deleteSessionTokenCookie } from "@src/auth/session";
 import { authorizeTargetUser } from "@src/actions/authorize";
+import { can } from "@src/auth/permissions";
 import { usernameSchema } from "@src/validation/username";
 
 export const updateAccountSchema = z.object({
@@ -16,6 +17,16 @@ export const updateAccountSchema = z.object({
 export const signOutEverywhereSchema = z.object({
   currentUsername: z.string().trim().min(1).max(50),
 });
+
+export const deleteAccountSchema = z
+  .object({
+    currentUsername: z.string().trim().min(1).max(50),
+    confirmation: z.string().trim().min(1).max(50),
+  })
+  .refine((input) => input.confirmation === input.currentUsername, {
+    message: "Type your username exactly as shown.",
+    path: ["confirmation"],
+  });
 
 export const settingsActions = {
   updateSettings: defineAction({
@@ -64,6 +75,32 @@ export const settingsActions = {
       deleteSessionTokenCookie(context.cookies);
 
       return { redirect: "/login" };
+    },
+  }),
+  deleteAccount: defineAction({
+    accept: "form",
+    input: deleteAccountSchema,
+    handler: async (input, context) => {
+      const { session, targetUser } = await authorizeTargetUser(
+        context.locals,
+        input.currentUsername,
+        "user:delete-account",
+      );
+
+      const result = await context.locals.db.mutations.users.delete(targetUser.id, session.user.id, (actor, target) =>
+        can(actor, "user:delete-account", target),
+      );
+
+      if (result === "refused") {
+        throw new ActionError({
+          code: "CONFLICT",
+          message: "Your role changed. Reload the page and try again.",
+        });
+      }
+
+      deleteSessionTokenCookie(context.cookies);
+
+      return { redirect: "/login?notice=account-deleted" };
     },
   }),
 };

@@ -74,6 +74,28 @@ describe("FieldInput", () => {
 	});
 });
 
+describe("FieldInput label", () => {
+	const props = { name: "confirmation", type: "text", zodField: z.string() };
+
+	it("renders a label slot at normal weight, so the caller can make one part bold", async () => {
+		const container = await AstroContainer.create();
+		const html = await container.renderToString(FieldInput, {
+			props,
+			slots: { label: "Type <strong>ada</strong> to confirm" },
+		});
+
+		expect(html).toMatch(/<label class="field-label font-normal" for="confirmation">\s*Type <strong>ada<\/strong> to confirm\s*<\/label>/);
+	});
+
+	it("refuses to render without a label", async () => {
+		const container = await AstroContainer.create();
+
+		await expect(container.renderToString(FieldInput, { props })).rejects.toThrow(
+			'FieldInput "confirmation" needs a label prop or a label slot.',
+		);
+	});
+});
+
 describe("FieldSelect", () => {
 	it("draws the chevron over the select and hides it from screen readers", async () => {
 		const container = await AstroContainer.create();

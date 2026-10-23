@@ -1,4 +1,4 @@
-import { Rss, Compass, SquarePen, UserRoundCog, Shield, Bell, MonitorSmartphone, TriangleAlert, LayoutDashboard, Users } from "@lucide/astro";
+import { Rss, Compass, SquarePen, UserRoundCog, Shield, Bell, MonitorSmartphone, TriangleAlert, LayoutDashboard, Users, Download } from "@lucide/astro";
 
 export type SidebarMenuItem = {
   name: string;
@@ -49,6 +49,7 @@ export function settingsSidebarMenuSections(username: string): SidebarMenuSectio
         { name: "Security", href: `${settingsHref}#security`, icon: Shield },
         { name: "Devices", href: `${settingsHref}#devices`, icon: MonitorSmartphone },
         { name: "Notifications", href: `${settingsHref}#notifications`, icon: Bell },
+        { name: "Your data", href: `${settingsHref}#your-data`, icon: Download },
         { name: "Danger zone", href: `${settingsHref}#danger-zone`, icon: TriangleAlert },
       ],
     },

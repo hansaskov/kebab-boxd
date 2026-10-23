@@ -145,3 +145,50 @@ describe("SettingsPage access", () => {
 		expect(html).toContain("Sign bob user out on all devices.");
 	});
 });
+
+describe("SettingsPage personal data", () => {
+	it("lets a user download their data and delete their account", async () => {
+		const { client, db } = createTestDatabase("settings-page-data-own");
+		const ada = insertUser(client, "ada");
+		const adaSession = await createSession(ada.id, db);
+
+		const { html } = await renderSettingsPage(db, adaSession.id, "ada");
+
+		expect(html).toContain(`href="/api/users/ada/export"`);
+		expect(html).toContain(`name="confirmation"`);
+		expect(html).toContain(`pattern="ada"`);
+		expect(html).toContain("Everything we store about you.");
+		expect(html).toContain("Permanently deletes your account.");
+		expect(html).toMatch(/<label class="field-label font-normal" for="confirmation">\s*Type <strong>ada<\/strong> to confirm\s*<\/label>/);
+		expect(html).toContain(`commandfor="delete-account" command="show-modal"`);
+		expect(html).toContain("Deleting your account cannot be undone.");
+		expect(html).toMatch(/<dialog id="delete-account"[^>]*>/);
+		expect(html.match(/<dialog id="delete-account"[^>]*>/)?.[0]).not.toMatch(/\sopen/);
+	});
+
+	it("asks an admin to give up the role before deleting their account", async () => {
+		const { client, db } = createTestDatabase("settings-page-data-admin-own");
+		const admin = insertUser(client, "ada", "admin");
+		const adminSession = await createSession(admin.id, db);
+
+		const { html } = await renderSettingsPage(db, adminSession.id, "ada");
+
+		expect(html).toContain(`href="/api/users/ada/export"`);
+		expect(html).not.toContain(`name="confirmation"`);
+		expect(html).toContain("Ask another admin to remove your Admin role before you delete your account.");
+	});
+
+	it("does not let an admin download the data of another user or delete the account", async () => {
+		const { client, db } = createTestDatabase("settings-page-data-admin-other");
+		const admin = insertUser(client, "ada", "admin");
+		insertUser(client, "bob");
+		const adminSession = await createSession(admin.id, db);
+
+		const { html } = await renderSettingsPage(db, adminSession.id, "bob");
+
+		expect(html).not.toContain(`href="/api/users/bob/export"`);
+		expect(html).not.toContain(`name="confirmation"`);
+		expect(html).not.toContain("Ask another admin");
+	});
+});
+

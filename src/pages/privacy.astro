@@ -1,0 +1,120 @@
+---
+import { DATA_CONTROLLER_EMAIL, DATA_CONTROLLER_NAME } from "astro:env/server";
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+import { oauthCookieOptions } from "@src/auth/oauth";
+import { googleCookieNames } from "@src/auth/providers/google";
+import { sessionCookieName } from "@src/auth/session";
+import { historyRetentionSeconds } from "@src/db/mutations/retention";
+import { inactivityTimeoutSeconds } from "@src/db/queries/sessions";
+
+const session = Astro.locals.session;
+const settingsHref = session && `/${encodeURIComponent(session.user.username)}/settings`;
+
+const days = (seconds: number) => `${seconds / (60 * 60 * 24)} days`;
+const minutes = (seconds: number) => `${seconds / 60} minutes`;
+
+const cookies = [
+  { name: sessionCookieName, purpose: "Keeps you signed in.", lifetime: `${days(inactivityTimeoutSeconds)} after your last visit` },
+  { name: googleCookieNames.state, purpose: "Protects sign-in with Google.", lifetime: `after ${minutes(oauthCookieOptions.maxAge)}` },
+  { name: googleCookieNames.codeVerifier, purpose: "Protects sign-in with Google.", lifetime: `after ${minutes(oauthCookieOptions.maxAge)}` },
+];
+---
+
+<BaseLayout
+  title="Privacy"
+  description="How Kebab Boxd uses your personal data"
+  includeSidebar={session !== null}
+  prefetchUrls={settingsHref ? ["/", settingsHref] : ["/login"]}
+  {...session && { session, user: session.user }}
+>
+  <h1>Privacy</h1>
+
+  <section class="mt-8">
+    <h2>Who is responsible</h2>
+    <p class="t-body mt-2">
+      {DATA_CONTROLLER_NAME} is responsible for your personal data on Kebab Boxd.
+      Email <a class="link" href={`mailto:${DATA_CONTROLLER_EMAIL}`}>{DATA_CONTROLLER_EMAIL}</a> with any question about your data.
+    </p>
+  </section>
+
+  <section class="mt-8">
+    <h2>What we store and why</h2>
+    <ul class="t-body mt-2 list-disc space-y-2 pl-5">
+      <li>
+        <strong>Your Google account:</strong> your name, email address and Google account ID.
+        We need them to create your account and sign you in.
+      </li>
+      <li>
+        <strong>Your profile:</strong> your username, pronouns and bio, if you add them.
+        Other users can see them.
+      </li>
+      <li>
+        <strong>What you do on Kebab Boxd:</strong> your reviews, pictures, likes, follows, favorites, bucket list and the restaurants you suggest.
+        Other users can see your reviews and pictures.
+      </li>
+      <li>
+        <strong>Your devices:</strong> when each device signed in, and which pages it opened and when.
+        We use this to keep your account secure and to show you where you are signed in.
+        We do not store your IP address or browser details.
+      </li>
+    </ul>
+    <p class="t-body mt-3">
+      We need this data to give you the service you signed up for.
+      We keep the device history because we have a legitimate interest in protecting your account.
+    </p>
+  </section>
+
+  <section class="mt-8">
+    <h2>Cookies</h2>
+    <p class="t-body mt-2">
+      We only use cookies that the site needs to work. We do not use cookies for tracking or advertising, so we do not ask for your consent.
+    </p>
+    <ul class="t-body mt-3 list-disc space-y-2 pl-5">
+      {cookies.map((cookie) => (
+        <li>
+          <code>{cookie.name}</code>: {cookie.purpose} Deleted {cookie.lifetime}.
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  <section class="mt-8">
+    <h2>Who else gets your data</h2>
+    <p class="t-body mt-2">
+      Google gets to know that you sign in to Kebab Boxd. Read the <a class="link" href="https://policies.google.com/privacy">Google privacy policy</a>.
+      We do not sell your data or share it with advertisers.
+    </p>
+  </section>
+
+  <section class="mt-8">
+    <h2>How long we keep your data</h2>
+    <ul class="t-body mt-2 list-disc space-y-2 pl-5">
+      <li>Your account and everything you post: until you delete your account.</li>
+      <li>A signed-in device: {days(inactivityTimeoutSeconds)} after its last use, or when you sign it out.</li>
+      <li>The page history of a device: {days(historyRetentionSeconds)}, or less if the device is signed out first.</li>
+      <li>A banned account: as long as the ban lasts, so that the person cannot sign up again.</li>
+    </ul>
+  </section>
+
+  <section class="mt-8">
+    <h2>Your rights</h2>
+    <ul class="t-body mt-2 list-disc space-y-2 pl-5">
+      <li>
+        Download all your data:{" "}
+        {settingsHref ? <a class="link" href={`${settingsHref}#your-data`}>Settings, Your data</a> : "Settings, Your data"}.
+      </li>
+      <li>
+        Correct your profile:{" "}
+        {settingsHref ? <a class="link" href={`${settingsHref}#account`}>Settings, Account</a> : "Settings, Account"}.
+      </li>
+      <li>
+        Delete your account and data:{" "}
+        {settingsHref ? <a class="link" href={`${settingsHref}#danger-zone`}>Settings, Danger zone</a> : "Settings, Danger zone"}.
+      </li>
+      <li>
+        Object to how we use your data, or ask us to limit it: email <a class="link" href={`mailto:${DATA_CONTROLLER_EMAIL}`}>{DATA_CONTROLLER_EMAIL}</a>.
+      </li>
+      <li>Complain to the data protection authority in the EU country where you live or work.</li>
+    </ul>
+  </section>
+</BaseLayout>

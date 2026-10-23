@@ -42,7 +42,8 @@ export const sessions = p.snakeCase.table("sessions", {
   updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(now),
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
 }, (t) => [
-  p.index("sessions_user_id_idx").on(t.userId)
+  p.index("sessions_user_id_idx").on(t.userId),
+  p.index("sessions_last_verified_at_idx").on(t.lastVerifiedAt),
 ])
 
 export type Session = typeof sessions.$inferSelect
@@ -187,6 +188,7 @@ export const history = p.snakeCase.table("history", {
   prefetched: p.int({ mode: "boolean" }).notNull().default(false),
 }, (t) => [
   p.primaryKey({ columns: [t.sessionId, t.requestedAt] }),
+  p.index("history_requested_at_idx").on(t.requestedAt),
 ])
 
 export type NewHistoryEntry = typeof history.$inferInsert

@@ -6,8 +6,11 @@ import { defineMiddleware, sequence } from "astro:middleware";
 import { getActionContext } from "astro:actions";
 import { compressMiddleware } from "@src/middleware/compress";
 import { hasStringRedirect } from "@src/validation/type-guards";
+import { scheduleRetentionPurge } from "@src/retention";
 
 const db = createDatabase(createClient(DB_FILE_NAME));
+const stopRetentionPurge = scheduleRetentionPurge(db);
+import.meta.hot?.dispose(stopRetentionPurge);
 
 const sessionMiddleware = defineMiddleware(async (context, next) => {
 

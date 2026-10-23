@@ -1,0 +1,48 @@
+---
+import { X } from "@lucide/astro";
+
+interface Props extends astroHTML.JSX.DialogHTMLAttributes {
+    id: string;
+    title: string;
+    description?: string;
+}
+
+const { id, title, description, class: className, ...props } = Astro.props;
+const titleId = `${id}-title`;
+const descriptionId = `${id}-description`;
+---
+
+<dialog
+    id={id}
+    class:list={["dialog-drawer", className]}
+    closedby="any"
+    aria-labelledby={titleId}
+    aria-describedby={description ? descriptionId : undefined}
+    {...props}
+>
+    <div class="dialog-drawer-handle" aria-hidden="true"></div>
+    <header class="dialog-drawer-header">
+        <h2 id={titleId} class="t-subheading">{title}</h2>
+        {description && (
+            <p id={descriptionId} class="t-body-sm text-fg-muted">{description}</p>
+        )}
+    </header>
+    <button
+        type="button"
+        class="icon-btn dialog-drawer-close"
+        commandfor={id}
+        command="close"
+        aria-label="Close"
+    >
+        <X size={18} aria-hidden="true" />
+    </button>
+    <slot />
+    <button
+        type="button"
+        class="btn btn-secondary btn-md dialog-drawer-cancel"
+        commandfor={id}
+        command="close"
+    >
+        Cancel
+    </button>
+</dialog>

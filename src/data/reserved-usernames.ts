@@ -19,6 +19,7 @@ export const reservedUsernames: ReadonlySet<string> = new Set([
   "moderator",
   "null",
   "official",
+  "privacy",
   "profile",
   "restaurant",
   "restaurants",

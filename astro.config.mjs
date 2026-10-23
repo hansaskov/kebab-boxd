@@ -25,6 +25,8 @@ export default defineConfig({
       GOOGLE_CLIENT_ID: envField.string({ context: "server", access: "secret" }),
       GOOGLE_CLIENT_SECRET: envField.string({ context: "server", access: "secret" }),
       GOOGLE_REDIRECT_URI: envField.string({ context: "server", access: "secret" }),
+      DATA_CONTROLLER_NAME: envField.string({ context: "server", access: "secret" }),
+      DATA_CONTROLLER_EMAIL: envField.string({ context: "server", access: "secret" }),
     },
   },
   image: {

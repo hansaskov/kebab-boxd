@@ -56,4 +56,21 @@ describe("can", () => {
 	it("lets an admin lift the ban of a banned user", () => {
 		expect(can(admin, "user:ban", bannedBob)).toBe(true);
 	});
+
+	it("lets a user download only their own data, so not even an admin can download it", () => {
+		expect(can(ada, "user:export-data", ada)).toBe(true);
+		expect(can(admin, "user:export-data", admin)).toBe(true);
+		expect(can(ada, "user:export-data", bob)).toBe(false);
+		expect(can(admin, "user:export-data", bob)).toBe(false);
+	});
+
+	it("lets a user delete only their own account", () => {
+		expect(can(ada, "user:delete-account", ada)).toBe(true);
+		expect(can(ada, "user:delete-account", bob)).toBe(false);
+	});
+
+	it("does not let an admin delete any account, so an admin always remains", () => {
+		expect(can(admin, "user:delete-account", admin)).toBe(false);
+		expect(can(admin, "user:delete-account", bob)).toBe(false);
+	});
 });

@@ -5,29 +5,39 @@ import type { ZodString } from 'astro/zod';
 interface Props extends astroHTML.JSX.InputHTMLAttributes {
     name: string;
     zodField: ZodString;
-    label: string;
-    description: string;
+    label?: string;
+    description?: string;
     errors?: string[] | undefined;
+    layout?: "row" | "stack";
 }
 
-const { zodField, label, description, errors, class: className, ...props } = Astro.props
+const { zodField, label, description, errors, layout = "row", class: className, ...props } = Astro.props
 const constraints = getConstraintsFromZodSchema(zodField)
 const fieldId = props.id ?? props.name
 const descriptionId = `${fieldId}-description`
 const errorId = `${fieldId}-error`
 const hasErrors = errors !== undefined && errors.length > 0
+const describedBy = [description && descriptionId, hasErrors && errorId].filter(Boolean).join(" ") || undefined
+const isRow = layout === "row"
+const hasLabelSlot = Astro.slots.has("label")
+
+if (!label && !hasLabelSlot) {
+    throw new Error(`FieldInput "${props.name}" needs a label prop or a label slot.`)
+}
 ---
 
-<div class="settings-row">
-    <div class="settings-row-text">
-        <label class="field-label" for={fieldId}>{label}</label>
-        <p id={descriptionId} class="t-body-sm text-fg-muted">{description}</p>
+<div class={isRow ? "settings-row" : "space-y-2"}>
+    <div class={isRow ? "settings-row-text" : undefined}>
+        <label class:list={["field-label", { "font-normal": hasLabelSlot }]} for={fieldId}>
+            <slot name="label">{label}</slot>
+        </label>
+        {description && <p id={descriptionId} class="t-body-sm text-fg-muted">{description}</p>}
     </div>
-    <div class="settings-row-field space-y-2">
+    <div class:list={["space-y-2", { "settings-row-field": isRow }]}>
         <input
             id={fieldId}
             class:list={["input", className]}
-            aria-describedby={hasErrors ? `${descriptionId} ${errorId}` : descriptionId}
+            aria-describedby={describedBy}
             aria-invalid={hasErrors ? "true" : undefined}
             {...constraints}
             {...props}

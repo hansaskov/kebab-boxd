@@ -11,6 +11,8 @@ pnpm astro check
 pnpm run dev
 ```
 
+Copy `.env.example` to `.env`. Before you deploy.
+
 ## Tech Stack
 
 - [Astro](https://astro.build)
@@ -38,7 +40,7 @@ pnpm run dev
 - A user can create an account, login and logout.
 - A user can update their settings and profile picture.
 - A user can delete their account.
-- A user can request all their data. (GDPR)
+- A user can download all their data. (GDPR)
 - An admin can approve or reject restaurant suggestions.
 - An admin can find any user, change their role, and ban them.
 
@@ -48,3 +50,4 @@ pnpm run dev
 - [x] Login with Google
 - [x] Sidebar layout and placeholder pages
 - [x] Admin console with user management
+- [x] GDPR basics: privacy page, data export, account deletion and retention periods

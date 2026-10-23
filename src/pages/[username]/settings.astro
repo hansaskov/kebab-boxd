@@ -2,11 +2,15 @@
 import { actions, isInputError } from "astro:actions";
 import { settingsSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
+import DialogDrawer from "@src/components/DialogDrawer.astro";
 import FieldInput from "@src/components/FieldInput.astro";
 import FieldSelect from "@src/components/FieldSelect.astro";
 import FieldTextArea from "@src/components/FieldTextArea.astro";
 import type { Toast } from "@src/components/Toast.astro";
-import { updateAccountSchema } from "@src/actions/settings";
+import {
+    deleteAccountSchema,
+    updateAccountSchema,
+} from "@src/actions/settings";
 import { can } from "@src/auth/permissions";
 import { deviceName } from "@src/format/device-name";
 import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
@@ -34,9 +38,12 @@ if (!can(session.user, "user:edit-settings", user)) {
 }
 
 const canManageSessions = can(session.user, "user:manage-sessions", user);
+const canExportData = can(session.user, "user:export-data", user);
+const canDeleteAccount = can(session.user, "user:delete-account", user);
 
 const actionResult = Astro.getActionResult(actions.updateSettings);
 const signOutResult = Astro.getActionResult(actions.signOutEverywhere);
+const deleteResult = Astro.getActionResult(actions.deleteAccount);
 const isOwnAccount = session.user.id === user.id;
 
 const activeSessions = canManageSessions
@@ -44,6 +51,7 @@ const activeSessions = canManageSessions
     : [];
 
 let usernameErrors: string[] | undefined;
+let confirmationErrors: string[] | undefined;
 let toast: Toast | undefined;
 
 if (actionResult) {
@@ -89,6 +97,23 @@ if (signOutResult) {
           };
 }
 
+if (deleteResult?.error) {
+    if (
+        isInputError(deleteResult.error) &&
+        deleteResult.error.fields.confirmation
+    ) {
+        confirmationErrors = deleteResult.error.fields.confirmation;
+    } else {
+        toast = {
+            kind: "title",
+            variant: "error",
+            title: "Deletion failed",
+            text: deleteResult.error.message,
+        };
+    }
+}
+
+const exportHref = `/api/users/${encodeURIComponent(user.username)}/export`;
 const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
 ---
 
@@ -216,6 +241,29 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
         </div>
     </section>
 
+    {canExportData && (
+        <section id="your-data" class="mt-8">
+            <h2>Your data</h2>
+            <div class="settings-card mt-3">
+                <div class="settings-row">
+                    <div class="settings-row-text">
+                        <p class="field-label">Download data</p>
+                        <p class="t-body-sm text-fg-muted">
+                            Everything we store about you.
+                        </p>
+                    </div>
+                    <a
+                        class="btn btn-secondary btn-md settings-row-action"
+                        href={exportHref}
+                        download
+                    >
+                        Download
+                    </a>
+                </div>
+            </div>
+        </section>
+    )}
+
     {canManageSessions && (
         <section id="danger-zone" class="mt-8">
             <h2 class="text-danger">Danger zone</h2>
@@ -245,7 +293,73 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                         Sign out everywhere
                     </button>
                 </form>
+                {canDeleteAccount ? (
+                    <div class="settings-row">
+                        <div class="settings-row-text">
+                            <p class="field-label">Close account</p>
+                            <p class="t-body-sm text-fg-muted">
+                                Permanently deletes your account.
+                            </p>
+                        </div>
+                        <button
+                            class="btn btn-danger btn-md settings-row-action"
+                            type="button"
+                            commandfor="delete-account"
+                            command="show-modal"
+                        >
+                            Delete account
+                        </button>
+                    </div>
+                ) : (
+                    isOwnAccount && (
+                        <p class="settings-row t-body-sm text-fg-muted">
+                            Ask another admin to remove your Admin role before
+                            you delete your account.
+                        </p>
+                    )
+                )}
             </div>
+            {canDeleteAccount && (
+                <DialogDrawer
+                    id="delete-account"
+                    title="Are you sure?"
+                    description="Deleting your account cannot be undone."
+                    open={confirmationErrors !== undefined}
+                >
+                    <form
+                        class="space-y-5"
+                        method="post"
+                        action={actions.deleteAccount}
+                    >
+                        <input
+                            type="hidden"
+                            name="currentUsername"
+                            value={user.username}
+                        />
+                        <FieldInput
+                            layout="stack"
+                            name="confirmation"
+                            type="text"
+                            autocomplete="off"
+                            autofocus
+                            pattern={user.username}
+                            title="Type your username exactly as shown."
+                            zodField={deleteAccountSchema.shape.confirmation}
+                            errors={confirmationErrors}
+                        >
+                            <Fragment slot="label">
+                                Type <strong>{user.username}</strong> to confirm
+                            </Fragment>
+                        </FieldInput>
+                        <button
+                            class="btn btn-danger btn-md w-full"
+                            type="submit"
+                        >
+                            Delete account
+                        </button>
+                    </form>
+                </DialogDrawer>
+            )}
         </section>
     )}
 </BaseLayout>

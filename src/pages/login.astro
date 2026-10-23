@@ -23,14 +23,23 @@ const errorToasts: Record<string, Toast> = {
 	},
 };
 
+const noticeToasts: Record<string, Toast> = {
+	"account-deleted": {
+		kind: "title",
+		title: "Account deleted",
+		text: "Your account and your data are deleted.",
+	},
+};
+
 const error = Astro.url.searchParams.get("error");
-const toast = error ? errorToasts[error] : undefined;
+const notice = Astro.url.searchParams.get("notice");
+const toast = (error ? errorToasts[error] : undefined) ?? (notice ? noticeToasts[notice] : undefined);
 ---
 
 <BaseLayout
 	title="Login"
 	description="Login page"
-	prefetchUrls={["/"]}
+	prefetchUrls={["/", "/privacy"]}
 	toast={toast}
 >
 	<a class="btn btn-primary btn-md" href="/api/google">Sign in with Google</a>
