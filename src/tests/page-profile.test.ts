@@ -9,6 +9,7 @@ import * as s from "@src/db/schema";
 import { server } from "@src/actions/index";
 import { actionContext, form, withActionResult } from "@src/tests/actions";
 import { createTestDatabase, insertRestaurant, insertReview, insertUser, signIn } from "@src/tests/database";
+import { profileTabs } from "@src/validation/profile-tab";
 
 const day = 24 * 60 * 60 * 1000;
 const daysAgo = (days: number) => new Date(Date.UTC(2026, 9, 1) - days * day);
@@ -40,6 +41,12 @@ function reviewTimes(html: string) {
 
 function pageHref(html: string, rel: "prev" | "next") {
 	return html.match(new RegExp(`rel="${rel}" href="([^"]*)"`))?.[1]?.replaceAll("&amp;", "&");
+}
+
+function pageSearch(html: string, rel: "prev" | "next") {
+	const href = pageHref(html, rel);
+	if (!href) throw new Error(`The page has no ${rel} link.`);
+	return new URL(href, "http://localhost").search;
 }
 
 describe("ProfilePage", () => {
@@ -123,13 +130,33 @@ describe("ProfilePage", () => {
 		const names = restaurants.map((restaurant) => restaurant.name).toReversed();
 
 		const first = await renderProfile(db, session, "ada", "?tab=favorites&rows=10");
-		const second = await renderProfile(db, session, "ada", new URL(pageHref(first.html, "next")!, "http://localhost").search);
-		const back = await renderProfile(db, session, "ada", new URL(pageHref(second.html, "prev")!, "http://localhost").search);
+		const second = await renderProfile(db, session, "ada", pageSearch(first.html, "next"));
+		const back = await renderProfile(db, session, "ada", pageSearch(second.html, "prev"));
 
 		expect(listedNames(first.html)).toEqual(names.slice(0, 10));
 		expect(listedNames(second.html)).toEqual(names.slice(10));
 		expect(pageHref(second.html, "next")).toBeUndefined();
 		expect(listedNames(back.html)).toEqual(names.slice(0, 10));
+	});
+
+	it("pages on from a restaurant that was removed from the favorites after the page was shown", async () => {
+		const { client, db } = createTestDatabase("profile-page-removed-cursor");
+		const ada = insertUser(client, "ada");
+		const restaurants = Array.from({ length: 12 }, (_, i) => insertRestaurant(client, `Kebab ${i}`, { status: "approved" }));
+		client
+			.insert(s.favorites)
+			.values(restaurants.map((restaurant) => ({ userId: ada.id, restaurantId: restaurant.id, createdAt: daysAgo(1) })))
+			.run();
+		const session = await signIn(db, ada.id);
+		const names = restaurants.map((restaurant) => restaurant.name).toReversed();
+
+		const first = await renderProfile(db, session, "ada", "?tab=favorites&rows=10");
+		client.delete(s.favorites).where(eq(s.favorites.restaurantId, restaurants[2]!.id)).run();
+		const second = await renderProfile(db, session, "ada", pageSearch(first.html, "next"));
+		const back = await renderProfile(db, session, "ada", pageSearch(second.html, "prev"));
+
+		expect(listedNames(second.html)).toEqual(names.slice(10));
+		expect(listedNames(back.html)).toEqual(names.filter((name) => name !== "Kebab 2").slice(0, 10));
 	});
 
 	it("offers to edit your own profile and to follow someone else", async () => {
@@ -217,5 +244,58 @@ describe("ProfilePage", () => {
 		expect(html).toContain("This account has been suspended.");
 		expect(html).toContain("Follow failed");
 		expect(html).toContain("You cannot follow this user.");
+	});
+});
+
+describe("ProfilePage database queries", () => {
+	it("reads a profile and any page of its lists in two queries, however much the profile holds", async () => {
+		const { client, db, recordQueries } = createTestDatabase("profile-page-query-count");
+		const ada = insertUser(client, "ada");
+		const bob = insertUser(client, "bob");
+		const restaurants = Array.from({ length: 12 }, (_, i) => insertRestaurant(client, `Kebab ${i}`, { status: "approved" }));
+		for (const [i, restaurant] of restaurants.entries()) {
+			insertReview(client, bob.id, restaurant.id, 8, daysAgo(i));
+		}
+		for (const table of [s.favorites, s.bucketList]) {
+			client.insert(table).values(restaurants.map((restaurant) => ({ userId: bob.id, restaurantId: restaurant.id }))).run();
+		}
+		client
+			.insert(s.followers)
+			.values([
+				{ followerId: ada.id, followingId: bob.id },
+				{ followerId: bob.id, followingId: ada.id },
+			])
+			.run();
+		const session = await signIn(db, ada.id);
+		const visit = async (search: string) => {
+			const { result, queries } = await recordQueries(() => renderProfile(db, session, "bob", search));
+			return { html: result.html, queries: queries.length };
+		};
+
+		const queries: Record<string, number[]> = {};
+		for (const tab of profileTabs) {
+			const first = await visit(`?tab=${tab}&rows=10`);
+			const second = await visit(pageSearch(first.html, "next"));
+			const back = await visit(pageSearch(second.html, "prev"));
+			queries[tab] = [first.queries, second.queries, back.queries];
+		}
+
+		expect(queries).toEqual({ reviews: [2, 2, 2], favorites: [2, 2, 2], "bucket-list": [2, 2, 2] });
+	});
+
+	it("reads a suspended profile, a missing one and one in other letter case in one query each", async () => {
+		const { client, db, recordQueries } = createTestDatabase("profile-page-query-count-single");
+		const admin = insertUser(client, "root_admin", "admin");
+		const ada = insertUser(client, "ada");
+		const bob = insertUser(client, "bob");
+		await db.mutations.users.ban(bob.id, admin.id);
+		const session = await signIn(db, ada.id);
+		const visit = async (username: string) => (await recordQueries(() => renderProfile(db, session, username))).queries.length;
+
+		expect({ suspended: await visit("bob"), missing: await visit("cy"), otherCase: await visit("Ada") }).toEqual({
+			suspended: 1,
+			missing: 1,
+			otherCase: 1,
+		});
 	});
 });

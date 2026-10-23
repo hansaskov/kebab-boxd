@@ -19,13 +19,10 @@ export function hasEmail(email: string) {
 	return { RAW: (user) => sql`lower(${user.email}) = lower(${email})` } satisfies Filter<"users">;
 }
 
-export function publicReviewBy(authorId: number) {
-	return {
-		authorId,
-		restaurant: approvedRestaurant,
-		RAW: (review) => isInReviewWindow(review),
-	} satisfies Filter<"reviews">;
-}
+export const publicReview = {
+	restaurant: approvedRestaurant,
+	RAW: (review) => isInReviewWindow(review),
+} satisfies Filter<"reviews">;
 
 export function containsText(column: SQLWrapper, text: string) {
 	const pattern = `%${text.replace(/[\\%_]/g, "\\$&")}%`;

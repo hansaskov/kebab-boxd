@@ -61,7 +61,7 @@ export function cursorList<
 		columns.map((column, i) => column.mapToDriverValue(row[keys[i]!]));
 
 	const keyColumns = (aliased: Table) => keys.map((key) => getColumns(aliased)[key]!);
-	const compare = (operator: "<" | ">", at: unknown[]) => ({
+	const compare = (operator: "<" | ">" | "<=" | ">=", at: unknown[]) => ({
 		RAW: (aliased: Table) =>
 			sql`(${sql.join(keyColumns(aliased), sql`, `)}) ${sql.raw(operator)} (${sql.join(
 				at.map((value) => sql`${value}`),
@@ -72,14 +72,15 @@ export function cursorList<
 		keyColumns(aliased).map((column) => (ascending ? asc(column) : desc(column)));
 
 	const ascending = order === "asc";
-	const seek = (direction: Direction, limit: number, at: unknown[]): Seek<Table> => {
+	const seek = (direction: Direction, limit: number, at: unknown[], inclusive: boolean): Seek<Table> => {
+		const forward = direction === "after" ? ascending : !ascending;
+		const operator = `${forward ? ">" : "<"}${inclusive ? "=" : ""}` as const;
 		switch (direction) {
 			case "first":
 				return { where: {}, orderBy: orderBy(ascending), limit };
 			case "after":
-				return { where: compare(ascending ? ">" : "<", at), orderBy: orderBy(ascending), limit };
 			case "before":
-				return { where: compare(ascending ? "<" : ">", at), orderBy: orderBy(!ascending), limit };
+				return { where: compare(operator, at), orderBy: orderBy(forward), limit };
 		}
 	};
 
@@ -87,8 +88,21 @@ export function cursorList<
 		{ limit, cursor }: PageRequest,
 		query: (seek: Seek<Table>) => PromiseLike<Row[]>,
 	): Promise<Page<Row>> {
-		const read = async (direction: Direction, rows: number, at: unknown[] = []) => query(seek(direction, rows, at));
+		const read = async (direction: Direction, rows: number, at: unknown[] = [], inclusive = false) =>
+			query(seek(direction, rows, at, inclusive));
 		const hasRows = async (direction: "after" | "before", at: unknown[]) => (await read(direction, 1, at)).length > 0;
+
+		// Reads the rows from the cursor on, including the row at the cursor. When that row still exists,
+		// it proves that there are rows behind the cursor, so no second query is needed to find out.
+		const readFrom = async (direction: "after" | "before", at: unknown[], count: number) => {
+			const rows = await read(direction, count + 1, at, true);
+			const first = rows.at(0);
+			const isAtCursor = first !== undefined && encode(keyOf(first)) === encode(at);
+			return {
+				rows: isAtCursor ? rows.slice(1) : rows.slice(0, count),
+				hasRowsBehind: async () => isAtCursor || hasRows(oppositeOf(direction), at),
+			};
+		};
 
 		const toPage = (items: Row[], hasPrevious: boolean, hasNext: boolean): Page<Row> => {
 			const first = items.at(0);
@@ -108,25 +122,25 @@ export function cursorList<
 
 		const after = cursor && "after" in cursor ? decode(cursor.after) : undefined;
 		if (after !== undefined) {
-			const rows = await read("after", limit + 1, after);
+			const { rows, hasRowsBehind } = await readFrom("after", after, limit + 1);
 			const items = rows.slice(0, limit);
-			const first = items.at(0);
-			if (first === undefined) {
-				const hasPrevious = await hasRows("before", after);
-				return { items, previous: hasPrevious ? { before: encode(after) } : undefined, next: undefined, isPastEnd: true };
+			if (items.length === 0) {
+				return { items, previous: (await hasRowsBehind()) ? { before: encode(after) } : undefined, next: undefined, isPastEnd: true };
 			}
-			return toPage(items, await hasRows("before", keyOf(first)), rows.length > limit);
+			return toPage(items, await hasRowsBehind(), rows.length > limit);
 		}
 
 		const before = cursor && "before" in cursor ? decode(cursor.before) : undefined;
 		if (before !== undefined) {
-			const rows = await read("before", limit + 1, before);
-			if (rows.length <= limit) return readFirst();
-			const items = rows.slice(0, limit).toReversed();
-			const last = items.at(-1);
-			return toPage(items, true, last !== undefined && (await hasRows("after", keyOf(last))));
+			const { rows, hasRowsBehind } = await readFrom("before", before, limit + 1);
+			if (rows.length < limit) return readFirst();
+			return toPage(rows.slice(0, limit).toReversed(), rows.length > limit, await hasRowsBehind());
 		}
 
 		return readFirst();
 	};
+}
+
+function oppositeOf(direction: "after" | "before") {
+	return direction === "after" ? "before" : "after";
 }

@@ -1,9 +1,10 @@
 import type { Client } from "@src/db/client";
-import { countRows } from "@src/db/count";
-import { approvedRestaurant, hasUsername, publicReviewBy, unbannedUser } from "@src/db/filters";
+import { approvedRestaurant, hasUsername, publicReview, unbannedUser } from "@src/db/filters";
 import { cursorList } from "@src/db/pagination";
 import * as s from "@src/db/schema";
+import { countRows, hasRows } from "@src/db/subqueries";
 import type { Page, PageRequest } from "@src/pagination";
+import type { ProfileTab } from "@src/validation/profile-tab";
 
 const reviewPages = cursorList(s.reviews, ["createdAt", "id"], "desc");
 const favoritePages = cursorList(s.favorites, ["createdAt", "restaurantId"], "desc");
@@ -19,9 +20,44 @@ const collectedRestaurant = {
 	},
 } as const;
 
+function listReviews(client: Client, userId: number, page: PageRequest) {
+	return reviewPages(page, (seek) =>
+		client.query.reviews.findMany({
+			columns: { id: true, rating: true, description: true, likeCount: true, createdAt: true },
+			with: { restaurant: { columns: { name: true } } },
+			where: { AND: [{ ...publicReview, authorId: userId }, seek.where] },
+			orderBy: seek.orderBy,
+			limit: seek.limit,
+		}),
+	);
+}
+
+function listFavorites(client: Client, userId: number, page: PageRequest) {
+	return favoritePages(page, (seek) =>
+		client.query.favorites.findMany({
+			...collectedRestaurant,
+			where: { AND: [{ userId, restaurant: approvedRestaurant }, seek.where] },
+			orderBy: seek.orderBy,
+			limit: seek.limit,
+		}),
+	);
+}
+
+function listBucketList(client: Client, userId: number, page: PageRequest) {
+	return bucketListPages(page, (seek) =>
+		client.query.bucketList.findMany({
+			...collectedRestaurant,
+			where: { AND: [{ userId, restaurant: approvedRestaurant }, seek.where] },
+			orderBy: seek.orderBy,
+			limit: seek.limit,
+		}),
+	);
+}
+
 export function createProfileQueries(client: Client) {
 	return {
-		async findByUsername(username: string) {
+		async findByUsername(username: string, viewerId: number) {
+			const user = hasUsername(username);
 			return client.query.users.findFirst({
 				columns: {
 					id: true,
@@ -34,67 +70,32 @@ export function createProfileQueries(client: Client) {
 					createdAt: true,
 				},
 				with: { profilePicture: { columns: { url: true } } },
-				where: hasUsername(username),
+				extras: {
+					followerCount: () => countRows(client, "followers", { following: user, follower: unbannedUser }),
+					followingCount: () => countRows(client, "followers", { follower: user, following: unbannedUser }),
+					reviewCount: () => countRows(client, "reviews", { ...publicReview, author: user }),
+					favoriteCount: () => countRows(client, "favorites", { user, restaurant: approvedRestaurant }),
+					bucketListCount: () => countRows(client, "bucketList", { user, restaurant: approvedRestaurant }),
+					isFollowedByViewer: () => hasRows(client, "followers", { followerId: viewerId, following: user }),
+				},
+				where: user,
 			});
 		},
 
-		async countTotals(userId: number) {
-			const [followers, following, reviews, favorites, bucketList] = await Promise.all([
-				countRows(client, "followers", { followingId: userId, follower: unbannedUser }),
-				countRows(client, "followers", { followerId: userId, following: unbannedUser }),
-				countRows(client, "reviews", publicReviewBy(userId)),
-				countRows(client, "favorites", { userId, restaurant: approvedRestaurant }),
-				countRows(client, "bucketList", { userId, restaurant: approvedRestaurant }),
-			]);
-			return { followers, following, reviews, favorites, bucketList };
-		},
-
-		async isFollowing(followerId: number, followingId: number) {
-			const follow = await client.query.followers.findFirst({
-				columns: { followerId: true },
-				where: { followerId, followingId },
-			});
-			return follow !== undefined;
-		},
-
-		async listReviews(userId: number, page: PageRequest) {
-			return reviewPages(page, (seek) =>
-				client.query.reviews.findMany({
-					columns: { id: true, rating: true, description: true, likeCount: true, createdAt: true },
-					with: { restaurant: { columns: { name: true } } },
-					where: { AND: [publicReviewBy(userId), seek.where] },
-					orderBy: seek.orderBy,
-					limit: seek.limit,
-				}),
-			);
-		},
-
-		async listFavorites(userId: number, page: PageRequest) {
-			return favoritePages(page, (seek) =>
-				client.query.favorites.findMany({
-					...collectedRestaurant,
-					where: { AND: [{ userId, restaurant: approvedRestaurant }, seek.where] },
-					orderBy: seek.orderBy,
-					limit: seek.limit,
-				}),
-			);
-		},
-
-		async listBucketList(userId: number, page: PageRequest) {
-			return bucketListPages(page, (seek) =>
-				client.query.bucketList.findMany({
-					...collectedRestaurant,
-					where: { AND: [{ userId, restaurant: approvedRestaurant }, seek.where] },
-					orderBy: seek.orderBy,
-					limit: seek.limit,
-				}),
-			);
+		async list(userId: number, tab: ProfileTab, page: PageRequest) {
+			switch (tab) {
+				case "reviews":
+					return { tab, page: await listReviews(client, userId, page) };
+				case "favorites":
+					return { tab, page: await listFavorites(client, userId, page) };
+				case "bucket-list":
+					return { tab, page: await listBucketList(client, userId, page) };
+			}
 		},
 	};
 }
 
-type ProfileQueries = ReturnType<typeof createProfileQueries>;
 type Item<List> = List extends Page<infer Row> ? Row : never;
 
-export type ProfileReview = Item<Awaited<ReturnType<ProfileQueries["listReviews"]>>>;
-export type CollectedRestaurant = Item<Awaited<ReturnType<ProfileQueries["listFavorites"]>>>;
+export type ProfileReview = Item<Awaited<ReturnType<typeof listReviews>>>;
+export type CollectedRestaurant = Item<Awaited<ReturnType<typeof listFavorites>>>;

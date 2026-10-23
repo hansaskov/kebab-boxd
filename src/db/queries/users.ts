@@ -1,5 +1,5 @@
 import type { Client } from "@src/db/client";
-import { countRows } from "@src/db/count";
+import { countRows } from "@src/db/subqueries";
 import { containsText, hasUsername, type Filter } from "@src/db/filters";
 import { cursorList } from "@src/db/pagination";
 import * as s from "@src/db/schema";

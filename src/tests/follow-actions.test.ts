@@ -18,12 +18,11 @@ describe("follow and unfollow actions", () => {
 		expect(client.query.followers.findMany().sync()).toEqual([
 			expect.objectContaining({ followerId: ada.id, followingId: bob.id }),
 		]);
-		expect(await db.queries.profiles.isFollowing(ada.id, bob.id)).toBe(true);
 
 		const unfollowed = await server.profile.unfollow.call(context, form({ username: "bob" }));
 
 		expect(unfollowed.error).toBeUndefined();
-		expect(await db.queries.profiles.isFollowing(ada.id, bob.id)).toBe(false);
+		expect(client.query.followers.findMany().sync()).toEqual([]);
 	});
 
 	it("does not let a user follow themselves", async () => {

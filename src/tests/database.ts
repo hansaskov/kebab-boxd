@@ -6,9 +6,21 @@ import type { Client } from "@src/db/client";
 import * as s from "@src/db/schema";
 
 export function createTestDatabase(name: string) {
-	const client = createClient(`file:${name}?mode=memory`);
+	let recording: string[] | undefined;
+	const client = createClient(`file:${name}?mode=memory`, { logQuery: (query) => recording?.push(query) });
 	migrateClient(client);
-	return { client, db: createDatabase(client) };
+
+	async function recordQueries<T>(work: () => Promise<T>) {
+		const queries: string[] = [];
+		recording = queries;
+		try {
+			return { result: await work(), queries };
+		} finally {
+			recording = undefined;
+		}
+	}
+
+	return { client, db: createDatabase(client), recordQueries };
 }
 
 export function insertUser(client: Client, username: string, role: "user" | "admin" = "user") {
