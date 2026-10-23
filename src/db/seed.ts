@@ -3,7 +3,6 @@ import * as schema from "@src/db/schema";
 import { createDatabase } from "@src/db";
 import type { Client } from "@src/db/client";
 import { pronouns } from "@src/data/pronouns";
-import { can } from "@src/auth/permissions";
 import { createSession } from "@src/auth/session";
 import { buildUsername } from "@src/db/mutations/accounts";
 import { eq } from "drizzle-orm";
@@ -205,7 +204,7 @@ export async function seedDatabase(client: Client) {
     .where(eq(schema.users.role, "user"))
     .limit(3);
   for (const { id } of bannableUsers) {
-    await db.mutations.users.ban(id, admin.id, (actor, target) => can(actor, "user:ban", target));
+    await db.mutations.users.ban(id, admin.id);
   }
 
   const favoritesRows = uniquePairs(250, userIds, restaurantIds).map(([userId, restaurantId]) => ({

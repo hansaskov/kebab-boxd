@@ -4,6 +4,8 @@ Review your favorite kebab restaurants.
 
 ## Installation
 
+Copy `.env.example` to `.env`. and add the google credentials before you begin.
+
 ```bash
 pnpm install
 pnpm db:migrate
@@ -11,7 +13,6 @@ pnpm astro check
 pnpm run dev
 ```
 
-Copy `.env.example` to `.env`. Before you deploy.
 
 ## Tech Stack
 
@@ -50,4 +51,4 @@ Copy `.env.example` to `.env`. Before you deploy.
 - [x] Login with Google
 - [x] Sidebar layout and placeholder pages
 - [x] Admin console with user management
-- [x] GDPR basics: privacy page, data export, account deletion and retention periods
+- [x] GDPR basics

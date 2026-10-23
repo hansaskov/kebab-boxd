@@ -1,4 +1,4 @@
-import { can } from "@src/auth/permissions";
+import { createSession, getSession } from "@src/auth/session";
 import { createDatabase } from "@src/db";
 import type { Database } from "@src/db";
 import { createClient, migrateClient } from "@src/db/client";
@@ -19,6 +19,6 @@ export function insertUser(client: Client, username: string, role: "user" | "adm
 		.get();
 }
 
-export function banAs(db: Database, adminId: number, userId: number) {
-	return db.mutations.users.ban(userId, adminId, (actor, target) => can(actor, "user:ban", target));
+export async function signIn(db: Database, userId: number) {
+	return getSession((await createSession(userId, db)).id, db);
 }

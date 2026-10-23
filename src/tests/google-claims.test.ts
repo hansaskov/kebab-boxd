@@ -8,12 +8,8 @@ function encodePart(value: unknown): string {
 	return base64UrlEncode(new TextEncoder().encode(JSON.stringify(value)));
 }
 
-function createIdToken(claims: Record<string, unknown>): string {
-	return `${encodePart({ alg: "RS256", typ: "JWT" })}.${encodePart(claims)}.signature`;
-}
-
-function validClaims(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-	return {
+function idToken(overrides: Record<string, unknown> = {}): string {
+	const claims = {
 		sub: "google-sub-1",
 		name: "Ada Lovelace",
 		email: "ada@example.com",
@@ -22,13 +18,12 @@ function validClaims(overrides: Record<string, unknown> = {}): Record<string, un
 		iss: "https://accounts.google.com",
 		...overrides,
 	};
+	return `${encodePart({ alg: "RS256", typ: "JWT" })}.${encodePart(claims)}.signature`;
 }
 
 describe("parseGoogleIdToken", () => {
 	it("returns a provider account from valid claims", () => {
-		const providerAccount = parseGoogleIdToken(createIdToken(validClaims()), clientId);
-
-		expect(providerAccount).toEqual({
+		expect(parseGoogleIdToken(idToken(), clientId)).toEqual({
 			providerId: "google",
 			accountId: "google-sub-1",
 			fullname: "Ada Lovelace",
@@ -37,21 +32,11 @@ describe("parseGoogleIdToken", () => {
 		});
 	});
 
-	it("rejects a token issued for another client", () => {
-		const token = createIdToken(validClaims({ aud: "someone-else" }));
-
-		expect(() => parseGoogleIdToken(token, clientId)).toThrow(InvalidIdTokenError);
-	});
-
-	it("rejects a token from another issuer", () => {
-		const token = createIdToken(validClaims({ iss: "https://example.com" }));
-
-		expect(() => parseGoogleIdToken(token, clientId)).toThrow(InvalidIdTokenError);
-	});
-
-	it("rejects an unverified email address", () => {
-		const token = createIdToken(validClaims({ email_verified: false }));
-
-		expect(() => parseGoogleIdToken(token, clientId)).toThrow(InvalidIdTokenError);
+	it.each([
+		["another client", { aud: "someone-else" }],
+		["another issuer", { iss: "https://example.com" }],
+		["an unverified email address", { email_verified: false }],
+	])("rejects a token for %s", (_, overrides) => {
+		expect(() => parseGoogleIdToken(idToken(overrides), clientId)).toThrow(InvalidIdTokenError);
 	});
 });

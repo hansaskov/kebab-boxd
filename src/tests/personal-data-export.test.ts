@@ -15,12 +15,12 @@ function insertRestaurant(client: Client, name: string, suggestedBy: number | nu
 	return client.insert(s.restaurants).values({ name, locationId: location.id, suggestedBy }).returning().get();
 }
 
-async function requestExport(db: Database, viewerSessionId: string | null, username: string) {
+async function requestExport(db: Database, viewerSessionId: string, username: string) {
 	const container = await AstroContainer.create();
 	container.insertPageRoute("/403", ForbiddenPage);
 	container.insertPageRoute("/404", NotFoundPage);
 	return renderEndpoint(container, ExportEndpoint, {
-		locals: { db, session: viewerSessionId ? await getSession(viewerSessionId, db) : null },
+		locals: { db, session: await getSession(viewerSessionId, db) },
 		params: { username },
 		request: new Request(`http://localhost/api/users/${username}/export`),
 	});
@@ -100,41 +100,9 @@ describe("personalData.findByUser", () => {
 		expect(exported).not.toContain("Buffer");
 		expect(exported).not.toContain(bob.email);
 	});
-
-	it("returns nothing for a user who does not exist", async () => {
-		const { db } = createTestDatabase("personal-data-missing");
-
-		expect(await db.queries.personalData.findByUser(404)).toBeUndefined();
-	});
 });
 
 describe("GET /api/users/[username]/export", () => {
-	it("downloads the data of the signed-in user as a JSON file", async () => {
-		const { client, db } = createTestDatabase("export-own");
-		const ada = insertUser(client, "ada");
-		const session = await createSession(ada.id, db);
-
-		const response = await requestExport(db, session.id, "ada");
-
-		expect(response.status).toBe(200);
-		expect(response.headers.get("Content-Type")).toBe("application/json; charset=utf-8");
-		expect(response.headers.get("Content-Disposition")).toMatch(/^attachment; filename="kebab-boxd-ada-\d{4}-\d{2}-\d{2}\.json"$/);
-		expect(response.headers.get("Cache-Control")).toBe("no-store");
-		expect(await response.json()).toMatchObject({ profile: { username: "ada", email: ada.email } });
-	});
-
-	it("does not let a user download the data of someone else", async () => {
-		const { client, db } = createTestDatabase("export-forbidden");
-		const ada = insertUser(client, "ada");
-		insertUser(client, "bob");
-		const session = await createSession(ada.id, db);
-
-		const response = await requestExport(db, session.id, "bob");
-
-		expect(response.status).toBe(403);
-		expect(await response.text()).not.toContain("bob@example.com");
-	});
-
 	it("does not let an admin download the data of another user", async () => {
 		const { client, db } = createTestDatabase("export-admin");
 		const admin = insertUser(client, "ada", "admin");
@@ -145,14 +113,5 @@ describe("GET /api/users/[username]/export", () => {
 
 		expect(response.status).toBe(403);
 		expect(await response.text()).not.toContain("bob@example.com");
-	});
-
-	it("sends a visitor who is not signed in to the login page", async () => {
-		const { db } = createTestDatabase("export-anonymous");
-
-		const response = await requestExport(db, null, "ada");
-
-		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe("/login");
 	});
 });

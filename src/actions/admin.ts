@@ -1,7 +1,6 @@
 import { ActionError, defineAction } from "astro:actions";
 import { z } from "astro/zod";
 import { authorizeTargetUser } from "@src/actions/authorize";
-import { can } from "@src/auth/permissions";
 import { roles } from "@src/db/schema";
 import { usernameSchema } from "@src/validation/username";
 
@@ -31,9 +30,7 @@ export const adminActions = {
     handler: async (input, context) => {
       const { session, targetUser } = await authorizeTargetUser(context.locals, input.username, "user:ban");
 
-      const result = await context.locals.db.mutations.users.ban(targetUser.id, session.user.id, (actor, target) =>
-        can(actor, "user:ban", target),
-      );
+      const result = await context.locals.db.mutations.users.ban(targetUser.id, session.user.id);
 
       if (result === "refused") {
         throw refusedSinceRequestStarted();
@@ -48,9 +45,7 @@ export const adminActions = {
     handler: async (input, context) => {
       const { session, targetUser } = await authorizeTargetUser(context.locals, input.username, "user:ban");
 
-      const result = await context.locals.db.mutations.users.unban(targetUser.id, session.user.id, (actor, target) =>
-        can(actor, "user:ban", target),
-      );
+      const result = await context.locals.db.mutations.users.unban(targetUser.id, session.user.id);
 
       if (result === "refused") {
         throw refusedSinceRequestStarted();
@@ -69,12 +64,7 @@ export const adminActions = {
         "user:change-role",
       );
 
-      const result = await context.locals.db.mutations.users.setRole(
-        targetUser.id,
-        input.role,
-        session.user.id,
-        (actor, target) => can(actor, "user:change-role", target),
-      );
+      const result = await context.locals.db.mutations.users.setRole(targetUser.id, input.role, session.user.id);
 
       if (result === "refused") {
         throw refusedSinceRequestStarted();

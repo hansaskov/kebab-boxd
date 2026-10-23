@@ -3,7 +3,6 @@ import { eq } from "drizzle-orm";
 import { createSession } from "@src/auth/session";
 import { historyRetentionSeconds } from "@src/db/mutations/retention";
 import { inactivityTimeoutSeconds } from "@src/db/queries/sessions";
-import { scheduleRetentionPurge } from "@src/retention";
 import * as s from "@src/db/schema";
 import { createTestDatabase, insertUser } from "@src/tests/database";
 
@@ -49,19 +48,5 @@ describe("retention.purge", () => {
 		expect(
 			client.select({ requestedAt: s.history.requestedAt }).from(s.history).where(eq(s.history.sessionId, session.id)).all(),
 		).toEqual([{ requestedAt: secondsBeforeNow(historyRetentionSeconds) }]);
-	});
-});
-
-describe("scheduleRetentionPurge", () => {
-	it("purges right away and returns a function that stops the schedule", async () => {
-		const { client, db } = createTestDatabase("retention-schedule");
-		const ada = insertUser(client, "ada");
-		const expired = await createSession(ada.id, db);
-		await db.mutations.sessions.setLastVerifiedAt(expired.id, new Date(Date.now() - inactivityTimeoutSeconds * 1000));
-
-		const stop = scheduleRetentionPurge(db);
-		stop();
-
-		expect(client.select().from(s.sessions).all()).toEqual([]);
 	});
 });

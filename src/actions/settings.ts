@@ -3,7 +3,6 @@ import { z } from "astro/zod";
 import { pronouns } from "@src/data/pronouns";
 import { deleteSessionTokenCookie } from "@src/auth/session";
 import { authorizeTargetUser } from "@src/actions/authorize";
-import { can } from "@src/auth/permissions";
 import { usernameSchema } from "@src/validation/username";
 
 export const updateAccountSchema = z.object({
@@ -87,9 +86,7 @@ export const settingsActions = {
         "user:delete-account",
       );
 
-      const result = await context.locals.db.mutations.users.delete(targetUser.id, session.user.id, (actor, target) =>
-        can(actor, "user:delete-account", target),
-      );
+      const result = await context.locals.db.mutations.users.delete(targetUser.id, session.user.id);
 
       if (result === "refused") {
         throw new ActionError({
