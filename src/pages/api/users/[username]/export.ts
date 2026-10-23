@@ -25,7 +25,7 @@ export const GET = (async ({ params, locals: { db, session }, redirect, rewrite 
 	const exportedAt = new Date();
 	const filename = `kebab-boxd-${user.username}-${exportedAt.toISOString().slice(0, 10)}.json`;
 
-	return new Response(JSON.stringify({ exportedAt, ...data }, null, 2), {
+	return new Response(JSON.stringify({ exportedAt, user: data }, null, 2), {
 		headers: {
 			"Content-Type": "application/json; charset=utf-8",
 			"Content-Disposition": `attachment; filename="${filename}"`,

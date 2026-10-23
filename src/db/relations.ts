@@ -6,28 +6,20 @@ export const relations = defineRelations(s, (r) => ({
     sessions: r.many.sessions(),
     accounts: r.many.accounts(),
     reviews: r.many.reviews(),
-    following: r.many.users({
-      from: r.users.id.through(r.followers.followerId),
-      to: r.users.id.through(r.followers.followingId),
+    following: r.many.followers({
+      from: r.users.id,
+      to: r.followers.followerId,
     }),
-    followers: r.many.users({
-      from: r.users.id.through(r.followers.followingId),
-      to: r.users.id.through(r.followers.followerId),
+    followers: r.many.followers({
+      from: r.users.id,
+      to: r.followers.followingId,
     }),
-    favorites: r.many.restaurants({
-      from: r.users.id.through(r.favorites.userId),
-      to: r.restaurants.id.through(r.favorites.restaurantId),
-      alias: "favorites",
-    }),
-    bucketList: r.many.restaurants({
-      from: r.users.id.through(r.bucketList.userId),
-      to: r.restaurants.id.through(r.bucketList.restaurantId),
-      alias: "bucketList",
-    }),
-    likes: r.many.reviews({
-      from: r.users.id.through(r.likes.userId),
-      to: r.reviews.id.through(r.likes.reviewId),
-      alias: "likes",
+    favorites: r.many.favorites(),
+    bucketList: r.many.bucketList(),
+    likes: r.many.likes(),
+    suggestions: r.many.restaurants({
+      from: r.users.id,
+      to: r.restaurants.suggestedBy,
     }),
     profilePicture: r.one.pictures({
       from: r.users.profilePictureId,
@@ -37,12 +29,8 @@ export const relations = defineRelations(s, (r) => ({
 
   restaurants: {
     reviews: r.many.reviews(),
-    favorites: r.many.users({
-      alias: "favorites",
-    }),
-    wantsToGo: r.many.users({
-      alias: "bucketList",
-    }),
+    favorites: r.many.favorites(),
+    bucketList: r.many.bucketList(),
     location: r.one.locations({
       from: r.restaurants.locationId,
       to: r.locations.id,
@@ -65,9 +53,7 @@ export const relations = defineRelations(s, (r) => ({
       from: r.reviews.id.through(r.reviewPictures.reviewId),
       to: r.pictures.id.through(r.reviewPictures.pictureId),
     }),
-    likes: r.many.users({
-      alias: "likes",
-    }),
+    likes: r.many.likes(),
   },
 
   sessions: {
@@ -109,6 +95,11 @@ export const relations = defineRelations(s, (r) => ({
   },
 
   favorites: {
+    user: r.one.users({
+      from: r.favorites.userId,
+      to: r.users.id,
+      optional: false,
+    }),
     restaurant: r.one.restaurants({
       from: r.favorites.restaurantId,
       to: r.restaurants.id,
@@ -117,6 +108,11 @@ export const relations = defineRelations(s, (r) => ({
   },
 
   bucketList: {
+    user: r.one.users({
+      from: r.bucketList.userId,
+      to: r.users.id,
+      optional: false,
+    }),
     restaurant: r.one.restaurants({
       from: r.bucketList.restaurantId,
       to: r.restaurants.id,
@@ -125,6 +121,11 @@ export const relations = defineRelations(s, (r) => ({
   },
 
   likes: {
+    user: r.one.users({
+      from: r.likes.userId,
+      to: r.users.id,
+      optional: false,
+    }),
     review: r.one.reviews({
       from: r.likes.reviewId,
       to: r.reviews.id,

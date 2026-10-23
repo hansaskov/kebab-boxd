@@ -109,7 +109,7 @@ const layout = profile
   {profile ? (
     <>
       <header class="flex flex-wrap items-center gap-4">
-        <Avatar class="size-20 text-2xl" name={user.fullname} pictureUrl={user.profilePicture?.url ?? null} />
+        <Avatar class="size-20 text-2xl" name={user.fullname} picture={user.profilePicture} />
         <div class="min-w-0 flex-1">
           <div class="flex flex-wrap items-center gap-2">
             <h1 class="t-subheading">{user.fullname}</h1>

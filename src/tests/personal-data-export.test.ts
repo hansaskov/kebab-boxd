@@ -5,15 +5,9 @@ import ForbiddenPage from "@src/pages/403.astro";
 import NotFoundPage from "@src/pages/404.astro";
 import { createSession, getSession } from "@src/auth/session";
 import type { Database } from "@src/db";
-import type { Client } from "@src/db/client";
 import * as s from "@src/db/schema";
 import { renderEndpoint } from "@src/tests/container";
-import { createTestDatabase, insertUser } from "@src/tests/database";
-
-function insertRestaurant(client: Client, name: string, suggestedBy: number | null = null) {
-	const location = client.insert(s.locations).values({ latitude: 55.68, longitude: 12.57 }).returning().get();
-	return client.insert(s.restaurants).values({ name, locationId: location.id, suggestedBy }).returning().get();
-}
+import { createTestDatabase, insertRestaurant, insertReview, insertUser } from "@src/tests/database";
 
 async function requestExport(db: Database, viewerSessionId: string, username: string) {
 	const container = await AstroContainer.create();
@@ -26,9 +20,9 @@ async function requestExport(db: Database, viewerSessionId: string, username: st
 	});
 }
 
-describe("personalData.findByUser", () => {
-	it("collects everything stored about the user", async () => {
-		const { client, db } = createTestDatabase("personal-data-complete");
+describe("GET /api/users/[username]/export", () => {
+	it("downloads everything stored about the user", async () => {
+		const { client, db } = createTestDatabase("export-complete");
 		const picture = client.insert(s.pictures).values({ url: "https://pictures.example/ada.webp" }).returning().get();
 		const ada = client.insert(s.users)
 			.values({ fullname: "Ada Lovelace", username: "ada", email: "ada@example.com", bio: "Döner fan", profilePictureId: picture.id })
@@ -36,14 +30,14 @@ describe("personalData.findByUser", () => {
 			.get();
 		const bob = insertUser(client, "bob");
 		const grill = insertRestaurant(client, "Bosporus Grill");
-		const suggested = insertRestaurant(client, "Mangal Express", ada.id);
+		const suggested = insertRestaurant(client, "Mangal Express", { suggestedBy: ada.id });
 		const reviewPicture = client.insert(s.pictures).values({ url: "https://pictures.example/review.webp" }).returning().get();
 		const adaReview = client.insert(s.reviews)
 			.values({ authorId: ada.id, restaurantId: grill.id, rating: 9, description: "Crispy" })
 			.returning()
 			.get();
 		client.insert(s.reviewPictures).values({ reviewId: adaReview.id, pictureId: reviewPicture.id }).run();
-		const bobReview = client.insert(s.reviews).values({ authorId: bob.id, restaurantId: grill.id, rating: 4 }).returning().get();
+		const bobReview = insertReview(client, bob.id, grill.id, 4);
 		client.insert(s.likes).values({ userId: ada.id, reviewId: bobReview.id }).run();
 		client.insert(s.followers).values([
 			{ followerId: ada.id, followingId: bob.id },
@@ -57,52 +51,51 @@ describe("personalData.findByUser", () => {
 			.values({ sessionId: session.id, requestedAt: new Date(), method: "GET", route: "/explore", path: "/explore", status: 200 })
 			.run();
 
-		const data = await db.queries.personalData.findByUser(ada.id);
+		const response = await requestExport(db, session.id, "ada");
 
-		expect(data).toMatchObject({
-			profile: {
-				fullname: "Ada Lovelace",
-				username: "ada",
-				email: "ada@example.com",
-				bio: "Döner fan",
-				profilePicture: "https://pictures.example/ada.webp",
-			},
+		expect(response.status).toBe(200);
+		expect(response.headers.get("Content-Disposition")).toMatch(/^attachment; filename="kebab-boxd-ada-\d{4}-\d{2}-\d{2}\.json"$/);
+		expect((await response.json()).user).toMatchObject({
+			fullname: "Ada Lovelace",
+			username: "ada",
+			email: "ada@example.com",
+			bio: "Döner fan",
+			profilePicture: { url: "https://pictures.example/ada.webp" },
 			accounts: [{ providerId: "google", accountId: "ada-google" }],
 			sessions: [{ theme: "light", history: [{ method: "GET", path: "/explore", status: 200, prefetched: false }] }],
 			reviews: [
 				{
-					restaurant: "Bosporus Grill",
-					stars: 4.5,
+					restaurant: { name: "Bosporus Grill" },
+					rating: 9,
 					description: "Crispy",
-					pictures: ["https://pictures.example/review.webp"],
+					pictures: [{ url: "https://pictures.example/review.webp" }],
 				},
 			],
-			likes: [{ author: "bob", restaurant: "Bosporus Grill" }],
-			following: [{ username: "bob" }],
-			followers: [{ username: "bob" }],
-			favorites: [{ restaurant: "Bosporus Grill" }],
-			bucketList: [{ restaurant: "Mangal Express" }],
-			suggestions: [{ restaurant: "Mangal Express", status: "pending" }],
+			likes: [{ review: { author: { username: "bob" }, restaurant: { name: "Bosporus Grill" } } }],
+			following: [{ following: { username: "bob" } }],
+			followers: [{ follower: { username: "bob" } }],
+			favorites: [{ restaurant: { name: "Bosporus Grill" } }],
+			bucketList: [{ restaurant: { name: "Mangal Express" } }],
+			suggestions: [{ name: "Mangal Express", status: "pending" }],
 		});
 	});
 
 	it("leaves out session secrets and the private data of other users", async () => {
-		const { client, db } = createTestDatabase("personal-data-private");
+		const { client, db } = createTestDatabase("export-private");
 		const ada = insertUser(client, "ada");
 		const bob = insertUser(client, "bob");
 		client.insert(s.followers).values({ followerId: ada.id, followingId: bob.id }).run();
 		const session = await createSession(ada.id, db);
 
-		const exported = JSON.stringify(await db.queries.personalData.findByUser(ada.id));
+		const exported = await (await requestExport(db, session.id, "ada")).text();
 
+		expect(exported).toContain(ada.email);
 		expect(exported).not.toContain(session.id);
 		expect(exported).not.toContain(session.secretHash.toString("hex"));
 		expect(exported).not.toContain("Buffer");
 		expect(exported).not.toContain(bob.email);
 	});
-});
 
-describe("GET /api/users/[username]/export", () => {
 	it("does not let an admin download the data of another user", async () => {
 		const { client, db } = createTestDatabase("export-admin");
 		const admin = insertUser(client, "ada", "admin");

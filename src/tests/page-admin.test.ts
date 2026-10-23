@@ -73,6 +73,35 @@ describe("admin console", () => {
 		expect(nextHref(second.html)).toBeUndefined();
 	});
 
+	it("matches percent signs and underscores in the search literally", async () => {
+		const { client, db } = createTestDatabase("admin-users-search-wildcards");
+		const admin = insertUser(client, "root_admin", "admin");
+		insertUser(client, "kebab_king");
+		insertUser(client, "kebabxking");
+		const session = await signIn(db, admin.id);
+
+		const underscore = await render(AdminUsersPage, db, session, "/admin/users?q=b_k");
+		const percent = await render(AdminUsersPage, db, session, "/admin/users?q=%25");
+
+		expect(listedUsernames(underscore.html)).toEqual(["kebab_king"]);
+		expect(underscore.html).toContain("1 user<");
+		expect(listedUsernames(percent.html)).toEqual([]);
+		expect(percent.html).toContain("No users match “%”.");
+	});
+
+	it("counts all users, admins and banned users", async () => {
+		const { client, db } = createTestDatabase("admin-console-counts");
+		const admin = insertUser(client, "root_admin", "admin");
+		const ada = insertUser(client, "ada");
+		insertUser(client, "bob");
+		await db.mutations.users.ban(ada.id, admin.id);
+
+		const { html } = await render(AdminPage, db, await signIn(db, admin.id), "/admin");
+		const counts = [...html.matchAll(/text-fg-muted">(\w+)<\/span>\s*<span class="t-body block font-medium">(\d+)</g)];
+
+		expect(Object.fromEntries(counts.map((match) => [match[1], Number(match[2])]))).toEqual({ Users: 3, Admins: 1, Banned: 1 });
+	});
+
 	it("sends a username in other letter case to the address of the user", async () => {
 		const { client, db } = createTestDatabase("admin-user-page-case");
 		const admin = insertUser(client, "root_admin", "admin");

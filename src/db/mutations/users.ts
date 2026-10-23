@@ -18,7 +18,7 @@ function findDependentsOf(tx: Transaction, id: number) {
 					columns: { restaurantId: true },
 					with: { pictures: { columns: { id: true } } },
 				},
-				likes: { columns: { id: true }, where: { authorId: { ne: id } } },
+				likes: { columns: { reviewId: true } },
 			},
 			where: { id },
 		})
@@ -28,7 +28,7 @@ function findDependentsOf(tx: Transaction, id: number) {
 	const reviewPictureIds = user.reviews.flatMap((review) => review.pictures.map((picture) => picture.id));
 	return {
 		restaurantIds: user.reviews.map((review) => review.restaurantId),
-		likedReviewIds: user.likes.map((review) => review.id),
+		likedReviewIds: user.likes.map((like) => like.reviewId),
 		pictureIds: user.profilePictureId === null ? reviewPictureIds : [user.profilePictureId, ...reviewPictureIds],
 	};
 }
