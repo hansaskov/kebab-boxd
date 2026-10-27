@@ -92,5 +92,5 @@ The cached count of Likes a Review has received. A display field updated synchro
 _Avoid_: LikeAmount, LikeTotal
 
 **Notification**:
-A message sent to a User in response to a relevant event: someone Follows them, someone Likes their Review, or their Restaurant Suggestion is approved or rejected. Planned but deferred for a future stage.
+A message sent to a User in response to a relevant event: someone Follows them, someone Likes their Review, or an Admin approves or rejects the Restaurant they suggested. No one is notified of their own action. Undoing the event removes the Notification: an unfollow, an unlike, or a deleted Review. A new decision on the same Restaurant replaces the earlier Notification. A Notification stays unread until its User marks their Notifications as read; opening the list does not mark them. While the User who caused it is banned, a Notification is hidden. Each User can turn off each kind (follows, likes, suggestions). This stops new Notifications of that kind and keeps the existing ones.
 _Avoid_: Alert, Update, Ping

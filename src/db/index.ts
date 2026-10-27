@@ -2,12 +2,14 @@ import type { Client } from "@src/db/client";
 import { createAccountMutations } from "@src/db/mutations/accounts";
 import { createFollowMutations } from "@src/db/mutations/follows";
 import { createHistoryMutations } from "@src/db/mutations/history";
+import { createNotificationMutations } from "@src/db/mutations/notifications";
 import { createRestaurantMutations } from "@src/db/mutations/restaurants";
 import { createRetentionMutations } from "@src/db/mutations/retention";
 import { createReviewMutations } from "@src/db/mutations/reviews";
 import { createSessionMutations } from "@src/db/mutations/sessions";
 import { createUserMutations } from "@src/db/mutations/users";
 import { createHistoryQueries } from "@src/db/queries/history";
+import { createNotificationQueries } from "@src/db/queries/notifications";
 import { createPeopleQueries } from "@src/db/queries/people";
 import { createPersonalDataQueries } from "@src/db/queries/personal-data";
 import { createProfileQueries } from "@src/db/queries/profiles";
@@ -24,6 +26,7 @@ export function createDatabase(client: Client, pictures: PictureStore) {
 		pictures,
 		queries: {
 			history: createHistoryQueries(client),
+			notifications: createNotificationQueries(client),
 			people: createPeopleQueries(client),
 			personalData: createPersonalDataQueries(client),
 			profiles: createProfileQueries(client),
@@ -36,6 +39,7 @@ export function createDatabase(client: Client, pictures: PictureStore) {
 			accounts: createAccountMutations(client),
 			follows: createFollowMutations(client),
 			history: createHistoryMutations(client),
+			notifications: createNotificationMutations(client),
 			restaurants: createRestaurantMutations(client),
 			retention: createRetentionMutations(client),
 			reviews: createReviewMutations(client, pictures),

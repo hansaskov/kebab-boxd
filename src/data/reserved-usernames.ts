@@ -24,6 +24,7 @@ export const reservedUsernames: ReadonlySet<string> = new Set([
   "moderator",
   "nearby",
   "new",
+  "notifications",
   "null",
   "official",
   "people",

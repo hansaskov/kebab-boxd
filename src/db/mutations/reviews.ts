@@ -3,6 +3,7 @@ import type { Client, Transaction } from "@src/db/client";
 import { isListedReview } from "@src/db/filters";
 import { authorizedWrite } from "@src/db/mutations/authorized-write";
 import { refreshLikeCounts, refreshRestaurantStats } from "@src/db/mutations/cached-stats";
+import { notify, withdraw } from "@src/db/mutations/notifications";
 import { attachReviewPictures, deletePictures, savingPictures } from "@src/db/mutations/pictures";
 import { findTargetRestaurant } from "@src/db/mutations/restaurants";
 import * as s from "@src/db/schema";
@@ -94,19 +95,21 @@ export function createReviewMutations(client: Client, pictures: PictureStore) {
 		},
 
 		async like(userId: number, reviewId: number) {
-			return authorizedWrite(client, userId, "review:like", (tx) => findTargetReview(tx, reviewId), (tx) => {
-				tx.insert(s.likes).values({ userId, reviewId }).onConflictDoNothing().run();
+			return authorizedWrite(client, userId, "review:like", (tx) => findTargetReview(tx, reviewId), (tx, review) => {
+				const { changes } = tx.insert(s.likes).values({ userId, reviewId }).onConflictDoNothing().run();
 				refreshLikeCounts(tx, [reviewId]);
+				if (changes > 0) notify(tx, { kind: "like", recipientId: review.authorId, actorId: userId, reviewId });
 				return "updated" as const;
 			});
 		},
 
 		async unlike(userId: number, reviewId: number) {
-			return authorizedWrite(client, userId, "review:unlike", (tx) => findTargetReview(tx, reviewId), (tx) => {
+			return authorizedWrite(client, userId, "review:unlike", (tx) => findTargetReview(tx, reviewId), (tx, review) => {
 				tx.delete(s.likes)
 					.where(and(eq(s.likes.userId, userId), eq(s.likes.reviewId, reviewId)))
 					.run();
 				refreshLikeCounts(tx, [reviewId]);
+				withdraw(tx, { kind: "like", recipientId: review.authorId, actorId: userId, reviewId });
 				return "updated" as const;
 			});
 		},

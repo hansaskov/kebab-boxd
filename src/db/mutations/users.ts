@@ -2,6 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import type { Client, Transaction } from "@src/db/client";
 import { authorizedWrite, writeIfAuthorized } from "@src/db/mutations/authorized-write";
 import { refreshLikeCounts, refreshRestaurantStats, restaurantIdsReviewedBy } from "@src/db/mutations/cached-stats";
+import type { NotificationPreferences } from "@src/db/mutations/notifications";
 import { deletePictures, insertPictures, savingPictures } from "@src/db/mutations/pictures";
 import { deleteAllSessionsOf } from "@src/db/mutations/sessions";
 import * as s from "@src/db/schema";
@@ -76,6 +77,12 @@ export function createUserMutations(client: Client, pictures: PictureStore) {
 					.set({ latitude: location?.latitude ?? null, longitude: location?.longitude ?? null })
 					.where(eq(s.users.id, id))
 					.run();
+			});
+		},
+
+		async setNotificationPreferences(id: number, preferences: NotificationPreferences, actorId: number) {
+			return writeIfAuthorized(client, actorId, id, "user:edit-settings", (tx) => {
+				tx.update(s.users).set(preferences).where(eq(s.users.id, id)).run();
 			});
 		},
 

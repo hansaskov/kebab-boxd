@@ -1,3 +1,5 @@
+import type { Notification } from "@src/db/queries/notifications";
+
 function userPath(username: string) {
 	return `/${encodeURIComponent(username)}`;
 }
@@ -45,4 +47,16 @@ export function exploreHref({ center, zoom }: { center: { latitude: number; long
 		zoom: String(zoom),
 	});
 	return `/explore?${query}`;
+}
+
+export function notificationHref(notification: Notification) {
+	switch (notification.kind) {
+		case "follow":
+			return profileHref(notification.actor.username);
+		case "like":
+			return reviewHref(notification.review.id);
+		case "suggestion-approved":
+		case "suggestion-rejected":
+			return restaurantHref(notification.restaurant.id);
+	}
 }

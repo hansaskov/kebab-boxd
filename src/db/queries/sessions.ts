@@ -1,6 +1,7 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { inactivityTimeoutSeconds } from "@src/data/retention-periods";
 import type { Client } from "@src/db/client";
+import { isVisibleNotification } from "@src/db/filters";
 import * as s from "@src/db/schema";
 
 function activeSince() {
@@ -25,7 +26,23 @@ export function createSessionQueries(client: Client) {
 	return {
 		async findWithUser(id: string) {
 			return client.query.sessions.findFirst({
-				with: { user: { with: { profilePicture: { columns: { url: true } } } } },
+				with: {
+					user: {
+						with: { profilePicture: { columns: { url: true } } },
+						extras: {
+							// Every page shows it, so it comes with the session instead of costing a query of its own.
+							unreadNotificationCount: (user) =>
+								client.$count(
+									s.notifications,
+									and(
+										eq(s.notifications.recipientId, user.id),
+										isNull(s.notifications.readAt),
+										isVisibleNotification(s.notifications),
+									),
+								),
+						},
+					},
+				},
 				where: { id },
 			});
 		},

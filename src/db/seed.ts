@@ -217,6 +217,17 @@ export async function seedDatabase(client: Client, pictures: PictureStore) {
     await client.insert(schema.likes).values(likesRows);
   }
 
+  const reviewAuthors = new Map(
+    (await client.query.reviews.findMany({ columns: { id: true, authorId: true } })).map((review) => [review.id, review.authorId]),
+  );
+  const likeNotificationRows = likesRows.flatMap(({ userId, reviewId }) => {
+    const recipientId = reviewAuthors.get(reviewId);
+    return recipientId === undefined || recipientId === userId ? [] : [{ kind: "like" as const, recipientId, actorId: userId, reviewId }];
+  });
+  if (likeNotificationRows.length > 0) {
+    await client.insert(schema.notifications).values(likeNotificationRows);
+  }
+
   const bucketListRows = uniquePairs(100, userIds, restaurantIds).map(([userId, restaurantId]) => ({
     userId,
     restaurantId,

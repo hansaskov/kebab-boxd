@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { redirectClearingSpeculations } from "@src/middleware/speculations";
 
 export const POST = (async ({ redirect, locals: {db, session}, request }) => {
 
@@ -11,13 +12,6 @@ export const POST = (async ({ redirect, locals: {db, session}, request }) => {
 
 	const referer = request.headers.get("Referer");
 
-	return new Response(null, {
-		status: 302,
-		headers: {
-			Location: referer ?? "/",
-			"Cache-Control": "no-store",
-			"Clear-Site-Data": "\"prefetchCache\", \"prerenderCache\"",
-		},
-	});
+	return redirectClearingSpeculations(referer ?? "/");
 
 }) satisfies APIRoute;

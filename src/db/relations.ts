@@ -25,6 +25,10 @@ export const relations = defineRelations(s, (r) => ({
       from: r.users.profilePictureId,
       to: r.pictures.id,
     }),
+    notifications: r.many.notifications({
+      from: r.users.id,
+      to: r.notifications.recipientId,
+    }),
   },
 
   restaurants: {
@@ -141,6 +145,26 @@ export const relations = defineRelations(s, (r) => ({
       from: r.likes.reviewId,
       to: r.reviews.id,
       optional: false,
+    }),
+  },
+
+  notifications: {
+    recipient: r.one.users({
+      from: r.notifications.recipientId,
+      to: r.users.id,
+      optional: false,
+    }),
+    actor: r.one.users({
+      from: r.notifications.actorId,
+      to: r.users.id,
+    }),
+    review: r.one.reviews({
+      from: r.notifications.reviewId,
+      to: r.reviews.id,
+    }),
+    restaurant: r.one.restaurants({
+      from: r.notifications.restaurantId,
+      to: r.restaurants.id,
     }),
   },
 }));

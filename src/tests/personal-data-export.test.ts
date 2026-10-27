@@ -1,5 +1,6 @@
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
 import * as ExportEndpoint from "@src/pages/api/users/[username]/export";
 import ForbiddenPage from "@src/pages/403.astro";
 import NotFoundPage from "@src/pages/404.astro";
@@ -43,6 +44,11 @@ describe("GET /api/users/[username]/export", () => {
 			{ followerId: ada.id, followingId: bob.id },
 			{ followerId: bob.id, followingId: ada.id },
 		]).run();
+		client.insert(s.notifications).values([
+			{ kind: "follow", recipientId: ada.id, actorId: bob.id },
+			{ kind: "suggestion-rejected", recipientId: ada.id, restaurantId: suggested.id },
+		]).run();
+		client.update(s.users).set({ likeNotifications: false }).where(eq(s.users.id, ada.id)).run();
 		client.insert(s.favorites).values({ userId: ada.id, restaurantId: grill.id }).run();
 		client.insert(s.bucketList).values({ userId: ada.id, restaurantId: suggested.id }).run();
 		client.insert(s.accounts).values({ userId: ada.id, providerId: "google", accountId: "ada-google" }).run();
@@ -77,6 +83,13 @@ describe("GET /api/users/[username]/export", () => {
 			favorites: [{ restaurant: { name: "Bosporus Grill" } }],
 			bucketList: [{ restaurant: { name: "Mangal Express" } }],
 			suggestions: [{ name: "Mangal Express", status: "pending" }],
+			followNotifications: true,
+			likeNotifications: false,
+			suggestionNotifications: true,
+			notifications: [
+				{ kind: "follow", readAt: null, actor: { username: "bob" }, review: null, restaurant: null },
+				{ kind: "suggestion-rejected", readAt: null, actor: null, review: null, restaurant: { name: "Mangal Express" } },
+			],
 		});
 	});
 

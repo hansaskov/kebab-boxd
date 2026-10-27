@@ -18,6 +18,9 @@ export const users = p.snakeCase.table("users", {
   pronoun: p.text({ enum: pronouns }),
   latitude: p.real(),
   longitude: p.real(),
+  followNotifications: p.int({ mode: "boolean" }).notNull().default(true),
+  likeNotifications: p.int({ mode: "boolean" }).notNull().default(true),
+  suggestionNotifications: p.int({ mode: "boolean" }).notNull().default(true),
   bannedAt: p.int({ mode: "timestamp" }),
   updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(now),
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
@@ -203,6 +206,35 @@ export const history = p.snakeCase.table("history", {
 ])
 
 export type NewHistoryEntry = typeof history.$inferInsert
+
+export const notifications = p.snakeCase.table("notifications", {
+  id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
+  recipientId: p.int({ mode: "number" }).notNull().references(() => users.id, {onDelete: "cascade"}),
+  kind: p.text({ enum: ["follow", "like", "suggestion-approved", "suggestion-rejected"] }).notNull(),
+  actorId: p.int({ mode: "number" }).references(() => users.id, {onDelete: "cascade"}),
+  reviewId: p.int({ mode: "number" }).references(() => reviews.id, {onDelete: "cascade"}),
+  restaurantId: p.int({ mode: "number" }).references(() => restaurants.id, {onDelete: "cascade"}),
+  readAt: p.int({ mode: "timestamp" }),
+  updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(now),
+  createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
+}, (t) => [
+  p.index("notifications_recipient_id_created_at_id_idx").on(t.recipientId, t.createdAt, t.id),
+  p.index("notifications_actor_id_idx").on(t.actorId),
+  // Only likes have a review and only decisions have a restaurant. The other kinds leave the column
+  // null, and nulls never collide, so these indexes need no condition on the kind.
+  p.uniqueIndex("notifications_review_id_actor_id_unique").on(t.reviewId, t.actorId),
+  p.uniqueIndex("notifications_restaurant_id_unique").on(t.restaurantId),
+  p.uniqueIndex("notifications_follow_unique").on(t.recipientId, t.actorId).where(sql`${t.kind} = 'follow'`),
+  p.check("notifications_not_own_action", sql`${t.actorId} IS NULL OR ${t.actorId} != ${t.recipientId}`),
+  p.check("notifications_kind_columns", sql`CASE ${t.kind}
+    WHEN 'follow' THEN ${t.actorId} IS NOT NULL AND ${t.reviewId} IS NULL AND ${t.restaurantId} IS NULL
+    WHEN 'like' THEN ${t.actorId} IS NOT NULL AND ${t.reviewId} IS NOT NULL AND ${t.restaurantId} IS NULL
+    ELSE ${t.actorId} IS NULL AND ${t.reviewId} IS NULL AND ${t.restaurantId} IS NOT NULL
+  END`),
+])
+
+export type NotificationKind = (typeof notifications.$inferSelect)["kind"]
+export type SuggestionDecision = Extract<NotificationKind, `suggestion-${string}`>
 
 export type SerializedActionResult = ReturnType<ReturnType<typeof getActionContext>["serializeActionResult"]>
 export type ActionData = {actionName: string, actionResult: SerializedActionResult, input?: SubmittedInput}

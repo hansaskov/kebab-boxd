@@ -29,6 +29,13 @@ export const updateLocationSchema = z.object({
   location: coordinatesSchema.nullable(),
 });
 
+export const updateNotificationsSchema = z.object({
+  currentUsername: z.string().trim().min(1).max(50),
+  followNotifications: z.boolean(),
+  likeNotifications: z.boolean(),
+  suggestionNotifications: z.boolean(),
+});
+
 export const currentUserSchema = z.object({
   currentUsername: z.string().trim().min(1).max(50),
 });
@@ -107,6 +114,19 @@ export const settingsActions = {
       const { session, targetUser } = await authorizeTargetUser(context.locals, input.currentUsername, "user:edit-settings");
 
       if ((await context.locals.db.mutations.users.setLocation(targetUser.id, input.location, session.user.id)) === "refused") {
+        throw refusedSinceRequestStarted();
+      }
+
+      return { redirect: settingsHref(targetUser.username) };
+    },
+  }),
+  updateNotifications: defineAction({
+    accept: "form",
+    input: updateNotificationsSchema,
+    handler: async ({ currentUsername, ...preferences }, context) => {
+      const { session, targetUser } = await authorizeTargetUser(context.locals, currentUsername, "user:edit-settings");
+
+      if ((await context.locals.db.mutations.users.setNotificationPreferences(targetUser.id, preferences, session.user.id)) === "refused") {
         throw refusedSinceRequestStarted();
       }
 

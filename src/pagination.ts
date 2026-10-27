@@ -1,6 +1,6 @@
 
 export const pageSizes = [10, 25, 50, 100] as const;
-export const defaultPageSize = 25;
+export const defaultPageSize = 10;
 
 export type Cursor = { after: string } | { before: string };
 

@@ -1,0 +1,13 @@
+---
+interface Props extends astroHTML.JSX.InputHTMLAttributes {
+    name: string;
+    label: string;
+}
+
+const { label, class: className, ...props } = Astro.props
+---
+
+<label class="flex cursor-pointer items-center justify-between gap-6 py-5">
+    <span class="field-label">{label}</span>
+    <input type="checkbox" class:list={["checkbox", className]} {...props} />
+</label>

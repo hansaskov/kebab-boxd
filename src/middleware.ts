@@ -6,6 +6,7 @@ import { defineMiddleware, sequence } from "astro:middleware";
 import { getActionContext } from "astro:actions";
 import { compressMiddleware } from "@src/middleware/compress";
 import { sameOriginReferer } from "@src/middleware/referer";
+import { redirectClearingSpeculations } from "@src/middleware/speculations";
 import { hasStringRedirect } from "@src/validation/type-guards";
 import { scheduleRetentionPurge } from "@src/retention";
 import { createPictureStore, picturePathPrefix } from "@src/pictures/store";
@@ -45,10 +46,10 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 		});
 
 		if (!actionResult.error && hasStringRedirect(actionResult.data)) {
-			return context.redirect(actionResult.data.redirect);
+			return redirectClearingSpeculations(actionResult.data.redirect);
 		}
 
-		return context.redirect(sameOriginReferer(context.request, context.url.origin) ?? context.originPathname);
+		return redirectClearingSpeculations(sameOriginReferer(context.request, context.url.origin) ?? context.originPathname);
 	}
 
 	if (context.request.method === "GET" && session.actionData) {

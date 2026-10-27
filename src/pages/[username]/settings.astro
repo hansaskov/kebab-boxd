@@ -4,6 +4,7 @@ import { settingsSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import DialogDrawer from "@src/components/DialogDrawer.astro";
 import Avatar from "@src/components/Avatar.astro";
+import FieldCheckbox from "@src/components/FieldCheckbox.astro";
 import FieldFile from "@src/components/FieldFile.astro";
 import FieldInput from "@src/components/FieldInput.astro";
 import FieldSelect from "@src/components/FieldSelect.astro";
@@ -81,7 +82,11 @@ let toast: Toast | undefined =
     (locationErrors ? undefined : resultToast(locationResult, "Saving failed", {
         title: "Location saved",
         text: "The map starts at your location.",
-    }));
+    })) ??
+    resultToast(Astro.getActionResult(actions.updateNotifications), "Saving failed", {
+        title: "Notifications saved",
+        text: "You get the notifications you chose.",
+    });
 
 if (actionResult) {
     if (actionResult.error) {
@@ -309,11 +314,17 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
 
     <section id="notifications" class="mt-8">
         <h2>Notifications</h2>
-        <div class="settings-card mt-3">
-            <p class="settings-row t-body-sm text-fg-muted">
-                Placeholder for notification settings.
-            </p>
-        </div>
+        <form class="mt-3" method="post" action={actions.updateNotifications}>
+            <input type="hidden" name="currentUsername" value={user.username} />
+            <fieldset class="settings-card">
+                <FieldCheckbox label="New followers" name="followNotifications" checked={user.followNotifications} />
+                <FieldCheckbox label="Likes on reviews" name="likeNotifications" checked={user.likeNotifications} />
+                <FieldCheckbox label="Decisions on suggestions" name="suggestionNotifications" checked={user.suggestionNotifications} />
+                <div class="settings-card-footer">
+                    <button class="btn btn-primary btn-md" type="submit">Save notifications</button>
+                </div>
+            </fieldset>
+        </form>
     </section>
 
     {canExportData && (

@@ -1,5 +1,6 @@
 import { deleteSessionTokenCookie } from "@src/auth/session";
 import type { APIRoute } from "astro";
+import { redirectClearingSpeculations } from "@src/middleware/speculations";
 
 export const POST = (async ({ cookies, redirect, locals }) => {
 	const session = locals.session;
@@ -11,12 +12,5 @@ export const POST = (async ({ cookies, redirect, locals }) => {
 	await locals.db.mutations.sessions.delete(session.id);
 	deleteSessionTokenCookie(cookies);
 
-	return new Response(null, {
-		status: 302,
-		headers: {
-			Location: "/login",
-			"Cache-Control": "no-store",
-			"Clear-Site-Data": "\"prefetchCache\", \"prerenderCache\"",
-		},
-	});
+	return redirectClearingSpeculations("/login");
 }) satisfies APIRoute;

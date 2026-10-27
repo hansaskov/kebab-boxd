@@ -22,6 +22,9 @@ export function createPersonalDataQueries(client: Client) {
 					pronoun: true,
 					latitude: true,
 					longitude: true,
+					followNotifications: true,
+					likeNotifications: true,
+					suggestionNotifications: true,
 					bannedAt: true,
 					createdAt: true,
 					updatedAt: true,
@@ -65,6 +68,15 @@ export function createPersonalDataQueries(client: Client) {
 					favorites: collectedRestaurant,
 					bucketList: collectedRestaurant,
 					suggestions: { columns: { name: true, status: true, createdAt: true }, ...oldestFirst },
+					notifications: {
+						columns: { kind: true, readAt: true, createdAt: true },
+						with: {
+							actor: { columns: { username: true } },
+							review: { columns: {}, with: { restaurant: { columns: { name: true } } } },
+							restaurant: { columns: { name: true } },
+						},
+						orderBy: { createdAt: "asc", id: "asc" },
+					},
 				},
 				where: { id: userId },
 			});

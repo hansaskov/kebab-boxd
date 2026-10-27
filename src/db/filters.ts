@@ -1,4 +1,4 @@
-import { and, eq, exists, isNull, sql, type RelationsFilter, type SQLWrapper } from "drizzle-orm";
+import { and, eq, exists, isNull, or, sql, type RelationsFilter, type SQLWrapper } from "drizzle-orm";
 import { QueryBuilder } from "drizzle-orm/sqlite-core";
 import type { relations } from "@src/db/relations";
 import { isInReviewWindow } from "@src/db/review-window";
@@ -52,6 +52,23 @@ export function isListedReview(review: ReviewColumns) {
 }
 
 export const listedReview = { RAW: (review) => isListedReview(review) } satisfies Filter<"reviews">;
+
+// A notification is hidden while the user who caused it is banned, and shows again when the ban is lifted.
+export function isVisibleNotification(notification: Pick<typeof s.notifications, "actorId">) {
+	return or(
+		isNull(notification.actorId),
+		exists(
+			qb
+				.select({ row: sql`1` })
+				.from(s.users)
+				.where(and(eq(s.users.id, notification.actorId), isNull(s.users.bannedAt))),
+		),
+	)!;
+}
+
+export const visibleNotification = {
+	RAW: (notification) => isVisibleNotification(notification),
+} satisfies Filter<"notifications">;
 
 export function containsText(column: SQLWrapper, text: string) {
 	const pattern = `%${text.replace(/[\\%_]/g, "\\$&")}%`;

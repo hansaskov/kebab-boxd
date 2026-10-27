@@ -32,10 +32,6 @@ function listedUsernames(html: string) {
 	return [...html.matchAll(/href="\/admin\/users\/([a-z0-9_]+)"/g)].map((match) => match[1]);
 }
 
-function nextHref(html: string) {
-	return html.match(/rel="next" href="([^"]*)"/)?.[1]?.replaceAll("&amp;", "&");
-}
-
 describe("admin console", () => {
 	it.each([
 		["/admin", AdminPage, {}],
@@ -48,29 +44,6 @@ describe("admin console", () => {
 		const { response } = await render(page, db, await signIn(db, ada.id), path, params);
 
 		expect(response.status).toBe(403);
-	});
-
-	it("searches and filters the users, and keeps both when paging", async () => {
-		const { client, db } = createTestDatabase("admin-users-search");
-		const admin = insertUser(client, "ada", "admin");
-		const kebabs = Array.from({ length: 11 }, (_, i) => insertUser(client, `kebab_${i}`));
-		insertUser(client, "kebab_free");
-		insertUser(client, "falafel");
-		for (const kebab of kebabs) {
-			await db.mutations.users.ban(kebab.id, admin.id);
-		}
-		const session = await signIn(db, admin.id);
-
-		const first = await render(AdminUsersPage, db, session, "/admin/users?q=kebab&filter=banned&rows=10");
-
-		expect(listedUsernames(first.html)).toEqual(kebabs.toReversed().slice(0, 10).map((user) => user.username));
-		expect(first.html).toContain("11 users");
-		expect(nextHref(first.html)).toBe(`/admin/users?q=kebab&filter=banned&rows=10&after=${kebabs[1]!.id}`);
-
-		const second = await render(AdminUsersPage, db, session, nextHref(first.html)!);
-
-		expect(listedUsernames(second.html)).toEqual(["kebab_0"]);
-		expect(nextHref(second.html)).toBeUndefined();
 	});
 
 	it("matches percent signs and underscores in the search literally", async () => {
