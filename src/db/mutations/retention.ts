@@ -1,5 +1,5 @@
-import { lt, lte } from "drizzle-orm";
-import { historyRetentionSeconds, inactivityTimeoutSeconds } from "@src/data/retention-periods";
+import { and, lt, lte, ne } from "drizzle-orm";
+import { finishedSuggestionRetentionSeconds, historyRetentionSeconds, inactivityTimeoutSeconds } from "@src/data/retention-periods";
 import type { Client } from "@src/db/client";
 import * as s from "@src/db/schema";
 
@@ -19,6 +19,15 @@ export function createRetentionMutations(client: Client) {
 					history: tx
 						.delete(s.history)
 						.where(lt(s.history.requestedAt, secondsBefore(now, historyRetentionSeconds)))
+						.run().changes,
+					suggestionQueue: tx
+						.delete(s.suggestionQueue)
+						.where(
+							and(
+								ne(s.suggestionQueue.status, "queued"),
+								lt(s.suggestionQueue.updatedAt, secondsBefore(now, finishedSuggestionRetentionSeconds)),
+							),
+						)
 						.run().changes,
 				}),
 				{ behavior: "immediate" },

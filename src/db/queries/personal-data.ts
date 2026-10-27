@@ -68,6 +68,7 @@ export function createPersonalDataQueries(client: Client) {
 					favorites: collectedRestaurant,
 					bucketList: collectedRestaurant,
 					suggestions: { columns: { name: true, status: true, createdAt: true }, ...oldestFirst },
+					queuedSuggestions: { columns: { link: true, status: true, name: true, createdAt: true }, ...oldestFirst },
 					notifications: {
 						columns: { kind: true, readAt: true, createdAt: true },
 						with: {

@@ -29,6 +29,7 @@ export const relations = defineRelations(s, (r) => ({
       from: r.users.id,
       to: r.notifications.recipientId,
     }),
+    queuedSuggestions: r.many.suggestionQueue(),
   },
 
   restaurants: {
@@ -145,6 +146,18 @@ export const relations = defineRelations(s, (r) => ({
       from: r.likes.reviewId,
       to: r.reviews.id,
       optional: false,
+    }),
+  },
+
+  suggestionQueue: {
+    user: r.one.users({
+      from: r.suggestionQueue.userId,
+      to: r.users.id,
+      optional: false,
+    }),
+    duplicate: r.one.restaurants({
+      from: r.suggestionQueue.duplicateId,
+      to: r.restaurants.id,
     }),
   },
 

@@ -7,6 +7,7 @@ import { createRestaurantMutations } from "@src/db/mutations/restaurants";
 import { createRetentionMutations } from "@src/db/mutations/retention";
 import { createReviewMutations } from "@src/db/mutations/reviews";
 import { createSessionMutations } from "@src/db/mutations/sessions";
+import { createSuggestionQueueMutations } from "@src/db/mutations/suggestion-queue";
 import { createUserMutations } from "@src/db/mutations/users";
 import { createHistoryQueries } from "@src/db/queries/history";
 import { createNotificationQueries } from "@src/db/queries/notifications";
@@ -16,6 +17,7 @@ import { createProfileQueries } from "@src/db/queries/profiles";
 import { createRestaurantQueries } from "@src/db/queries/restaurants";
 import { createReviewQueries } from "@src/db/queries/reviews";
 import { createSessionQueries } from "@src/db/queries/sessions";
+import { createSuggestionQueueQueries } from "@src/db/queries/suggestion-queue";
 import { createUserQueries } from "@src/db/queries/users";
 import type { PictureStore } from "@src/pictures/store";
 
@@ -33,6 +35,7 @@ export function createDatabase(client: Client, pictures: PictureStore) {
 			restaurants: createRestaurantQueries(client),
 			reviews: createReviewQueries(client),
 			sessions: createSessionQueries(client),
+			suggestionQueue: createSuggestionQueueQueries(client),
 			users: createUserQueries(client),
 		},
 		mutations: {
@@ -44,6 +47,7 @@ export function createDatabase(client: Client, pictures: PictureStore) {
 			retention: createRetentionMutations(client),
 			reviews: createReviewMutations(client, pictures),
 			sessions: createSessionMutations(client),
+			suggestionQueue: createSuggestionQueueMutations(client),
 			users: createUserMutations(client, pictures),
 		},
 	};

@@ -92,7 +92,7 @@ export const restaurants = p.snakeCase.table("restaurants", {
   locationId: p.int({ mode: "number" }).notNull().references(() => locations.id),
   suggestedBy: p.int({ mode: "number" }).references(() => users.id),
   status: p.text({ enum: ["approved", "pending", "rejected"] }).notNull().default("pending"),
-  googlePlaceId: p.text(),
+  googleMapsId: p.text(),
   ratingAvg: p.real().notNull().default(0),
   reviewCount: p.int().notNull().default(0),
   updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(now),
@@ -103,7 +103,8 @@ export const restaurants = p.snakeCase.table("restaurants", {
   p.index("restaurants_status_id_idx").on(t.status, t.id),
   p.index("restaurants_status_rating_avg_id_idx").on(t.status, t.ratingAvg, t.id),
   p.index("restaurants_status_review_count_id_idx").on(t.status, t.reviewCount, t.id),
-  p.uniqueIndex("restaurants_google_place_id_unique").on(t.googlePlaceId)
+  // Not unique: a rejected restaurant may be suggested again.
+  p.index("restaurants_google_maps_id_idx").on(t.googleMapsId),
 ])
 
 export type Restaurant = typeof restaurants.$inferSelect
@@ -129,6 +130,28 @@ export const reviews = p.snakeCase.table("reviews", {
 ])
 
 export type Review = typeof reviews.$inferSelect
+
+// A Google Maps link waiting to become a suggested restaurant. A link that becomes one is removed;
+// one that cannot stays, so the user can see why.
+export const suggestionQueue = p.snakeCase.table("suggestion_queue", {
+  id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
+  userId: p.int({ mode: "number" }).notNull().references(() => users.id, {onDelete: "cascade"}),
+  link: p.text().notNull(),
+  status: p.text({ enum: ["queued", "duplicate", "not-a-place", "failed"] }).notNull().default("queued"),
+  name: p.text(),
+  duplicateId: p.int({ mode: "number" }).references(() => restaurants.id, {onDelete: "set null"}),
+  attempts: p.int().notNull().default(0),
+  runAfter: p.int({ mode: "timestamp" }).notNull().$default(now),
+  updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(now),
+  createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
+}, (t) => [
+  p.index("suggestion_queue_status_run_after_id_idx").on(t.status, t.runAfter, t.id),
+  p.index("suggestion_queue_user_id_created_at_id_idx").on(t.userId, t.createdAt, t.id),
+  p.index("suggestion_queue_duplicate_id_idx").on(t.duplicateId),
+])
+
+export type QueuedSuggestion = typeof suggestionQueue.$inferSelect
+export type QueuedSuggestionStatus = QueuedSuggestion["status"]
 
 export const pictures = p.snakeCase.table("pictures", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),

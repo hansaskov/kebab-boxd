@@ -1,8 +1,8 @@
 import { ActionError, defineAction } from "astro:actions";
 import { authorize, authorizeRestaurant, refusedSinceRequestStarted, requireSession } from "@src/actions/authorize";
 import type { Collection } from "@src/db/mutations/restaurants";
-import { restaurantHref } from "@src/hrefs";
-import { restaurantTargetSchema, suggestRestaurantSchema } from "@src/validation/restaurant";
+import { maxQueuedPerUser } from "@src/db/mutations/suggestion-queue";
+import { restaurantTargetSchema, suggestionSchema } from "@src/validation/restaurant";
 
 function collectAction(collection: Collection) {
   return defineAction({
@@ -37,23 +37,21 @@ export const restaurantActions = {
   removeFromBucketList: uncollectAction("bucketList"),
   suggest: defineAction({
     accept: "form",
-    input: suggestRestaurantSchema,
-    handler: async (suggestion, context) => {
+    input: suggestionSchema,
+    handler: async ({ link }, context) => {
       const session = authorize(context.locals, "restaurant:suggest");
 
-      const result = await context.locals.db.mutations.restaurants.suggest(session.user.id, suggestion);
+      const result = await context.locals.db.mutations.suggestionQueue.queue(session.user.id, link);
 
-      if (result.status === "duplicate") {
+      if (result.status === "gone") {
+        throw new ActionError({ code: "UNAUTHORIZED", message: "Your account no longer exists." });
+      }
+      if (result.status === "full") {
         throw new ActionError({
-          code: "CONFLICT",
-          message:
-            result.duplicateStatus === "approved"
-              ? `${suggestion.name} is already on Kebab Boxd.`
-              : `${suggestion.name} is already waiting for an admin to approve it.`,
+          code: "TOO_MANY_REQUESTS",
+          message: `You have ${maxQueuedPerUser} links waiting. Suggest more when they are done.`,
         });
       }
-
-      return { redirect: restaurantHref(result.id) };
     },
   }),
 };

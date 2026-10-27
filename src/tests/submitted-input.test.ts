@@ -40,29 +40,19 @@ describe("a form whose action failed", () => {
 		expect(html).toContain(">Döner at dawn.</textarea>");
 	});
 
-	it("shows a suggestion as the user typed it when the restaurant is already on Kebab Boxd", async () => {
+	it("shows a suggested link as the user typed it when it is not a Google Maps link", async () => {
 		const { client, db } = createTestDatabase("submitted-suggestion");
 		const ada = insertUser(client, "ada");
 		const session = await signIn(db, ada.id);
-		const typed = form({
-			name: "Bosporus Grill",
-			addressLine1: "Vestergade 10",
-			postalCode: "5000",
-			city: "Odense",
-			country: "Sweden",
-			coordinates: "55.4, 10.39",
-		});
-		insertRestaurant(client, "Bosporus Grill", { status: "approved" });
+		const typed = form({ link: "https://www.openstreetmap.org/node/341654817" });
 
 		const result = await server.restaurants.suggest.call(actionContext(db, session), typed);
 		const locals = withActionResult({ db, session }, "restaurants.suggest", result, typed);
 		const html = decode((await renderPage(SuggestPage, locals, "/restaurants/suggest")).html);
 
-		expect(result.error?.code).toBe("CONFLICT");
-		for (const value of ["Vestergade 10", "5000", "55.4, 10.39"]) {
-			expect(html).toContain(`value="${value}"`);
-		}
-		expect(html).toContain('<option value="Sweden" selected>');
+		expect(result.error?.code).toBe("BAD_REQUEST");
+		expect(html).toContain('value="https://www.openstreetmap.org/node/341654817"');
+		expect(html).toContain("Paste the link Google Maps gives you when you share the restaurant.");
 	});
 
 	it("keeps the rating and the text of a review when a picture is refused, for a new review and an edited one", async () => {

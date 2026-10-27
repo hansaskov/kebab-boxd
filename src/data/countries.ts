@@ -243,7 +243,3 @@ export const COUNTRIES = {
   ZAMBIA: { id: 242, codeName: "ZAMBIA", name: "Zambia", code: "ZM" },
   ZIMBABWE: { id: 243, codeName: "ZIMBABWE", name: "Zimbabwe", code: "ZW" }
 } as const
-
-export const countryNames = Object.values(COUNTRIES).map((c) => c.name)
-
-export const defaultCountry = COUNTRIES.DENMARK.name;

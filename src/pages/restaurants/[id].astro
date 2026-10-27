@@ -11,7 +11,7 @@ import ReviewList from "@src/components/ReviewList.astro";
 import SuggestionDecision from "@src/components/SuggestionDecision.astro";
 import { canOn } from "@src/auth/permissions";
 import { restaurantMapSize, restaurantMapZoom } from "@src/data/map";
-import { failureToast, resultToast } from "@src/format/action-toast";
+import { failureToast } from "@src/format/action-toast";
 import { exploreHref, newReviewHref, profileHref } from "@src/hrefs";
 import { viewport } from "@src/map/viewport";
 import { pageNavigation, parsePageRequest } from "@src/pagination";
@@ -44,10 +44,6 @@ const canCollect = canOn(session.user, "restaurant:collect", restaurant);
 const canModerate = canOn(session.user, "restaurant:moderate", restaurant);
 
 const toast =
-  resultToast(Astro.getActionResult(actions.restaurants.suggest), "Suggestion failed", {
-    title: "Thank you for the suggestion",
-    text: "An admin will look at it soon.",
-  }) ??
   failureToast(Astro.getActionResult(actions.restaurants.favorite), "Saving failed") ??
   failureToast(Astro.getActionResult(actions.restaurants.addToBucketList), "Saving failed") ??
   failureToast(Astro.getActionResult(actions.reviews.like), "Like failed") ??

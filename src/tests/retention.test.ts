@@ -24,7 +24,7 @@ describe("retention.purge", () => {
 
 		const purged = await db.mutations.retention.purge(now);
 
-		expect(purged).toEqual({ sessions: 1, history: 0 });
+		expect(purged).toEqual({ sessions: 1, history: 0, suggestionQueue: 0 });
 		expect(client.query.sessions.findMany({ columns: { id: true } }).sync()).toEqual([{ id: active.id }]);
 		expect(client.query.history.findMany().sync()).toEqual([]);
 	});
@@ -42,7 +42,7 @@ describe("retention.purge", () => {
 
 		const purged = await db.mutations.retention.purge(now);
 
-		expect(purged).toEqual({ sessions: 0, history: 1 });
+		expect(purged).toEqual({ sessions: 0, history: 1, suggestionQueue: 0 });
 		expect(
 			client.query.history.findMany({ columns: { requestedAt: true }, where: { sessionId: session.id } }).sync(),
 		).toEqual([{ requestedAt: secondsBeforeNow(historyRetentionSeconds) }]);

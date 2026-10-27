@@ -132,7 +132,6 @@ export async function seedDatabase(client: Client, pictures: PictureStore) {
             { weight: 0.1, values: ["rejected"] },
           ],
         }),
-        googlePlaceId: funcs.string({ isUnique: true }),
       },
     },
 

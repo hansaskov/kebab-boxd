@@ -5,7 +5,7 @@ import { oauthCookieOptions } from "@src/auth/oauth";
 import { googleCookieNames } from "@src/auth/providers/google";
 import { sessionCookieName } from "@src/auth/session";
 import { settingsHref } from "@src/hrefs";
-import { historyRetentionSeconds, inactivityTimeoutSeconds } from "@src/data/retention-periods";
+import { finishedSuggestionRetentionSeconds, historyRetentionSeconds, inactivityTimeoutSeconds } from "@src/data/retention-periods";
 
 const session = Astro.locals.session;
 const userSettingsHref = session && settingsHref(session.user.username);
@@ -98,6 +98,8 @@ const cookies = [
       The maps show tiles from <a class="link" href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>,
       so the OpenStreetMap Foundation gets your IP address when you open a map. Read the
       <a class="link" href="https://osmfoundation.org/wiki/Privacy_Policy">OpenStreetMap privacy policy</a>.
+      When you suggest a restaurant, our server opens the Google Maps link you send and asks OpenStreetMap for the address of the restaurant.
+      Neither gets to know who sent it.
       We do not sell your data or share it with advertisers.
     </p>
   </section>
@@ -107,6 +109,7 @@ const cookies = [
     <ul class="t-body mt-2 list-disc space-y-2 pl-5">
       <li>Your account and everything you post: until you delete your account.</li>
       <li>A notification: until the follow, like, review or decision it is about is undone, or until you delete your account.</li>
+      <li>A Google Maps link you suggest: until it becomes a restaurant, or {days(finishedSuggestionRetentionSeconds)} after we could not use it.</li>
       <li>A signed-in device: {days(inactivityTimeoutSeconds)} after its last use, or when you sign it out.</li>
       <li>The page history of a device: {days(historyRetentionSeconds)}, or less if the device is signed out first.</li>
       <li>A banned account: as long as the ban lasts, so that the person cannot sign up again.</li>

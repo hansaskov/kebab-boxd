@@ -5,12 +5,20 @@ A Letterboxd-style social app where users review kebab restaurants, follow each 
 ## Language
 
 **Restaurant**:
-A kebab-serving establishment that users review, rate, favorite, and add to their bucket list. Entered either by an admin seeding from Google Places or by a user suggesting it (goes through pending → approved | rejected). The canonical reviewed subject of the app.
+A kebab-serving establishment that users review, rate, favorite, and add to their bucket list. Entered by a user suggesting it (goes through pending → approved | rejected). The canonical reviewed subject of the app.
 _Avoid_: Kebab, KebabShop, Place, Venue
 
 **Suggest**:
-The action of a user proposing a new Restaurant that does not yet exist in the database. Creates a Restaurant with Status:pending, which an admin must approve or reject. A suggestion with the same name, ignoring letter case, as an approved or pending Restaurant within 150 m of it is a duplicate and does not enter the queue. A rejected Restaurant may be suggested again. Restaurants seeded from Google Places are kept unique by GooglePlaceId.
+The action of a user proposing a new Restaurant that does not yet exist in the database, by sending a Google Maps link to it. The link waits in the SuggestionQueue until the server reads the name, position and GoogleMapsId from it and the address from OpenStreetMap; then it becomes a Restaurant with Status:pending, which an admin must approve or reject. A suggestion with the same GoogleMapsId as an approved or pending Restaurant, or the same name, ignoring letter case, within 150 m of one, is a duplicate and does not become a Restaurant. A rejected Restaurant may be suggested again.
 _Avoid_: Propose, Request, Submit
+
+**SuggestionQueue**:
+The Google Maps links users have suggested that have not become Restaurants. A user may have 5 links waiting at a time. A link is tried up to 5 times while Google or OpenStreetMap cannot be reached. A link that becomes a Restaurant leaves the queue; one that is a duplicate, does not point to a place, or could not be read stays for 30 days so the user can see why.
+_Avoid_: Jobs, Imports, Backlog
+
+**GoogleMapsId**:
+The id of a place in a Google Maps link, such as `0x464cdf40a60240ff:0x42ef3a5ea295d42e`.
+_Avoid_: PlaceId, CID
 
 **Review**:
 A user's written verdict on a Restaurant, tied to one experience or visit, with up to 4 Pictures. A user may write unlimited Reviews for a Restaurant, but only their 3 most recent (the ReviewWindow) are publicly visible and count toward RatingAvg. Only the author can edit a Review; the author or an Admin can delete it. A Review is listed (in Feeds, on its Restaurant and to Like) when it is in the ReviewWindow, its Restaurant is approved, and its author is not banned.
@@ -69,7 +77,7 @@ The unique handle identifying a User. 3–30 characters from `A–Z`, `a–z`, `
 _Avoid_: Handle, DisplayName, Nickname
 
 **Admin**:
-A role on a User. Admins can approve or reject suggested Restaurants and seed Restaurants from the Google Places API. Not a separate entity type. An Admin is able to manage all users and content, this entails banning users, suspending reviews, and restaurants. An Admin can give the role to another User or take it away, but cannot change their own role, so there is always at least one Admin. A banned User cannot be given the role or have it taken away until the ban is lifted, and an Admin cannot be banned, so a banned Admin cannot exist.
+A role on a User. Admins can approve or reject suggested Restaurants. Not a separate entity type. An Admin is able to manage all users and content, this entails banning users, suspending reviews, and restaurants. An Admin can give the role to another User or take it away, but cannot change their own role, so there is always at least one Admin. A banned User cannot be given the role or have it taken away until the ban is lifted, and an Admin cannot be banned, so a banned Admin cannot exist.
 _Avoid_: Moderator, Staff, Manager
 
 **Permission**:

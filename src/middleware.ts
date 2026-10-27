@@ -9,12 +9,15 @@ import { sameOriginReferer } from "@src/middleware/referer";
 import { redirectClearingSpeculations } from "@src/middleware/speculations";
 import { hasStringRedirect } from "@src/validation/type-guards";
 import { scheduleRetentionPurge } from "@src/retention";
+import { scheduleSuggestionQueue } from "@src/suggestion-queue";
 import { createPictureStore, picturePathPrefix } from "@src/pictures/store";
 import { readSubmittedInput } from "@src/actions/submitted-input";
 
 const db = createDatabase(createClient(DB_FILE_NAME), createPictureStore(PICTURES_DIR));
 const stopRetentionPurge = scheduleRetentionPurge(db);
 import.meta.hot?.dispose(stopRetentionPurge);
+const stopSuggestionQueue = scheduleSuggestionQueue(db);
+import.meta.hot?.dispose(stopSuggestionQueue);
 
 // The history holds the pages a device opened, not the pictures on them or signing out.
 function isPage(routePattern: string) {
