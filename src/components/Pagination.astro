@@ -36,10 +36,10 @@ const anchor = `--${menuId}`;
     </ul>
   </div>
   <div class="flex items-center gap-1">
-    <a class="btn btn-md px-2 hover:bg-active" rel="prev" href={previousHref} aria-disabled={previousHref ? undefined : "true"}>
+    <a class="btn btn-ghost btn-md px-2" rel="prev" href={previousHref} aria-disabled={previousHref ? undefined : "true"}>
       <ChevronLeft size={16} aria-hidden="true" /><span class="max-sm:sr-only">Previous</span>
     </a>
-    <a class="btn btn-md px-2 hover:bg-active" rel="next" href={nextHref} aria-disabled={nextHref ? undefined : "true"}>
+    <a class="btn btn-ghost btn-md px-2" rel="next" href={nextHref} aria-disabled={nextHref ? undefined : "true"}>
       <span class="max-sm:sr-only">Next</span><ChevronRight size={16} aria-hidden="true" />
     </a>
   </div>

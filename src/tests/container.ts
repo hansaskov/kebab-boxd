@@ -35,3 +35,10 @@ export function linkHref(html: string, rel: "prev" | "next") {
 	const href = html.match(new RegExp(`rel="${rel}" href="([^"]*)"`))?.[1];
 	return href && decode(href);
 }
+
+export function listRowLinks(html: string) {
+	return [...html.matchAll(/<a class="list-row-link[^"]*" href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g)].map((match) => ({
+		href: decode(match[1]!),
+		text: decode(match[2]!.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()),
+	}));
+}

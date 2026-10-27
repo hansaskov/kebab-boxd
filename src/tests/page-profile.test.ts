@@ -8,6 +8,7 @@ import type { Database } from "@src/db";
 import * as s from "@src/db/schema";
 import { server } from "@src/actions/index";
 import { actionContext, form, withActionResult } from "@src/tests/actions";
+import { listRowLinks } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertReview, insertUser, signIn } from "@src/tests/database";
 import { profileTabs } from "@src/validation/profile-tab";
 
@@ -32,7 +33,7 @@ function buttons(html: string) {
 }
 
 function listedNames(html: string) {
-	return [...html.matchAll(/class="field-label[^"]*">([^<]+)</g)].map((match) => match[1]);
+	return listRowLinks(html).map((link) => link.text);
 }
 
 function reviewTimes(html: string) {

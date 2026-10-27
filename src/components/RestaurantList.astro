@@ -23,18 +23,16 @@ interface Props extends HTMLAttributes<"ul"> {
 const { restaurants, remove, class: className, ...props } = Astro.props;
 ---
 
-<ul class:list={["divide-y divide-line rounded-box border border-line bg-surface", className]} {...props}>
+<ul class:list={["list", className]} {...props}>
   {restaurants.map((restaurant) => {
     const details = restaurant.details.filter(Boolean).join(" · ");
     return (
-      <li class="flex items-center gap-3 pr-2">
-        <a class="flex min-w-0 flex-1 items-center justify-between gap-3 py-3 pl-4 hover:bg-active" href={restaurantHref(restaurant.id)}>
-          <span class="min-w-0">
-            <span class="field-label block truncate">{restaurant.name}</span>
-            {details && <span class="t-body-sm block truncate text-fg-muted">{details}</span>}
-          </span>
-          <AverageRating ratingAvg={restaurant.ratingAvg} />
-        </a>
+      <li class="list-row">
+        <div class="min-w-0 flex-1">
+          <a class="list-row-link field-label block truncate" href={restaurantHref(restaurant.id)}>{restaurant.name}</a>
+          {details && <p class="t-body-sm truncate text-fg-muted">{details}</p>}
+        </div>
+        <AverageRating ratingAvg={restaurant.ratingAvg} />
         {remove && (
           <form method="post" action={remove.action}>
             <input type="hidden" name="restaurantId" value={restaurant.id} />

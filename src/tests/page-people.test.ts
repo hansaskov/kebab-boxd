@@ -3,11 +3,11 @@ import { eq } from "drizzle-orm";
 import * as s from "@src/db/schema";
 import PeoplePage from "@src/pages/people.astro";
 import ProfilePage from "@src/pages/[username]/profile.astro";
-import { linkHref, renderPage } from "@src/tests/container";
+import { linkHref, listRowLinks, renderPage } from "@src/tests/container";
 import { createTestDatabase, insertUser, signIn } from "@src/tests/database";
 
 function people(html: string) {
-	return [...html.matchAll(/<span class="t-body-sm block truncate text-fg-muted">@([a-z0-9_]+)<\/span>/g)].map((match) => match[1]);
+	return listRowLinks(html).map((link) => link.href.split("/")[1]);
 }
 
 function followButtons(html: string) {

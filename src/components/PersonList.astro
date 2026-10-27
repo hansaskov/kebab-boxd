@@ -14,19 +14,17 @@ interface Props extends HTMLAttributes<"ul"> {
 const { people, viewer, class: className, ...props } = Astro.props;
 ---
 
-<ul class:list={["divide-y divide-line rounded-box border border-line bg-surface", className]} {...props}>
+<ul class:list={["list", className]} {...props}>
   {people.map((person) => {
     const isFollowing = person.isFollowedByViewer && can(viewer, "user:unfollow", person);
     const canFollow = !person.isFollowedByViewer && can(viewer, "user:follow", person);
     return (
-      <li class="flex items-center gap-3 px-4 py-3">
-        <a class="flex min-w-0 flex-1 items-center gap-3" href={profileHref(person.username)}>
-          <Avatar class="size-10 text-sm" name={person.fullname} picture={person.profilePicture} />
-          <span class="min-w-0">
-            <span class="field-label block truncate">{person.fullname}</span>
-            <span class="t-body-sm block truncate text-fg-muted">@{person.username}</span>
-          </span>
-        </a>
+      <li class="list-row">
+        <Avatar class="size-10 text-sm" name={person.fullname} picture={person.profilePicture} />
+        <div class="min-w-0 flex-1">
+          <a class="list-row-link field-label block truncate" href={profileHref(person.username)}>{person.fullname}</a>
+          <p class="t-body-sm truncate text-fg-muted">@{person.username}</p>
+        </div>
         {(isFollowing || canFollow) && <FollowButton class="shrink-0" username={person.username} following={isFollowing} />}
       </li>
     );

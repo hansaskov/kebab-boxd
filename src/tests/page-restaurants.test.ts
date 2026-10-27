@@ -3,11 +3,11 @@ import { eq } from "drizzle-orm";
 import * as s from "@src/db/schema";
 import RestaurantsPage from "@src/pages/restaurants/index.astro";
 import RestaurantPage from "@src/pages/restaurants/[id].astro";
-import { linkHref, renderPage } from "@src/tests/container";
+import { linkHref, listRowLinks, renderPage } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertReview, insertUser, signIn } from "@src/tests/database";
 
 function listedNames(html: string) {
-	return [...html.matchAll(/class="field-label[^"]*"[^>]*>([^<]+)</g)].map((match) => match[1]);
+	return listRowLinks(html).map((link) => link.text);
 }
 
 function setStats(client: ReturnType<typeof createTestDatabase>["client"], id: number, ratingAvg: number, reviewCount: number) {

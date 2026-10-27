@@ -13,41 +13,39 @@ interface Props extends HTMLAttributes<"ol"> {
 const { notifications, class: className, ...props } = Astro.props;
 ---
 
-<ol class:list={["divide-y divide-line overflow-hidden rounded-box border border-line bg-surface", className]} {...props}>
+<ol class:list={["list", className]} {...props}>
   {notifications.map((notification) => (
-    <li>
-      <a class="flex items-center gap-3 px-4 py-3 hover:bg-active" href={notificationHref(notification)}>
-        {notification.kind === "follow" || notification.kind === "like" ? (
-          <Avatar class="size-10 text-sm" name={notification.actor.fullname} picture={notification.actor.profilePicture} />
-        ) : (
-          <span class="grid size-10 shrink-0 place-items-center rounded-full bg-subtle" aria-hidden="true">
-            {notification.kind === "suggestion-approved"
-              ? <Check class="text-brand-text" size={20} />
-              : <X class="text-danger" size={20} />}
-          </span>
-        )}
-        <p class="t-body-sm min-w-0 flex-1">
-          {notification.kind === "follow" && (
-            <><strong class="font-semibold">{notification.actor.fullname}</strong> followed you.</>
-          )}
-          {notification.kind === "like" && (
-            <>
-              <strong class="font-semibold">{notification.actor.fullname}</strong> liked your review of{" "}
-              <strong class="font-semibold">{notification.review.restaurant.name}</strong>.
-            </>
-          )}
-          {notification.kind === "suggestion-approved" && (
-            <>An admin approved <strong class="font-semibold">{notification.restaurant.name}</strong>.</>
-          )}
-          {notification.kind === "suggestion-rejected" && (
-            <>An admin rejected <strong class="font-semibold">{notification.restaurant.name}</strong>.</>
-          )}
-        </p>
-        <RelativeTime class="t-body-sm shrink-0 text-fg-muted" date={notification.createdAt} narrow />
-        <span class:list={["size-2 shrink-0 rounded-full", { "bg-brand-text": !notification.isRead }]}>
-          {!notification.isRead && <span class="sr-only">Unread</span>}
+  <li class="list-row">
+      {notification.kind === "follow" || notification.kind === "like" ? (
+        <Avatar class="size-10 text-sm" name={notification.actor.fullname} picture={notification.actor.profilePicture} />
+      ) : (
+        <span class="grid size-10 shrink-0 place-items-center rounded-full bg-subtle" aria-hidden="true">
+          {notification.kind === "suggestion-approved"
+            ? <Check class="text-brand-text" size={20} />
+            : <X class="text-danger" size={20} />}
         </span>
+      )}
+      <a class="list-row-link t-body-sm min-w-0 flex-1" href={notificationHref(notification)}>
+        {notification.kind === "follow" && (
+          <><strong class="font-semibold">{notification.actor.fullname}</strong> followed you.</>
+        )}
+        {notification.kind === "like" && (
+          <>
+            <strong class="font-semibold">{notification.actor.fullname}</strong> liked your review of{" "}
+            <strong class="font-semibold">{notification.review.restaurant.name}</strong>.
+          </>
+        )}
+        {notification.kind === "suggestion-approved" && (
+          <>An admin approved <strong class="font-semibold">{notification.restaurant.name}</strong>.</>
+        )}
+        {notification.kind === "suggestion-rejected" && (
+          <>An admin rejected <strong class="font-semibold">{notification.restaurant.name}</strong>.</>
+        )}
       </a>
+      <RelativeTime class="t-body-sm shrink-0 text-fg-muted" date={notification.createdAt} narrow />
+      <span class:list={["size-2 shrink-0 rounded-full", { "bg-brand-text": !notification.isRead }]}>
+        {!notification.isRead && <span class="sr-only">Unread</span>}
+        </span>
     </li>
   ))}
 </ol>

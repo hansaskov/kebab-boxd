@@ -11,7 +11,7 @@ interface Props extends Omit<ComponentProps<typeof ReviewCard>, "review" | "clas
 const { reviews, class: className, ...props } = Astro.props;
 ---
 
-<ol class:list={["divide-y divide-line rounded-box border border-line bg-surface", className]}>
+<ol class:list={["list", className]}>
   {reviews.map((review) => (
     <li>
       <ReviewCard review={review} {...props} />

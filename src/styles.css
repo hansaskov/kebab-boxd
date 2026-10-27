@@ -296,6 +296,13 @@
     border-color: var(--ds-color-fg-subtle);
   }
 
+  .btn-ghost {
+    color: var(--ds-color-fg-default);
+  }
+  .btn-ghost:hover {
+    background: var(--ds-color-bg-active);
+  }
+
   .btn-danger {
     background: var(--ds-color-bg-surface);
     border-color: color-mix(in oklab, var(--ds-color-danger-default) 35%, transparent);
@@ -516,6 +523,48 @@
   }
   .settings-link > :last-child {
     flex-shrink: 0;
+  }
+
+  /* A boxed list of rows. A row becomes one link target through its
+     `.list-row-link`, which stretches over the row; the row's other
+     controls sit above it. The box clips the row hover to its corners. */
+  .list {
+    overflow: clip;
+    border: 1px solid var(--ds-color-border-subtle);
+    border-radius: var(--ds-radius-box);
+    background: var(--ds-color-bg-surface);
+  }
+  .list > li + li {
+    border-top: 1px solid var(--ds-color-border-subtle);
+  }
+
+  .list-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    transition: background-color 120ms ease;
+  }
+  .list-row:has(.list-row-link:hover) {
+    background: var(--ds-color-bg-active);
+  }
+  .list-row:has(.list-row-link:focus-visible) {
+    outline: 2px solid var(--ds-color-focus);
+    outline-offset: -2px;
+  }
+
+  .list-row-link {
+    outline: none;
+  }
+  .list-row-link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+  .list-row :is(a, button, input, select, textarea, label):not(.list-row-link) {
+    position: relative;
+    z-index: 1;
   }
 
   .dialog-drawer {

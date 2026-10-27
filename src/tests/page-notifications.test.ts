@@ -7,7 +7,7 @@ import { createTestDatabase, insertRestaurant, insertReview, insertUser, signIn,
 
 function listedNotifications(html: string) {
 	const list = html.match(/<ol[^>]*>([\s\S]*?)<\/ol>/)?.[1] ?? "";
-	return [...list.matchAll(/<a[^>]*href="([^"]+)"[^>]*>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>[\s\S]*?<\/a>/g)].map((match) => ({
+	return [...list.matchAll(/<li[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<\/li>/g)].map((match) => ({
 		href: match[1],
 		text: decode(match[2]!.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()),
 		isUnread: match[0].includes(">Unread<"),

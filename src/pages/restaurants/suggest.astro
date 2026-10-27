@@ -71,33 +71,29 @@ const queuedLabels: Record<QueuedSuggestionStatus, string> = {
   {(queued.length > 0 || page.items.length > 0) && (
     <section class="mt-8" aria-labelledby="suggestions-heading">
       <h2 id="suggestions-heading">Your suggestions</h2>
-      <ul class="mt-3 divide-y divide-line rounded-box border border-line bg-surface">
+      <ul class="list mt-3">
         {queued.map((suggestion) => {
           const duplicate = suggestion.status === "duplicate" ? suggestion.duplicate : null;
           const href = duplicate?.status === "approved" ? restaurantHref(duplicate.id) : undefined;
           const label = duplicate?.status === "approved" ? "Already on Kebab Boxd" : queuedLabels[suggestion.status];
-          const Row = href ? "a" : "div";
+          const Title = href ? "a" : "p";
           return (
-            <li>
-              <Row class:list={["flex items-center justify-between gap-3 px-4 py-3", { "hover:bg-active": href }]} href={href}>
-                <span class="min-w-0">
-                  <span class="field-label block truncate">{suggestion.name ?? suggestion.link}</span>
-                  <RelativeTime class="t-body-sm block text-fg-muted" date={suggestion.createdAt} />
-                </span>
-                <span class:list={["tag", { "text-danger": suggestion.status !== "queued" }]}>{label}</span>
-              </Row>
+            <li class="list-row">
+              <div class="min-w-0 flex-1">
+                <Title class:list={["field-label block truncate", { "list-row-link": href }]} href={href}>{suggestion.name ?? suggestion.link}</Title>
+                <RelativeTime class="t-body-sm block text-fg-muted" date={suggestion.createdAt} />
+              </div>
+              <span class:list={["tag", { "text-danger": suggestion.status !== "queued" }]}>{label}</span>
             </li>
           );
         })}
         {page.items.map((restaurant) => (
-          <li>
-            <a class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-active" href={restaurantHref(restaurant.id)}>
-              <span class="min-w-0">
-                <span class="field-label block truncate">{restaurant.name}</span>
-                <RelativeTime class="t-body-sm block text-fg-muted" date={restaurant.createdAt} />
-              </span>
-              <RestaurantStatusTag status={restaurant.status} />
-            </a>
+          <li class="list-row">
+            <div class="min-w-0 flex-1">
+              <a class="list-row-link field-label block truncate" href={restaurantHref(restaurant.id)}>{restaurant.name}</a>
+              <RelativeTime class="t-body-sm block text-fg-muted" date={restaurant.createdAt} />
+            </div>
+            <RestaurantStatusTag status={restaurant.status} />
           </li>
         ))}
       </ul>

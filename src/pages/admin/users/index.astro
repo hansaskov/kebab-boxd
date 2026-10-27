@@ -55,24 +55,18 @@ const emptyMessage = search ? `No users match “${search}”.` : emptyGroupMess
 
   <PagedSection class="mt-6" aria-label="Users" page={page} empty={emptyMessage}>
     <p class="t-body-sm text-fg-muted">{page.total} {page.total === 1 ? "user" : "users"}</p>
-    <div class="settings-card mt-3">
-      <ul>
-        {page.items.map((user) => (
-          <li>
-            <a class="settings-link" href={adminUserHref(user.username)}>
-              <span>
-                <span class="field-label block truncate">{user.fullname}</span>
-                <span class="t-body-sm block truncate text-fg-muted">@{user.username} · {user.email}</span>
-              </span>
-              <span class="flex items-center gap-2">
-                {user.role === "admin" && <span class="tag">Admin</span>}
-                {user.bannedAt && <span class="tag text-danger">Banned</span>}
-                <span class="t-body-sm text-fg-muted max-sm:hidden">Joined <RelativeTime date={user.createdAt} /></span>
-              </span>
-            </a>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <ul class="list mt-3">
+      {page.items.map((user) => (
+        <li class="list-row">
+          <div class="min-w-0 flex-1">
+            <a class="list-row-link field-label block truncate" href={adminUserHref(user.username)}>{user.fullname}</a>
+            <p class="t-body-sm truncate text-fg-muted">@{user.username} · {user.email}</p>
+          </div>
+          {user.role === "admin" && <span class="tag">Admin</span>}
+          {user.bannedAt && <span class="tag text-danger">Banned</span>}
+          <span class="t-body-sm shrink-0 text-fg-muted max-sm:hidden">Joined <RelativeTime date={user.createdAt} /></span>
+        </li>
+      ))}
+    </ul>
   </PagedSection>
 </BaseLayout>

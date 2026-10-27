@@ -70,9 +70,9 @@ const ownerSettingsHref = settingsHref(owner.username);
 
     <PagedSection class="mt-8 space-y-4" aria-label="History" page={page} empty="This session has not made any requests yet.">
         <h2 slot="heading">History</h2>
-        <ol class="divide-y divide-line rounded-box border border-line bg-surface">
+        <ol class="list">
             {page.items.map((entry) => (
-                <li class="flex items-center gap-3 px-4 py-3">
+                <li class="list-row">
                     <span
                         class="tag min-w-[8ch] shrink-0 justify-center"
                         title={entry.prefetched ? "Prefetched: the browser loaded this page early, in case it was opened next" : undefined}

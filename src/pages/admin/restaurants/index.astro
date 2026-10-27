@@ -52,11 +52,11 @@ const emptyMessages: Record<RestaurantStatus, string> = {
   <TabNav class="mt-4" aria-label="Filter restaurants" tabs={statusTabs} />
 
   <PagedSection class="mt-4" aria-label="Restaurants" page={page} empty={emptyMessages[status]}>
-    <ul class="divide-y divide-line rounded-box border border-line bg-surface">
+    <ul class="list">
       {page.items.map((restaurant) => (
-        <li class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
+        <li class="list-row max-sm:flex-col max-sm:items-stretch">
           <div class="min-w-0 flex-1">
-            <a class="field-label block truncate link-hover" href={restaurantHref(restaurant.id)}>{restaurant.name}</a>
+            <a class="list-row-link field-label block truncate" href={restaurantHref(restaurant.id)}>{restaurant.name}</a>
             <p class="t-body-sm truncate text-fg-muted">
               {[restaurant.location.addressLine1, restaurant.location.city, restaurant.location.country].filter(Boolean).join(", ")}
             </p>

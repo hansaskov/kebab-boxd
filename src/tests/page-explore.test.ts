@@ -11,9 +11,7 @@ function markerIds(html: string) {
 
 function nearby(html: string) {
 	const section = html.slice(html.indexOf('id="nearby-heading"'));
-	return [...section.matchAll(/class="field-label block truncate">([^<]+)<\/span><span class="t-body-sm block truncate text-fg-muted">([^<·]+)/g)].map(
-		(match) => [match[1], match[2]!.trim()],
-	);
+	return [...section.matchAll(/class="list-row-link[^"]*"[^>]*>([^<]+)<\/a><p[^>]*>([^<·]+)/g)].map((match) => [match[1], match[2]!.trim()]);
 }
 
 function setUp(name: string) {

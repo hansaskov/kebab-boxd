@@ -8,7 +8,7 @@ import ProfilePage from "@src/pages/[username]/profile.astro";
 import RestaurantPage from "@src/pages/restaurants/[id].astro";
 import SuggestPage from "@src/pages/restaurants/suggest.astro";
 import { actionContext, form, withActionResult } from "@src/tests/actions";
-import { renderPage } from "@src/tests/container";
+import { listRowLinks, renderPage } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertUser, restaurantRow, signIn } from "@src/tests/database";
 
 const link = "https://maps.app.goo.gl/XEqFEXq6aNBqJRFJA";
@@ -22,7 +22,7 @@ function renderRestaurant(db: Database, session: SessionWithUser, id: number) {
 }
 
 function listedNames(html: string) {
-	return [...html.matchAll(/class="field-label[^"]*"[^>]*>([^<]+)</g)].map((match) => match[1]);
+	return listRowLinks(html).map((link) => link.text);
 }
 
 describe("favorite and bucket list actions", () => {
