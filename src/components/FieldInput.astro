@@ -1,49 +1,30 @@
 ---
-import { getConstraintsFromZodSchema } from '@src/validation/constraint';
-import type { ZodNullable, ZodString } from 'astro/zod';
+import type { ComponentProps } from "astro/types";
+import type { ZodNullable, ZodString } from "astro/zod";
+import Field from "@src/components/Field.astro";
+import type { SubmittedForm } from "@src/actions/outcome";
+import { describeField } from "@src/format/field";
+import { getConstraintsFromZodSchema } from "@src/validation/constraint";
 
-interface Props extends astroHTML.JSX.InputHTMLAttributes {
+interface Props extends Omit<ComponentProps<typeof Field>, "field">, astroHTML.JSX.InputHTMLAttributes {
     name: string;
     zodField: ZodString | ZodNullable<ZodString>;
-    label?: string;
-    description?: string;
     errors?: string[] | undefined;
-    layout?: "row" | "stack";
+    // The form as the user sent it when it failed. What they typed replaces the value.
+    submitted?: SubmittedForm | undefined;
 }
 
-const { zodField, label, description, errors, layout = "row", class: className, ...props } = Astro.props
-const constraints = getConstraintsFromZodSchema(zodField)
-const fieldId = props.id ?? props.name
-const descriptionId = `${fieldId}-description`
-const errorId = `${fieldId}-error`
-const hasErrors = errors !== undefined && errors.length > 0
-const describedBy = [description && descriptionId, hasErrors && errorId].filter(Boolean).join(" ") || undefined
-const isRow = layout === "row"
-const hasLabelSlot = Astro.slots.has("label")
-
-if (!label && !hasLabelSlot) {
-    throw new Error(`FieldInput "${props.name}" needs a label prop or a label slot.`)
-}
+const { zodField, label, description, layout, errors, submitted, value, class: className, ...props } = Astro.props;
+const field = describeField({ ...props, description, errors, submitted });
 ---
 
-<div class={isRow ? "settings-row" : "space-y-2"}>
-    <div class={isRow ? "settings-row-text" : undefined}>
-        <label class:list={["field-label", { "font-normal": hasLabelSlot }]} for={fieldId}>
-            <slot name="label">{label}</slot>
-        </label>
-        {description && <p id={descriptionId} class="t-body-sm text-fg-muted">{description}</p>}
-    </div>
-    <div class:list={["space-y-2", { "settings-row-field": isRow }]}>
-        <input
-            id={fieldId}
-            class:list={["input", className]}
-            aria-describedby={describedBy}
-            aria-invalid={hasErrors ? "true" : undefined}
-            {...constraints}
-            {...props}
-        />
-        {hasErrors && (
-            <p id={errorId} class="t-caption text-danger" role="alert">{errors.join(" ")}</p>
-        )}
-    </div>
-</div>
+<Field field={field} label={label} description={description} layout={layout}>
+    {Astro.slots.has("label") && <Fragment slot="label"><slot name="label" /></Fragment>}
+    <input
+        class:list={["input", className]}
+        value={submitted ? submitted.get(props.name) : value}
+        {...getConstraintsFromZodSchema(zodField)}
+        {...props}
+        {...field.control}
+    />
+</Field>

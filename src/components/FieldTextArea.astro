@@ -1,39 +1,28 @@
 ---
-import { getConstraintsFromZodSchema } from "@src/validation/constraint";
+import type { ComponentProps } from "astro/types";
 import type { ZodNullable, ZodString } from "astro/zod";
+import Field from "@src/components/Field.astro";
+import type { SubmittedForm } from "@src/actions/outcome";
+import { describeField } from "@src/format/field";
+import { getConstraintsFromZodSchema } from "@src/validation/constraint";
 
-interface Props extends astroHTML.JSX.TextareaHTMLAttributes {
+interface Props extends Omit<ComponentProps<typeof Field>, "field" | "layout">, astroHTML.JSX.TextareaHTMLAttributes {
     name: string;
     zodField: ZodString | ZodNullable<ZodString>;
     label: string;
-    description: string;
-    errors?: string[] | undefined;
+    // The form as the user sent it when it failed. What they typed replaces the value.
+    submitted?: SubmittedForm | undefined;
 }
 
-const { zodField, label, description, errors, value, class: className, ...props } = Astro.props;
-const constraints = getConstraintsFromZodSchema(zodField)
-const fieldId = props.id ?? props.name
-const descriptionId = `${fieldId}-description`
-const errorId = `${fieldId}-error`
-const hasErrors = errors !== undefined && errors.length > 0
+const { zodField, label, description, submitted, value, class: className, ...props } = Astro.props;
+const field = describeField({ ...props, description, submitted });
 ---
 
-<div class="settings-row">
-    <div class="settings-row-text">
-        <label class="field-label" for={fieldId}>{label}</label>
-        <p id={descriptionId} class="t-body-sm text-fg-muted">{description}</p>
-    </div>
-    <div class="settings-row-field space-y-2">
-        <textarea
-            id={fieldId}
-            class:list={["input", className]}
-            aria-describedby={hasErrors ? `${descriptionId} ${errorId}` : descriptionId}
-            aria-invalid={hasErrors ? "true" : undefined}
-            {...constraints}
-            {...props}>{value}</textarea
-        >
-        {hasErrors && (
-            <p id={errorId} class="t-caption text-danger" role="alert">{errors.join(" ")}</p>
-        )}
-    </div>
-</div>
+<Field field={field} label={label} description={description}>
+    <textarea
+        class:list={["input", className]}
+        {...getConstraintsFromZodSchema(zodField)}
+        {...props}
+        {...field.control}>{submitted ? submitted.get(props.name) : value}</textarea
+    >
+</Field>

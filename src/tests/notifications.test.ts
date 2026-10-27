@@ -4,7 +4,7 @@ import type { SessionWithUser } from "@src/auth/session";
 import type { Database } from "@src/db";
 import type { Notification } from "@src/db/queries/notifications";
 import { actionContext, form } from "@src/tests/actions";
-import { createTestDatabase, insertRestaurant, insertReview, insertUser, signIn } from "@src/tests/database";
+import { createTestDatabase, insertRestaurant, insertReview, insertUser, signIn, newestUnreadId } from "@src/tests/database";
 
 function summary(notification: Notification) {
 	const read = notification.isRead ? " (read)" : "";
@@ -104,7 +104,7 @@ describe("suggestion notifications", () => {
 		const adminSession = await signIn(db, admin.id);
 
 		await decide(db, adminSession, grill.id, "approve");
-		const approved = await db.queries.notifications.findNewestUnreadId(ada.id);
+		const approved = await newestUnreadId(db, ada.id);
 		await markAllRead(db, await signIn(db, ada.id), approved!);
 
 		expect(await inbox(db, ada.id)).toEqual(["suggestion-approved Bosporus Grill (read)"]);
@@ -112,7 +112,7 @@ describe("suggestion notifications", () => {
 		await decide(db, adminSession, grill.id, "reject");
 
 		expect(await inbox(db, ada.id)).toEqual(["suggestion-rejected Bosporus Grill"]);
-		expect(await db.queries.notifications.findNewestUnreadId(ada.id)).toBeGreaterThan(approved!);
+		expect(await newestUnreadId(db, ada.id)).toBeGreaterThan(approved!);
 	});
 
 	it("do not tell the suggester again when the decision does not change the status", async () => {
@@ -122,7 +122,7 @@ describe("suggestion notifications", () => {
 		const grill = insertRestaurant(client, "Bosporus Grill", { suggestedBy: ada.id });
 		const adminSession = await signIn(db, admin.id);
 		await decide(db, adminSession, grill.id, "approve");
-		await markAllRead(db, await signIn(db, ada.id), (await db.queries.notifications.findNewestUnreadId(ada.id))!);
+		await markAllRead(db, await signIn(db, ada.id), (await newestUnreadId(db, ada.id))!);
 
 		expect((await decide(db, adminSession, grill.id, "approve")).error).toBeUndefined();
 
@@ -217,12 +217,12 @@ describe("notifications of a banned user", () => {
 		await follow(db, await signIn(db, ada.id), "bob");
 		await follow(db, await signIn(db, cleo.id), "bob");
 
-		await db.mutations.users.ban(ada.id, admin.id);
+		await db.mutations.users.ban(admin.id, ada.username);
 
 		expect(await inbox(db, bob.id)).toEqual(["cleo followed"]);
 		expect(await unreadCount(db, bob.id)).toBe(1);
 
-		await db.mutations.users.unban(ada.id, admin.id);
+		await db.mutations.users.unban(admin.id, ada.username);
 
 		expect(await inbox(db, bob.id)).toEqual(["cleo followed", "ada followed"]);
 		expect(await unreadCount(db, bob.id)).toBe(2);
@@ -234,7 +234,7 @@ describe("notifications of a banned user", () => {
 		const bob = insertUser(client, "bob");
 		await follow(db, await signIn(db, ada.id), "bob");
 
-		await db.mutations.users.delete(ada.id, ada.id);
+		await db.mutations.users.delete(ada.id, ada.username);
 
 		expect(await inbox(db, bob.id)).toEqual([]);
 	});
@@ -249,14 +249,14 @@ describe("markAllRead action", () => {
 		const cleo = insertUser(client, "cleo");
 		const dan = insertUser(client, "dan");
 		await follow(db, await signIn(db, dan.id), "bob");
-		await db.mutations.users.ban(dan.id, admin.id);
+		await db.mutations.users.ban(admin.id, dan.username);
 		await follow(db, await signIn(db, ada.id), "bob");
 		const bobSession = await signIn(db, bob.id);
-		const seen = await db.queries.notifications.findNewestUnreadId(bob.id);
+		const seen = await newestUnreadId(db, bob.id);
 		await follow(db, await signIn(db, cleo.id), "bob");
 
 		const result = await markAllRead(db, bobSession, seen!);
-		await db.mutations.users.unban(dan.id, admin.id);
+		await db.mutations.users.unban(admin.id, dan.username);
 
 		expect(result.error).toBeUndefined();
 		expect(await inbox(db, bob.id)).toEqual(["cleo followed", "ada followed (read)", "dan followed"]);
@@ -268,7 +268,7 @@ describe("markAllRead action", () => {
 		const ada = insertUser(client, "ada");
 		const bob = insertUser(client, "bob");
 		await follow(db, await signIn(db, ada.id), "bob");
-		const newest = await db.queries.notifications.findNewestUnreadId(bob.id);
+		const newest = await newestUnreadId(db, bob.id);
 
 		await markAllRead(db, await signIn(db, ada.id), newest!);
 

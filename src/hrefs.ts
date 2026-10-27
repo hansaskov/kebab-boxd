@@ -1,3 +1,4 @@
+import type { Refusal } from "@src/auth/permissions";
 import type { Notification } from "@src/db/queries/notifications";
 
 function userPath(username: string) {
@@ -60,3 +61,6 @@ export function notificationHref(notification: Notification) {
 			return restaurantHref(notification.restaurant.id);
 	}
 }
+
+// The page that answers a request the user may not make, as `refusal` in the permissions decides.
+export const refusalPage = { "not-found": "/404", forbidden: "/403" } as const satisfies Record<Refusal, string>;

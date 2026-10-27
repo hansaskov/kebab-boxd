@@ -2,10 +2,11 @@
 import { settingsSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import { can } from "@src/auth/permissions";
-import Pagination from "@src/components/Pagination.astro";
-import { pageNavigation, parsePageRequest } from "@src/pagination";
+import PagedSection from "@src/components/PagedSection.astro";
+import RelativeTime from "@src/components/RelativeTime.astro";
+import Stat from "@src/components/Stat.astro";
+import { parsePageRequest } from "@src/pagination";
 import { deviceName } from "@src/format/device-name";
-import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
 import { sessionHistoryHref, settingsHref } from "@src/hrefs";
 
 const { username, sessionId } = Astro.params;
@@ -47,8 +48,6 @@ const page = await Astro.locals.db.queries.history.listBySession(
     sessionId,
     parsePageRequest(Astro.url),
 );
-const history = page.items;
-const navigation = pageNavigation(Astro.url, page);
 
 const lastRequestAt = selectedSession.history.at(0)?.requestedAt;
 const name = deviceName(selectedSession, session.id);
@@ -58,109 +57,36 @@ const ownerSettingsHref = settingsHref(owner.username);
 <BaseLayout
     title={name}
     description={`History for ${name.toLowerCase()} of ${owner.fullname}`}
-    includeSidebar={true}
     prefetchUrls={[ownerSettingsHref, "/explore", "/reviews", "/"]}
-    session={session}
-    user={session.user}
     sidebarMenuSections={settingsSidebarMenuSections(owner.username)}
 >
     <h1>{name}</h1>
 
     <dl class="t-body-sm mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <div class="rounded-box border border-line bg-surface p-3">
-            <dt class="text-fg-muted">Signed in</dt>
-            <dd class="t-body font-medium">
-                <time
-                    datetime={selectedSession.createdAt.toISOString()}
-                    title={formatExactTime(selectedSession.createdAt)}
-                >
-                    {formatRelativeTime(selectedSession.createdAt)}
-                </time>
-            </dd>
-        </div>
-        <div class="rounded-box border border-line bg-surface p-3">
-            <dt class="text-fg-muted">Last used</dt>
-            <dd class="t-body font-medium">
-                {lastRequestAt ? (
-                    <time
-                        datetime={lastRequestAt.toISOString()}
-                        title={formatExactTime(lastRequestAt)}
-                    >
-                        {formatRelativeTime(lastRequestAt)}
-                    </time>
-                ) : (
-                    "Never"
-                )}
-            </dd>
-        </div>
-        <div class="col-span-2 rounded-box border border-line bg-surface p-3 sm:col-span-1">
-            <dt class="text-fg-muted">Requests</dt>
-            <dd class="t-body font-medium">{selectedSession.requestCount}</dd>
-        </div>
+        <Stat label="Signed in"><RelativeTime date={selectedSession.createdAt} /></Stat>
+        <Stat label="Last used">{lastRequestAt ? <RelativeTime date={lastRequestAt} /> : "Never"}</Stat>
+        <Stat class="col-span-2 sm:col-span-1" label="Requests">{selectedSession.requestCount}</Stat>
     </dl>
 
-    <section class="mt-8">
-        <h2>History</h2>
-        {history.length === 0 ? (
-            <p class="t-body mt-2 text-fg-muted">
-                {page.isPastEnd
-                    ? "There are no older requests."
-                    : "This session has not made any requests yet."}
-            </p>
-        ) : (
-            <ol class="mt-4 divide-y divide-line rounded-box border border-line bg-surface">
-                {history.map((entry) => (
-                    <li class="flex items-center gap-3 px-4 py-3">
-                        <span
-                            class="tag min-w-[8ch] shrink-0 justify-center"
-                            title={
-                                entry.prefetched
-                                    ? "Prefetched: the browser loaded this page early, in case it was opened next"
-                                    : undefined
-                            }
-                        >
-                            {entry.prefetched ? "PRE" : entry.method}
-                        </span>
-                        <span
-                            class:list={[
-                                "t-body-sm shrink-0 text-fg-muted",
-                                { "text-danger": entry.status >= 400 },
-                            ]}
-                        >
-                            {entry.status}
-                        </span>
-                        <span class="flex min-w-0 flex-1 items-center gap-2">
-                            <span class="t-body min-w-0 truncate">
-                                {entry.path}
-                            </span>
-                            {entry.action && (
-                                <span class="t-body-sm min-w-0 truncate text-fg-muted">
-                                    {entry.action}
-                                </span>
-                            )}
-                        </span>
-                        <time
-                            class="t-body-sm shrink-0 text-right text-fg-muted"
-                            datetime={entry.requestedAt.toISOString()}
-                            title={formatExactTime(entry.requestedAt)}
-                        >
-                            {formatRelativeTime(
-                                entry.requestedAt,
-                                new Date(),
-                                "narrow",
-                            )}
-                        </time>
-                    </li>
-                ))}
-            </ol>
-        )}
-        {navigation && (
-            <Pagination
-                id="history-pages"
-                class="mt-4"
-                aria-label="History pages"
-                navigation={navigation}
-            />
-        )}
-    </section>
+    <PagedSection class="mt-8 space-y-4" aria-label="History" page={page} empty="This session has not made any requests yet.">
+        <h2 slot="heading">History</h2>
+        <ol class="divide-y divide-line rounded-box border border-line bg-surface">
+            {page.items.map((entry) => (
+                <li class="flex items-center gap-3 px-4 py-3">
+                    <span
+                        class="tag min-w-[8ch] shrink-0 justify-center"
+                        title={entry.prefetched ? "Prefetched: the browser loaded this page early, in case it was opened next" : undefined}
+                    >
+                        {entry.prefetched ? "PRE" : entry.method}
+                    </span>
+                    <span class:list={["t-body-sm shrink-0 text-fg-muted", { "text-danger": entry.status >= 400 }]}>{entry.status}</span>
+                    <span class="flex min-w-0 flex-1 items-center gap-2">
+                        <span class="t-body min-w-0 truncate">{entry.path}</span>
+                        {entry.action && <span class="t-body-sm min-w-0 truncate text-fg-muted">{entry.action}</span>}
+                    </span>
+                    <RelativeTime class="t-body-sm shrink-0 text-right text-fg-muted" date={entry.requestedAt} narrow />
+                </li>
+            ))}
+        </ol>
+    </PagedSection>
 </BaseLayout>

@@ -27,7 +27,7 @@ describe("PeoplePage", () => {
 		const eve = insertUser(client, "eve");
 		client.update(s.users).set({ email: "kebab@example.com" }).where(eq(s.users.id, eve.id)).run();
 		const banned = insertUser(client, "kebab_spam");
-		await db.mutations.users.ban(banned.id, admin.id);
+		await db.mutations.users.ban(admin.id, banned.username);
 
 		const { html } = await renderPage(PeoplePage, { db, session: await signIn(db, ada.id) }, "/people?q=kebab");
 
@@ -39,7 +39,7 @@ describe("PeoplePage", () => {
 		const ada = insertUser(client, "ada");
 		const bob = insertUser(client, "bob_kebab");
 		insertUser(client, "cy_kebab");
-		await db.mutations.follows.follow(ada.id, bob.id);
+		await db.mutations.follows.follow(ada.id, bob.username);
 
 		const { html } = await renderPage(PeoplePage, { db, session: await signIn(db, ada.id) }, "/people?q=kebab");
 
@@ -62,9 +62,9 @@ describe("ProfilePage follower lists", () => {
 		const ada = insertUser(client, "ada");
 		const bob = insertUser(client, "bob");
 		const fans = Array.from({ length: 11 }, (_, i) => insertUser(client, `fan_${String(i).padStart(2, "0")}`));
-		for (const fan of fans) await db.mutations.follows.follow(fan.id, bob.id);
-		await db.mutations.follows.follow(bob.id, ada.id);
-		await db.mutations.users.ban(fans[0]!.id, admin.id);
+		for (const fan of fans) await db.mutations.follows.follow(fan.id, bob.username);
+		await db.mutations.follows.follow(bob.id, ada.username);
+		await db.mutations.users.ban(admin.id, fans[0]!.username);
 		const session = await signIn(db, ada.id);
 		const render = (search: string) => renderPage(ProfilePage, { db, session }, `/bob/profile${search}`, { username: "bob" });
 

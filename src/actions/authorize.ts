@@ -1,20 +1,18 @@
 import { ActionError } from "astro:actions";
 import { z } from "astro/zod";
-import { can, canOn, type ResourcePermission, type RestaurantPermission, type ReviewPermission, type UserPermission } from "@src/auth/permissions";
+import { can, type ResourcePermission, type Subject } from "@src/auth/permissions";
+import { isProblem, type Problem } from "@src/db/mutations/authorize";
+import { maxQueuedPerUser } from "@src/db/mutations/suggestion-queue";
+import { maxPicturesPerReview } from "@src/validation/review";
 import { usernameSchema } from "@src/validation/username";
+
+type ErrorCode = ConstructorParameters<typeof ActionError>[0]["code"];
 
 export const targetUserSchema = z.object({
   username: usernameSchema,
 });
 
-export function refusedSinceRequestStarted(resource = "this user") {
-  return new ActionError({
-    code: "CONFLICT",
-    message: `Your role or ${resource} changed. Reload the page and try again.`,
-  });
-}
-
-const refusals: Record<ResourcePermission | "restaurant:suggest", string> = {
+const forbidden: Record<ResourcePermission | "restaurant:suggest", string> = {
   "user:view-profile": "You cannot see this profile.",
   "user:follow": "You cannot follow this user.",
   "user:unfollow": "You cannot unfollow this user.",
@@ -36,78 +34,45 @@ const refusals: Record<ResourcePermission | "restaurant:suggest", string> = {
   "restaurant:suggest": "You cannot suggest restaurants.",
 };
 
-function forbidden(permission: keyof typeof refusals) {
-  return new ActionError({ code: "FORBIDDEN", message: refusals[permission] });
+const notFound: Record<string, string> = {
+  user: "The user does not exist.",
+  review: "The review does not exist.",
+  restaurant: "The restaurant does not exist.",
+};
+
+const problems: Record<Exclude<Problem["problem"], "not-found" | "forbidden">, [ErrorCode, string]> = {
+  "invalid-picture": ["BAD_REQUEST", "A file is not a picture. Use JPEG, PNG, WebP, AVIF or GIF."],
+  "too-many-pictures": ["BAD_REQUEST", `A review can have at most ${maxPicturesPerReview} pictures.`],
+  "username-taken": ["CONFLICT", "Username is already taken."],
+  "queue-full": ["TOO_MANY_REQUESTS", `You have ${maxQueuedPerUser} links waiting. Suggest more when they are done.`],
+  "account-gone": ["UNAUTHORIZED", "Your account no longer exists."],
+};
+
+function toActionError(result: Problem) {
+  if ("permission" in result) {
+    const resource = result.permission.slice(0, result.permission.indexOf(":"));
+    return result.problem === "not-found"
+      ? new ActionError({ code: "NOT_FOUND", message: notFound[resource]! })
+      : new ActionError({ code: "FORBIDDEN", message: forbidden[result.permission] });
+  }
+  const [code, message] = problems[result.problem];
+  return new ActionError({ code, message });
 }
 
-function notFound(message: string) {
-  return new ActionError({ code: "NOT_FOUND", message });
+// The result of a write, or the error that tells the user why it did not happen.
+export function orThrow<T>(result: T): Exclude<T, Problem> {
+  if (isProblem(result)) throw toActionError(result);
+  return result as Exclude<T, Problem>;
 }
 
 export function requireSession(locals: App.Locals) {
-  const session = locals.session;
-
-  if (!session) {
-    throw new ActionError({
-      code: "UNAUTHORIZED",
-      message: "You must be signed in.",
-    });
+  if (!locals.session) {
+    throw new ActionError({ code: "UNAUTHORIZED", message: "You must be signed in." });
   }
-
-  return session;
+  return locals.session;
 }
 
-export function authorize(locals: App.Locals, permission: "restaurant:suggest") {
-  const session = requireSession(locals);
-
-  if (!can(session.user, permission)) {
-    throw forbidden(permission);
-  }
-
-  return session;
-}
-
-export async function authorizeTargetUser(locals: App.Locals, username: string, permission: UserPermission) {
-  const session = requireSession(locals);
-  const targetUser = await locals.db.queries.users.findByUsername(username);
-
-  if (!targetUser) {
-    throw notFound(`User "${username}" not found.`);
-  }
-
-  if (!can(session.user, permission, targetUser)) {
-    throw forbidden(permission);
-  }
-
-  return { session, targetUser };
-}
-
-export async function authorizeReview(locals: App.Locals, reviewId: number, permission: ReviewPermission) {
-  const session = requireSession(locals);
-  const review = await locals.db.queries.reviews.findById(reviewId, session.user.id);
-
-  if (!review || !canOn(session.user, "review:view", review)) {
-    throw notFound("The review does not exist.");
-  }
-
-  if (!canOn(session.user, permission, review)) {
-    throw forbidden(permission);
-  }
-
-  return { session, review };
-}
-
-export async function authorizeRestaurant(locals: App.Locals, restaurantId: number, permission: RestaurantPermission) {
-  const session = requireSession(locals);
-  const restaurant = await locals.db.queries.restaurants.findById(restaurantId, session.user.id);
-
-  if (!restaurant || !canOn(session.user, "restaurant:view", restaurant)) {
-    throw notFound("The restaurant does not exist.");
-  }
-
-  if (!canOn(session.user, permission, restaurant)) {
-    throw forbidden(permission);
-  }
-
-  return { session, restaurant };
+// Only for a permission on no resource. A permission on one is checked by the write, in its transaction.
+export function requirePermission(subject: Subject, permission: "restaurant:suggest") {
+  if (!can(subject, permission)) throw new ActionError({ code: "FORBIDDEN", message: forbidden[permission] });
 }

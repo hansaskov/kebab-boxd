@@ -33,7 +33,7 @@ describe("FeedPage", () => {
 		insertReview(client, dan.id, grill.id, 2, daysAgo(2));
 		insertReview(client, ada.id, grill.id, 10, daysAgo(2));
 		const cleos = insertReview(client, cleo.id, grill.id, 9, daysAgo(2));
-		await db.mutations.users.ban(dan.id, admin.id);
+		await db.mutations.users.ban(admin.id, dan.username);
 
 		const { html } = await renderPage(FeedPage, { db, session: await signIn(db, ada.id) }, "/");
 
@@ -93,5 +93,23 @@ describe("YourReviewsPage", () => {
 		expect(reviewTimes(html)).toHaveLength(4);
 		expect(html.match(/>Hidden<\/span>/g)).toHaveLength(1);
 		expect(html.match(/>Edit<\/a>/g)).toHaveLength(4);
+	});
+});
+
+describe("a page after a failed action", () => {
+	it("tells the user why the action failed", async () => {
+		const { client, db } = createTestDatabase("feed-failed-action");
+		const ada = insertUser(client, "ada");
+		const session = await signIn(db, ada.id);
+		const locals: App.Locals = {
+			db,
+			session,
+			actionOutcome: { name: "reviews.like", failure: { code: "FORBIDDEN", message: "You cannot like this review.", fields: {}, input: [] } },
+		};
+
+		const { html } = await renderPage(FeedPage, locals, "/");
+
+		expect(html).toContain("Like failed");
+		expect(html).toContain("You cannot like this review.");
 	});
 });

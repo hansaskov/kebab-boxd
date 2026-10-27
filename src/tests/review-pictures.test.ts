@@ -118,7 +118,7 @@ describe("pictures of a review", () => {
 
 		expect(storedPictureNames(picturesDirectory)).toHaveLength(2);
 
-		await db.mutations.users.delete(ada.id, ada.id);
+		await db.mutations.users.delete(ada.id, ada.username);
 
 		expect(storedPictureNames(picturesDirectory)).toEqual([]);
 		expect(client.query.pictures.findMany().sync()).toEqual([]);

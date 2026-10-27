@@ -193,9 +193,9 @@ export async function seedDatabase(client: Client, pictures: PictureStore) {
   if (!admin) {
     throw new Error("The seed has no Admin to ban users with.");
   }
-  const bannableUsers = await client.query.users.findMany({ columns: { id: true }, where: { role: "user" }, limit: 3 });
-  for (const { id } of bannableUsers) {
-    await db.mutations.users.ban(id, admin.id);
+  const bannableUsers = await client.query.users.findMany({ columns: { username: true }, where: { role: "user" }, limit: 3 });
+  for (const { username } of bannableUsers) {
+    await db.mutations.users.ban(admin.id, username);
   }
 
   const favoritesRows = uniquePairs(250, userIds, restaurantIds).map(([userId, restaurantId]) => ({

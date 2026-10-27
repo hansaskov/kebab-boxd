@@ -4,9 +4,9 @@ import { approvedRestaurant, containsText, type Filter } from "@src/db/filters";
 import { cursorList, type Seek } from "@src/db/pagination";
 import * as s from "@src/db/schema";
 import type { RestaurantStatus } from "@src/db/schema";
-import { asBoolean, countRows } from "@src/db/subqueries";
+import { asBoolean, countsOf, selectCounts } from "@src/db/subqueries";
 import { longitudeScale, type Bounds, type Coordinates } from "@src/map/coordinates";
-import type { PageItem, PageRequest } from "@src/pagination";
+import type { PageRequest } from "@src/pagination";
 
 export const restaurantSorts = ["top-rated", "popular", "newest"] as const;
 export type RestaurantSort = (typeof restaurantSorts)[number];
@@ -16,10 +16,16 @@ export interface RestaurantListCriteria {
 	sort: RestaurantSort;
 }
 
-const topRatedPages = cursorList(s.restaurants, ["ratingAvg", "id"], "desc");
-const popularPages = cursorList(s.restaurants, ["reviewCount", "id"], "desc");
-const newestPages = cursorList(s.restaurants, ["id"], "desc");
-const oldestPages = cursorList(s.restaurants, ["id"], "asc");
+export const restaurantStatusWhere = {
+	approved: { status: "approved" },
+	pending: { status: "pending" },
+	rejected: { status: "rejected" },
+} satisfies Record<RestaurantStatus, Filter<"restaurants">>;
+
+const topRatedPages = cursorList("restaurants", ["ratingAvg", "id"], "desc");
+const popularPages = cursorList("restaurants", ["reviewCount", "id"], "desc");
+const newestPages = cursorList("restaurants", ["id"], "desc");
+const oldestPages = cursorList("restaurants", ["id"], "asc");
 
 const summary = {
 	columns: { id: true, name: true, status: true, ratingAvg: true, reviewCount: true, createdAt: true },
@@ -78,12 +84,10 @@ function withRestaurant(locations: PinnedLocation[]): Pin[] {
 export function createRestaurantQueries(client: Client) {
 	return {
 		async list({ search, sort }: RestaurantListCriteria, page: PageRequest) {
-			const read = (seek: Seek<typeof s.restaurants>) =>
+			const read = (seek: Seek<"restaurants">) =>
 				client.query.restaurants.findMany({
 					...summary,
-					where: { AND: [approvedRestaurant, matching(search), seek.where] },
-					orderBy: seek.orderBy,
-					limit: seek.limit,
+					...seek({ AND: [approvedRestaurant, matching(search)] }),
 				});
 			switch (sort) {
 				case "top-rated":
@@ -121,12 +125,15 @@ export function createRestaurantQueries(client: Client) {
 			});
 		},
 
-		async listInBounds({ north, south, east, west }: Bounds, center: Coordinates, limit: number) {
+		// The restaurants nearest to the center, within the bounds when there are any.
+		async listNearest(center: Coordinates, limit: number, bounds?: Bounds) {
 			const locations = await client.query.locations.findMany({
 				...pinned,
 				where: {
-					latitude: { gte: south, lte: north },
-					longitude: { gte: west, lte: east },
+					...(bounds && {
+						latitude: { gte: bounds.south, lte: bounds.north },
+						longitude: { gte: bounds.west, lte: bounds.east },
+					}),
 					restaurant: approvedRestaurant,
 				},
 				orderBy: byDistanceFrom(center),
@@ -135,25 +142,13 @@ export function createRestaurantQueries(client: Client) {
 			return withRestaurant(locations);
 		},
 
-		async listNearest(center: Coordinates, limit: number) {
-			const locations = await client.query.locations.findMany({
-				...pinned,
-				where: { restaurant: approvedRestaurant },
-				orderBy: byDistanceFrom(center),
-				limit,
-			});
-			return withRestaurant(locations);
-		},
-
 		// The queue of suggestions is worked through oldest first; decided suggestions show the latest first.
 		async listByStatus(status: RestaurantStatus, page: PageRequest) {
-			const read = (seek: Seek<typeof s.restaurants>) =>
+			const read = (seek: Seek<"restaurants">) =>
 				client.query.restaurants.findMany({
 					...summary,
 					with: { ...summary.with, suggester: { columns: { username: true, fullname: true } } },
-					where: { AND: [{ status }, seek.where] },
-					orderBy: seek.orderBy,
-					limit: seek.limit,
+					...seek({ status }),
 				});
 			return status === "pending" ? oldestPages(page, read) : newestPages(page, read);
 		},
@@ -162,22 +157,14 @@ export function createRestaurantQueries(client: Client) {
 			return newestPages(page, (seek) =>
 				client.query.restaurants.findMany({
 					...summary,
-					where: { AND: [{ suggestedBy: userId }, seek.where] },
-					orderBy: seek.orderBy,
-					limit: seek.limit,
+					...seek({ suggestedBy: userId }),
 				}),
 			);
 		},
 
-		async countByStatus(): Promise<Record<RestaurantStatus, number>> {
-			const [approved, pending, rejected] = await Promise.all([
-				countRows(client, "restaurants", { status: "approved" }),
-				countRows(client, "restaurants", { status: "pending" }),
-				countRows(client, "restaurants", { status: "rejected" }),
-			]);
-			return { approved, pending, rejected };
+		async countByStatus() {
+			return selectCounts(client, countsOf(client, "restaurants", restaurantStatusWhere));
 		},
 	};
 }
 
-export type RestaurantSummary = PageItem<Awaited<ReturnType<ReturnType<typeof createRestaurantQueries>["list"]>>>;

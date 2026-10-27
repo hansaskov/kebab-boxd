@@ -1,0 +1,13 @@
+---
+import type { HTMLAttributes } from "astro/types";
+import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
+
+interface Props extends HTMLAttributes<"time"> {
+  date: Date;
+  narrow?: boolean;
+}
+
+const { date, narrow = false, ...props } = Astro.props;
+---
+
+<time {...props} datetime={date.toISOString()} title={formatExactTime(date)}>{formatRelativeTime(date, new Date(), narrow ? "narrow" : "long")}</time>

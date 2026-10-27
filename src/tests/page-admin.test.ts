@@ -67,7 +67,7 @@ describe("admin console", () => {
 		const admin = insertUser(client, "root_admin", "admin");
 		const ada = insertUser(client, "ada");
 		insertUser(client, "bob");
-		await db.mutations.users.ban(ada.id, admin.id);
+		await db.mutations.users.ban(admin.id, ada.username);
 		insertRestaurant(client, "Bosporus Grill", { status: "approved" });
 		insertRestaurant(client, "Mangal Express");
 		insertRestaurant(client, "Hasir Kebab");

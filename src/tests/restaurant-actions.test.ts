@@ -73,7 +73,7 @@ describe("favorite and bucket list actions", () => {
 		const ada = insertUser(client, "ada");
 		const bob = insertUser(client, "bob");
 		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
-		await db.mutations.restaurants.collect("favorites", ada.id, grill.id);
+		await db.mutations.restaurants.collect(ada.id, grill.id, "favorites");
 		const render = async (userId: number) =>
 			(await renderPage(ProfilePage, { db, session: await signIn(db, userId) }, "/ada/profile?tab=favorites", { username: "ada" })).html;
 

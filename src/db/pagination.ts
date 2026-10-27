@@ -1,12 +1,17 @@
 import { asc, desc, getColumns, sql, type Column, type GetColumnData, type SQL } from "drizzle-orm";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
+import type { Filter, TableName } from "@src/db/filters";
+import { relations } from "@src/db/relations";
 import type { Page, PageRequest } from "@src/pagination";
 
-export interface Seek<Table extends SQLiteTable> {
-	where: { RAW?: (table: Table) => SQL };
-	orderBy: (table: Table) => SQL[];
+type SchemaTable<Name extends TableName> = (typeof relations)[Name]["table"];
+
+// Narrows the filter of a relational query to one page and orders it: `findMany({ ...columns, ...seek(where) })`.
+export type Seek<Name extends TableName> = (where: Filter<Name>) => {
+	where: Filter<Name>;
+	orderBy: (table: SchemaTable<Name>) => SQL[];
 	limit: number;
-}
+};
 
 type Direction = "first" | "after" | "before";
 
@@ -54,10 +59,13 @@ function parserFor(column: Column): (text: string) => unknown {
 }
 
 export function cursorList<
-	Table extends SQLiteTable,
-	const Keys extends readonly [ColumnName<Table>, ...ColumnName<Table>[]],
->(table: Table, keys: Keys, order: "asc" | "desc") {
-	const tableColumns = getColumns(table);
+	Name extends TableName,
+	const Keys extends readonly [ColumnName<SchemaTable<Name>>, ...ColumnName<SchemaTable<Name>>[]],
+>(name: Name, keys: Keys, order: "asc" | "desc") {
+	type Table = SchemaTable<Name>;
+	// The generic table type is too deep to check column by column, so the columns are read as plain columns.
+	const columnsOf = (table: Table) => getColumns(table as SQLiteTable) as Record<string, Column>;
+	const tableColumns = columnsOf(relations[name].table as Table);
 	const columns = keys.map((key) => {
 		const column = tableColumns[key];
 		if (!column) throw new Error(`The table has no column ${key}.`);
@@ -82,7 +90,7 @@ export function cursorList<
 	const keyOf = (row: KeyValues<Table, Keys>): unknown[] =>
 		columns.map((column, i) => column.mapToDriverValue(row[keys[i]!]));
 
-	const keyColumns = (aliased: Table) => keys.map((key) => getColumns(aliased)[key]!);
+	const keyColumns = (aliased: Table) => keys.map((key) => columnsOf(aliased)[key]!);
 	const compare = (operator: "<" | ">" | "<=" | ">=", at: unknown[]) => ({
 		RAW: (aliased: Table) =>
 			sql`(${sql.join(keyColumns(aliased), sql`, `)}) ${sql.raw(operator)} (${sql.join(
@@ -94,21 +102,16 @@ export function cursorList<
 		keyColumns(aliased).map((column) => (ascending ? asc(column) : desc(column)));
 
 	const ascending = order === "asc";
-	const seek = (direction: Direction, limit: number, at: unknown[], inclusive: boolean): Seek<Table> => {
+	const seek = (direction: Direction, limit: number, at: unknown[], inclusive: boolean): Seek<Name> => {
 		const forward = direction === "after" ? ascending : !ascending;
 		const operator = `${forward ? ">" : "<"}${inclusive ? "=" : ""}` as const;
-		switch (direction) {
-			case "first":
-				return { where: {}, orderBy: orderBy(ascending), limit };
-			case "after":
-			case "before":
-				return { where: compare(operator, at), orderBy: orderBy(forward), limit };
-		}
+		const page = direction === "first" ? { where: {}, orderBy: orderBy(ascending) } : { where: compare(operator, at), orderBy: orderBy(forward) };
+		return (where) => ({ where: { AND: [where, page.where] } as Filter<Name>, orderBy: page.orderBy, limit });
 	};
 
 	return async function readPage<Row extends KeyValues<Table, Keys>>(
 		{ limit, cursor }: PageRequest,
-		query: (seek: Seek<Table>) => PromiseLike<Row[]>,
+		query: (seek: Seek<Name>) => PromiseLike<Row[]>,
 	): Promise<Page<Row>> {
 		const read = async (direction: Direction, rows: number, at: unknown[] = [], inclusive = false) =>
 			query(seek(direction, rows, at, inclusive));

@@ -3,11 +3,12 @@ import { actions } from "astro:actions";
 import { adminSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import FieldSelect from "@src/components/FieldSelect.astro";
+import RelativeTime from "@src/components/RelativeTime.astro";
+import Stat from "@src/components/Stat.astro";
 import { changeUserRoleSchema } from "@src/actions/admin";
+import { submittedForm } from "@src/actions/outcome";
 import { can } from "@src/auth/permissions";
-import { resultToast } from "@src/format/action-toast";
-import { submittedForm } from "@src/actions/submitted-input";
-import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
+import { successToast } from "@src/format/action-toast";
 import { adminUserHref, settingsHref } from "@src/hrefs";
 
 const { username } = Astro.params;
@@ -44,20 +45,13 @@ const isOwnAccount = session.user.id === user.id;
 const devices = canManageSessions ? await Astro.locals.db.queries.sessions.listActive(user.id) : [];
 const lastActiveAt = devices.at(0)?.history.at(0)?.requestedAt;
 
-const banResult = Astro.getActionResult(actions.admin.banUser);
-const unbanResult = Astro.getActionResult(actions.admin.unbanUser);
-const roleResult = Astro.getActionResult(actions.admin.changeUserRole);
-
 const toast =
-  resultToast(banResult, "Ban failed", {
+  successToast(Astro.locals, actions.admin.banUser, {
     title: "User banned",
     text: `${user.fullname} is signed out everywhere and cannot sign in.`,
   }) ??
-  resultToast(unbanResult, "Lifting the ban failed", {
-    title: "Ban lifted",
-    text: `${user.fullname} can sign in again.`,
-  }) ??
-  resultToast(roleResult, "Role change failed", {
+  successToast(Astro.locals, actions.admin.unbanUser, { title: "Ban lifted", text: `${user.fullname} can sign in again.` }) ??
+  successToast(Astro.locals, actions.admin.changeUserRole, {
     title: "Role changed",
     text: `${user.fullname} is now ${user.role === "admin" ? "an admin" : "a user"}.`,
   });
@@ -68,10 +62,7 @@ const userSettingsHref = settingsHref(user.username);
 <BaseLayout
   title={user.fullname}
   description={`Manage the account of ${user.fullname}`}
-  includeSidebar={true}
   prefetchUrls={["/admin/users", userSettingsHref, "/admin"]}
-  session={session}
-  user={session.user}
   sidebarMenuSections={adminSidebarMenuSections()}
   toast={toast}
 >
@@ -83,30 +74,9 @@ const userSettingsHref = settingsHref(user.username);
   <p class="t-body-sm mt-1 text-fg-muted">@{user.username} · {user.email}</p>
 
   <dl class="t-body-sm mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-    <div class="rounded-box border border-line bg-surface p-3">
-      <dt class="text-fg-muted">Joined</dt>
-      <dd class="t-body font-medium">
-        <time datetime={user.createdAt.toISOString()} title={formatExactTime(user.createdAt)}>
-          {formatRelativeTime(user.createdAt)}
-        </time>
-      </dd>
-    </div>
-    <div class="rounded-box border border-line bg-surface p-3">
-      <dt class="text-fg-muted">Last active</dt>
-      <dd class="t-body font-medium">
-        {lastActiveAt ? (
-          <time datetime={lastActiveAt.toISOString()} title={formatExactTime(lastActiveAt)}>
-            {formatRelativeTime(lastActiveAt)}
-          </time>
-        ) : (
-          "Not signed in"
-        )}
-      </dd>
-    </div>
-    <div class="col-span-2 rounded-box border border-line bg-surface p-3 sm:col-span-1">
-      <dt class="text-fg-muted">Signed-in devices</dt>
-      <dd class="t-body font-medium">{devices.length}</dd>
-    </div>
+    <Stat label="Joined"><RelativeTime date={user.createdAt} /></Stat>
+    <Stat label="Last active">{lastActiveAt ? <RelativeTime date={lastActiveAt} /> : "Not signed in"}</Stat>
+    <Stat class="col-span-2 sm:col-span-1" label="Signed-in devices">{devices.length}</Stat>
   </dl>
 
   <section id="account" class="mt-8">
@@ -140,7 +110,8 @@ const userSettingsHref = settingsHref(user.username);
           <FieldSelect
             label="Role"
             name="role"
-            selected={submittedForm(Astro.locals, actions.admin.changeUserRole)?.get("role") ?? user.role}
+            selected={user.role}
+            submitted={submittedForm(Astro.locals, actions.admin.changeUserRole)}
             description="Admins can manage every user and all content."
             zodField={changeUserRoleSchema.shape.role}
           />
@@ -175,10 +146,7 @@ const userSettingsHref = settingsHref(user.username);
           <div class="settings-row-text">
             <p class="field-label">Lift the ban</p>
             <p class="t-body-sm text-fg-muted">
-              Banned{" "}
-              <time datetime={user.bannedAt.toISOString()} title={formatExactTime(user.bannedAt)}>
-                {formatRelativeTime(user.bannedAt)}
-              </time>. Lift the ban to let {user.fullname} sign in again.
+              Banned <RelativeTime date={user.bannedAt} />. Lift the ban to let {user.fullname} sign in again.
             </p>
           </div>
           <button class="btn btn-secondary btn-md settings-row-action" type="submit">Lift ban</button>

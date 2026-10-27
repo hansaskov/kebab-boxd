@@ -4,19 +4,16 @@ import type { Toast } from "@src/components/Toast.astro";
 
 const errorToasts: Record<string, Toast> = {
 	expired: {
-		kind: "title",
 		variant: "error",
 		title: "Sign-in expired",
 		text: "Please sign in again.",
 	},
 	failed: {
-		kind: "title",
 		variant: "error",
 		title: "Sign-in failed",
 		text: "Google could not confirm your account. Please try again.",
 	},
 	banned: {
-		kind: "title",
 		variant: "error",
 		title: "Account banned",
 		text: "An admin has banned this account, so you cannot sign in.",
@@ -25,7 +22,6 @@ const errorToasts: Record<string, Toast> = {
 
 const noticeToasts: Record<string, Toast> = {
 	"account-deleted": {
-		kind: "title",
 		title: "Account deleted",
 		text: "Your account and your data are deleted.",
 	},

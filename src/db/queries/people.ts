@@ -25,7 +25,7 @@ export function personCard(client: Client, viewerId: number) {
 	} as const;
 }
 
-const pages = cursorList(s.users, ["username"], "asc");
+const pages = cursorList("users", ["username"], "asc");
 
 export function createPeopleQueries(client: Client) {
 	return {
@@ -34,20 +34,10 @@ export function createPeopleQueries(client: Client) {
 			return pages(page, (seek) =>
 				client.query.users.findMany({
 					...personCard(client, viewerId),
-					where: {
-						AND: [
-							unbannedUser,
-							{
-								OR: [
-									{ RAW: (user) => containsText(user.username, text) },
-									{ RAW: (user) => containsText(user.fullname, text) },
-								],
-							},
-							seek.where,
-						],
-					},
-					orderBy: seek.orderBy,
-					limit: seek.limit,
+					...seek({
+						...unbannedUser,
+						OR: [{ RAW: (user) => containsText(user.username, text) }, { RAW: (user) => containsText(user.fullname, text) }],
+					}),
 				}),
 			);
 		},

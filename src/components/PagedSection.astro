@@ -1,0 +1,27 @@
+---
+import type { HTMLAttributes } from "astro/types";
+import Pagination from "@src/components/Pagination.astro";
+import { pageNavigation, type Page } from "@src/pagination";
+
+interface Props extends HTMLAttributes<"section"> {
+  page: Page<unknown>;
+  // What the section says when it has nothing to list. The "empty" slot replaces it when it needs a link.
+  empty?: string;
+  "aria-label": string;
+}
+
+const { page, empty, "aria-label": label, ...props } = Astro.props;
+const navigation = pageNavigation(Astro.url, page);
+---
+
+<section aria-label={label} {...props}>
+  <slot name="heading" />
+  {page.items.length === 0 ? (
+    <p class="t-body text-fg-muted">
+      {page.isPastEnd ? "There is nothing on this page." : <slot name="empty">{empty}</slot>}
+    </p>
+  ) : (
+    <slot />
+  )}
+  {navigation && <Pagination id="pages" class="mt-4" aria-label={`${label} pages`} navigation={navigation} />}
+</section>

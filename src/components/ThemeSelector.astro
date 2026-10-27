@@ -1,20 +1,14 @@
 ---
 import { Moon, Sun } from "@lucide/astro";
-import type { Session } from "@src/db/schema";
+import { actions } from "astro:actions";
 
-interface Props {
-  session?: Session;
-}
-
-const { session } = Astro.props;
-
-const isDark = session?.theme === "dark";
+const session = Astro.locals.session;
 ---
 {session && (
-<form method="post" action="/api/theme">
+<form method="post" action={actions.session.toggleTheme}>
   <li>
     <button type="submit">
-      {isDark ? <Moon size={16} aria-hidden="true" /> : <Sun size={16} aria-hidden="true" />}
+      {session.theme === "dark" ? <Moon size={16} aria-hidden="true" /> : <Sun size={16} aria-hidden="true" />}
       Theme
     </button>
   </li>

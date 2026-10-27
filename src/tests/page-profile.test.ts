@@ -105,7 +105,7 @@ describe("ProfilePage", () => {
 			.run();
 		client.insert(s.favorites).values([grill, pending].map((restaurant) => ({ userId: ada.id, restaurantId: restaurant.id }))).run();
 		client.insert(s.bucketList).values({ userId: ada.id, restaurantId: pending.id }).run();
-		await db.mutations.users.ban(cy.id, admin.id);
+		await db.mutations.users.ban(admin.id, cy.username);
 		const session = await signIn(db, ada.id);
 
 		const { html } = await renderProfile(db, session, "ada", "?tab=favorites");
@@ -177,7 +177,7 @@ describe("ProfilePage", () => {
 		client.update(s.users).set({ bio: "Secret sauce" }).where(eq(s.users.id, bob.id)).run();
 		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
 		insertReview(client, bob.id, grill.id, 9);
-		await db.mutations.users.ban(bob.id, admin.id);
+		await db.mutations.users.ban(admin.id, bob.username);
 
 		const asUser = await renderProfile(db, await signIn(db, ada.id), "bob");
 		const asAdmin = await renderProfile(db, await signIn(db, admin.id), "bob");
@@ -201,8 +201,8 @@ describe("ProfilePage", () => {
 		const bob = insertUser(client, "bob");
 		const cleo = insertUser(client, "cleo");
 		const adaSession = await signIn(db, ada.id);
-		await db.mutations.follows.follow(ada.id, bob.id);
-		await db.mutations.users.ban(bob.id, admin.id);
+		await db.mutations.follows.follow(ada.id, bob.username);
+		await db.mutations.users.ban(admin.id, bob.username);
 
 		const asFollower = await renderProfile(db, adaSession, "bob");
 		const asOther = await renderProfile(db, await signIn(db, cleo.id), "bob");
@@ -234,7 +234,7 @@ describe("ProfilePage", () => {
 		const ada = insertUser(client, "ada");
 		const bob = insertUser(client, "bob");
 		const session = await signIn(db, ada.id);
-		await db.mutations.users.ban(bob.id, admin.id);
+		await db.mutations.users.ban(admin.id, bob.username);
 
 		const followed = await server.profile.follow.call(actionContext(db, session), form({ username: "bob" }));
 		const locals = withActionResult({ db, session }, "profile.follow", followed);
@@ -295,7 +295,7 @@ describe("ProfilePage database queries", () => {
 		const admin = insertUser(client, "root_admin", "admin");
 		const ada = insertUser(client, "ada");
 		const bob = insertUser(client, "bob");
-		await db.mutations.users.ban(bob.id, admin.id);
+		await db.mutations.users.ban(admin.id, bob.username);
 		const session = await signIn(db, ada.id);
 		const visit = async (username: string) => (await recordQueries(() => renderProfile(db, session, username))).queries.length;
 

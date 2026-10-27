@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { server } from "@src/actions/index";
-import { readSubmittedInput } from "@src/actions/submitted-input";
+import { toSubmittedInput } from "@src/actions/outcome";
+import { isProblem } from "@src/db/mutations/authorize";
 import SettingsPage from "@src/pages/[username]/settings.astro";
 import SuggestPage from "@src/pages/restaurants/suggest.astro";
 import EditReviewPage from "@src/pages/reviews/[id]/edit.astro";
@@ -14,9 +15,8 @@ describe("a form whose action failed", () => {
 	it("keeps the text fields of the submission and never the files", async () => {
 		const submission = form({ restaurantId: 1, description: "Crispy", pictures: [await pictureFile(), await pictureFile()] });
 		submission.append("_astroAction", "reviews.create");
-		const request = new Request("http://localhost/reviews/new?_action=reviews.create", { method: "POST", body: submission });
 
-		expect(await readSubmittedInput(request)).toEqual([
+		expect(toSubmittedInput(submission)).toEqual([
 			["restaurantId", "1"],
 			["description", "Crispy"],
 		]);
@@ -74,7 +74,7 @@ describe("a form whose action failed", () => {
 		expect(newPage.html).toContain(">Long story about garlic sauce.</textarea>");
 
 		const review = await db.mutations.reviews.create(ada.id, grill.id, { rating: 4, description: "Short." }, [await pictureFile()]);
-		if (typeof review !== "object") throw new Error("The review was not created.");
+		if (isProblem(review)) throw new Error("The review was not created.");
 		const pictureId = (await db.queries.reviews.findById(review.id, ada.id))!.pictures[0]!.id;
 		const edited = form({ reviewId: review.id, rating: 9, description: "Changed my mind.", removePictureIds: [pictureId], pictures: [textFile()] });
 		const updated = await server.reviews.update.call(actionContext(db, session), edited);

@@ -9,6 +9,7 @@ import { createReviewMutations } from "@src/db/mutations/reviews";
 import { createSessionMutations } from "@src/db/mutations/sessions";
 import { createSuggestionQueueMutations } from "@src/db/mutations/suggestion-queue";
 import { createUserMutations } from "@src/db/mutations/users";
+import { createAdminQueries } from "@src/db/queries/admin";
 import { createHistoryQueries } from "@src/db/queries/history";
 import { createNotificationQueries } from "@src/db/queries/notifications";
 import { createPeopleQueries } from "@src/db/queries/people";
@@ -27,6 +28,7 @@ export function createDatabase(client: Client, pictures: PictureStore) {
 	return {
 		pictures,
 		queries: {
+			admin: createAdminQueries(client),
 			history: createHistoryQueries(client),
 			notifications: createNotificationQueries(client),
 			people: createPeopleQueries(client),

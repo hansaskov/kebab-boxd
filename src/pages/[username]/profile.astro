@@ -3,17 +3,16 @@ import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import Avatar from "@src/components/Avatar.astro";
 import FollowButton from "@src/components/FollowButton.astro";
-import Pagination from "@src/components/Pagination.astro";
+import PagedSection from "@src/components/PagedSection.astro";
 import PersonList from "@src/components/PersonList.astro";
+import RelativeTime from "@src/components/RelativeTime.astro";
 import RestaurantList from "@src/components/RestaurantList.astro";
 import ReviewList from "@src/components/ReviewList.astro";
 import SuspendedProfile from "@src/components/SuspendedProfile.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { can } from "@src/auth/permissions";
-import { failureToast } from "@src/format/action-toast";
-import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
 import { profileHref, settingsHref } from "@src/hrefs";
-import { firstPageHref, pageNavigation, parsePageRequest } from "@src/pagination";
+import { firstPageHref, parsePageRequest } from "@src/pagination";
 import { parseProfileTab, profileTabs, type ProfileTab } from "@src/validation/profile-tab";
 
 const { username } = Astro.params;
@@ -63,13 +62,6 @@ const listTabs = (["reviews", "favorites", "bucket-list"] as const).map((option)
   href: tabHref(option),
   current: option === tab,
 }));
-const navigation = list && pageNavigation(Astro.url, list.page);
-
-const toast =
-  failureToast(Astro.getActionResult(actions.profile.follow), "Follow failed") ??
-  failureToast(Astro.getActionResult(actions.profile.unfollow), "Unfollow failed") ??
-  failureToast(Astro.getActionResult(actions.reviews.like), "Like failed") ??
-  failureToast(Astro.getActionResult(actions.reviews.unlike), "Unlike failed");
 
 const layout = list
   ? {
@@ -83,7 +75,7 @@ const layout = list
     }
   : { title: "Account suspended", description: "This account has been suspended", prefetchUrls: ["/"] };
 ---
-<BaseLayout {...layout} includeSidebar={true} session={session} user={session.user} toast={toast}>
+<BaseLayout {...layout}>
   {list ? (
     <>
       <header class="flex flex-wrap items-center gap-4">
@@ -120,19 +112,14 @@ const layout = list
           <span class="font-semibold text-fg">{user.followingCount}</span> following
         </a>
         {" · "}
-        Joined{" "}
-        <time datetime={user.createdAt.toISOString()} title={formatExactTime(user.createdAt)}>
-          {formatRelativeTime(user.createdAt)}
-        </time>
+        Joined <RelativeTime date={user.createdAt} />
       </p>
 
       <TabNav class="mt-8" aria-label="Profile lists" tabs={listTabs} />
 
-      <section class="mt-4" aria-label={tabs[tab].label}>
-        {(tab === "followers" || tab === "following") && <h2 class="mb-3">{tabs[tab].label}</h2>}
-        {list.page.items.length === 0 ? (
-          <p class="t-body text-fg-muted">{list.page.isPastEnd ? "There is nothing on this page." : tabs[tab].empty}</p>
-        ) : list.tab === "reviews" ? (
+      <PagedSection class="mt-4" aria-label={tabs[tab].label} page={list.page} empty={tabs[tab].empty}>
+        {(tab === "followers" || tab === "following") && <h2 slot="heading" class="mb-3">{tabs[tab].label}</h2>}
+        {list.tab === "reviews" ? (
           <ReviewList reviews={list.page.items} viewer={session.user} showAuthor={false} />
         ) : list.tab === "followers" ? (
           <PersonList people={list.page.items.map((row) => row.follower)} viewer={session.user} />
@@ -148,10 +135,7 @@ const layout = list
               : undefined}
           />
         )}
-        {navigation && (
-          <Pagination id="profile-pages" class="mt-4" aria-label={`${tabs[tab].label} pages`} navigation={navigation} />
-        )}
-      </section>
+      </PagedSection>
     </>
   ) : (
     <SuspendedProfile username={user.username} isFollowing={isFollowing} />

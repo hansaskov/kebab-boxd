@@ -1,8 +1,7 @@
 import * as p from "drizzle-orm/sqlite-core";
 import { pronouns } from "@src/data/pronouns"
 import { sql } from "drizzle-orm";
-import type { getActionContext } from "astro:actions";
-import type { SubmittedInput } from "@src/actions/submitted-input";
+import type { ActionOutcome } from "@src/actions/outcome";
 
 const now = () => sql`(unixepoch())`;
 
@@ -42,7 +41,7 @@ export const sessions = p.snakeCase.table("sessions", {
   secretHash: p.blob({mode: "buffer"}).notNull(),
   lastVerifiedAt: p.int({ mode: "timestamp" }).notNull(),
   theme: p.text({enum: ["light", "dark"]}).notNull().default("light"),
-  actionData: p.text({mode: "json"}).$type<ActionData>(),
+  actionData: p.text({mode: "json"}).$type<ActionOutcome>(),
   updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(now),
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
 }, (t) => [
@@ -258,6 +257,3 @@ export const notifications = p.snakeCase.table("notifications", {
 
 export type NotificationKind = (typeof notifications.$inferSelect)["kind"]
 export type SuggestionDecision = Extract<NotificationKind, `suggestion-${string}`>
-
-export type SerializedActionResult = ReturnType<ReturnType<typeof getActionContext>["serializeActionResult"]>
-export type ActionData = {actionName: string, actionResult: SerializedActionResult, input?: SubmittedInput}

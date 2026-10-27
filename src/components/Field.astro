@@ -1,0 +1,33 @@
+---
+import type { DescribedField } from "@src/format/field";
+
+interface Props {
+    field: DescribedField;
+    label?: string | undefined;
+    description?: string | undefined;
+    layout?: "row" | "stack" | undefined;
+}
+
+const { field, label, description, layout = "row" } = Astro.props;
+const isRow = layout === "row";
+const hasLabelSlot = Astro.slots.has("label");
+
+if (!label && !hasLabelSlot) {
+    throw new Error(`The field "${field.id}" needs a label prop or a label slot.`);
+}
+---
+
+<div class={isRow ? "settings-row" : "space-y-2"}>
+    <div class={isRow ? "settings-row-text" : undefined}>
+        <label class:list={["field-label", { "font-normal": hasLabelSlot }]} for={field.id}>
+            <slot name="label">{label}</slot>
+        </label>
+        {description && <p id={field.descriptionId} class="t-body-sm text-fg-muted">{description}</p>}
+    </div>
+    <div class:list={["space-y-2", { "settings-row-field": isRow }]}>
+        <slot />
+        {field.errors.length > 0 && (
+            <p id={field.errorId} class="t-caption text-danger" role="alert">{field.errors.join(" ")}</p>
+        )}
+    </div>
+</div>

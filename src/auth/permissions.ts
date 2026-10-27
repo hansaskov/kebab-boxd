@@ -148,3 +148,19 @@ export function can<P extends Permission>(subject: Subject, permission: P, ...re
 export function canOn<P extends ResourcePermission>(subject: Subject, permission: P, resource: Resource<P>): boolean {
 	return (policies[permission] as (subject: Subject, resource: Resource<P>) => boolean)(subject, resource);
 }
+
+export type Refusal = "not-found" | "forbidden";
+
+// A user who may not see a review or a restaurant is told that it does not exist, whatever they ask to do with it.
+const viewPermissions: Partial<Record<string, ReviewPermission | RestaurantPermission>> = {
+	review: "review:view",
+	restaurant: "restaurant:view",
+};
+
+// Why the subject may not have the permission on the resource, or undefined when they may.
+export function refusal<P extends ResourcePermission>(subject: Subject, permission: P, resource: Resource<P> | undefined): Refusal | undefined {
+	if (!resource) return "not-found";
+	const view = viewPermissions[permission.slice(0, permission.indexOf(":"))];
+	if (view && !canOn(subject, view, resource as never)) return "not-found";
+	return canOn(subject, permission, resource) ? undefined : "forbidden";
+}

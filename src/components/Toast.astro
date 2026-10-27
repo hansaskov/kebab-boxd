@@ -1,29 +1,11 @@
 ---
 import { X } from "@lucide/astro";
-import type { AstroComponent } from "@lucide/astro";
 
-interface ToastBase {
-	variant?: "default" | "error";
+export interface Toast {
+	title: string;
+	text: string;
+	variant?: "error";
 }
-
-export type Toast =
-	| (ToastBase & {
-			kind: "text";
-			text: string;
-			action?: AstroComponent;
-	  })
-	| (ToastBase & {
-			kind: "title";
-			title: string;
-			text: string;
-			action?: AstroComponent;
-	  })
-	| (ToastBase & {
-			kind: "icon";
-			icon: AstroComponent;
-			text: string;
-			action?: AstroComponent;
-	  })
 
 interface Props {
 	toast?: Toast | undefined
@@ -47,17 +29,11 @@ const isError = toast?.variant === "error";
 				tabindex="-1"
 				aria-hidden="true"
 			/>
-			<div class:list={["flex w-full gap-3 rounded-box border p-4 bg-surface text-fg shadow-lift pointer-events-auto sm:w-auto sm:max-w-md", isError ? "border-danger" : "border-line", toast.kind === "title" ? "items-start" : "items-center"]}>
-				{toast.kind === "icon" && <toast.icon class="shrink-0" size={20} />}
+			<div class:list={["flex w-full items-start gap-3 rounded-box border p-4 bg-surface text-fg shadow-lift pointer-events-auto sm:w-auto sm:max-w-md", isError ? "border-danger" : "border-line"]}>
 				<div class="min-w-0 flex-1">
-					{toast.kind === "title" && <p class:list={["text-sm font-semibold", isError && "text-danger"]}>{toast.title}</p>}
+					<p class:list={["text-sm font-semibold", isError && "text-danger"]}>{toast.title}</p>
 					<p class="t-body-sm text-fg-muted">{toast.text}</p>
 				</div>
-				{toast.action && (
-					<div class="shrink-0">
-						<toast.action />
-					</div>
-				)}
 				<label
 					for="toast-dismiss"
 					class="shrink-0 cursor-pointer opacity-60 hover:opacity-100"

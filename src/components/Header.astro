@@ -1,13 +1,12 @@
 ---
 import { Bell, Menu } from "@lucide/astro";
-import type { SessionWithUser } from "@src/auth/session";
 
 interface Props {
   includeSidebar?: boolean;
-  user?: NonNullable<SessionWithUser>["user"];
 }
 
-const { includeSidebar = false, user } = Astro.props;
+const { includeSidebar = false } = Astro.props;
+const user = Astro.locals.session?.user;
 const unread = user?.unreadNotificationCount ?? 0;
 ---
 <header

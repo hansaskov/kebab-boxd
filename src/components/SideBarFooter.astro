@@ -1,17 +1,12 @@
 ---
 import { ChevronUp, CircleUser, Settings, DoorOpen, Shield } from "@lucide/astro";
 import Avatar from "@src/components/Avatar.astro";
+import { actions } from "astro:actions";
 import ThemeSelector from "@src/components/ThemeSelector.astro";
-import type { ComponentProps } from "astro/types";
-import type { SessionWithUser } from "@src/auth/session";
 import { can } from "@src/auth/permissions";
 import { profileHref, settingsHref } from "@src/hrefs";
 
-interface Props extends ComponentProps<typeof ThemeSelector> {
-  user?: NonNullable<SessionWithUser>["user"];
-}
-
-const { user } = Astro.props;
+const user = Astro.locals.session?.user;
 ---
 
  {user && (
@@ -35,7 +30,7 @@ const { user } = Astro.props;
     >
       <li><a href={profileHref(user.username)}><CircleUser size={16} aria-hidden="true" />Profile</a></li>
       <li><a href={settingsHref(user.username)}><Settings size={16} aria-hidden="true" />Settings</a></li>
-      <ThemeSelector {...Astro.props} />
+      <ThemeSelector />
       {
         can(user, "admin-console:view") && (
           <>
@@ -44,7 +39,7 @@ const { user } = Astro.props;
           </>
         )
       }
-      <form method="post" action="/api/logout" class="border-t border-line pt-1 mt-1">
+      <form method="post" action={actions.session.signOut} class="border-t border-line pt-1 mt-1">
         <li>
           <button data-danger type="submit"><DoorOpen size={16} aria-hidden="true" />Sign out</button>
         </li>

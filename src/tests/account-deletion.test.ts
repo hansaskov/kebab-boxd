@@ -50,7 +50,7 @@ describe("users.delete", () => {
 		client.insert(s.favorites).values({ userId: ada.id, restaurantId: grill.id }).run();
 		client.insert(s.bucketList).values({ userId: ada.id, restaurantId: grill.id }).run();
 
-		expect(await db.mutations.users.delete(ada.id, ada.id)).toBe("updated");
+		expect(await db.mutations.users.delete(ada.id, ada.username)).toEqual({ id: ada.id, username: "ada" });
 
 		expect(await db.queries.users.findByUsername("ada")).toBeUndefined();
 		expect((await db.queries.users.findByUsername("bob"))?.id).toBe(bob.id);
@@ -81,7 +81,7 @@ describe("users.delete", () => {
 		]).run();
 		client.update(s.reviews).set({ likeCount: 2 }).where(eq(s.reviews.id, bobReview.id)).run();
 
-		await db.mutations.users.delete(ada.id, ada.id);
+		await db.mutations.users.delete(ada.id, ada.username);
 
 		expect(client.query.reviews.findFirst({ where: { id: bobReview.id } }).sync()?.likeCount).toBe(1);
 	});
@@ -103,7 +103,7 @@ describe("users.delete", () => {
 		client.update(s.restaurants).set({ ratingAvg: 10, reviewCount: 1 }).where(eq(s.restaurants.id, onlyAda.id)).run();
 		client.update(s.restaurants).set({ ratingAvg: 3, reviewCount: 7 }).where(eq(s.restaurants.id, untouched.id)).run();
 
-		await db.mutations.users.delete(ada.id, ada.id);
+		await db.mutations.users.delete(ada.id, ada.username);
 
 		expect(restaurant(client, reviewed.id)).toMatchObject({ reviewCount: 4, ratingAvg: 8 });
 		expect(restaurant(client, onlyAda.id)).toMatchObject({ reviewCount: 0, ratingAvg: 0 });

@@ -1,34 +1,33 @@
 import { inArray } from "drizzle-orm";
 import type { Transaction } from "@src/db/client";
+import { isProblem, problem, type Problem } from "@src/db/mutations/authorize";
 import * as s from "@src/db/schema";
 import { InvalidPictureError, type PictureKind, type PictureStore } from "@src/pictures/store";
 
 // Saves the files before the write, since encoding them cannot happen inside a transaction, and removes
-// them again unless the write keeps them. A file that is not a picture stops the write before it starts.
+// them again when the write fails. A file that is not a picture stops the write before it starts.
 export async function savingPictures<T>(
 	store: PictureStore,
 	files: File[],
 	kind: PictureKind,
-	write: (urls: string[]) => T,
-	keeps: (result: T) => boolean,
-): Promise<T | "invalid-picture"> {
+	write: (urls: string[]) => T | Problem,
+): Promise<T | Problem> {
 	let urls: string[];
 	try {
 		urls = await store.saveAll(files, kind);
 	} catch (error) {
-		if (error instanceof InvalidPictureError) return "invalid-picture";
+		if (error instanceof InvalidPictureError) return problem("invalid-picture");
 		throw error;
 	}
 
-	let result: T;
 	try {
-		result = write(urls);
+		const result = write(urls);
+		if (isProblem(result)) await store.remove(urls);
+		return result;
 	} catch (error) {
 		await store.remove(urls);
 		throw error;
 	}
-	if (!keeps(result)) await store.remove(urls);
-	return result;
 }
 
 export function insertPictures(tx: Transaction, urls: string[]) {

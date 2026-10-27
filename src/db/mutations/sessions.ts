@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import type { Client, Transaction } from "@src/db/client";
 import * as s from "@src/db/schema";
-import type { ActionData, NewSession, Session } from "@src/db/schema";
+import type { ActionOutcome } from "@src/actions/outcome";
+import type { NewSession, Session } from "@src/db/schema";
 
 export function deleteAllSessionsOf(tx: Transaction, userId: number) {
 	tx.delete(s.sessions).where(eq(s.sessions.userId, userId)).run();
@@ -21,16 +22,12 @@ export function createSessionMutations(client: Client) {
 			await client.update(s.sessions).set({ theme }).where(eq(s.sessions.id, id));
 		},
 
-		async setActionData(id: string, actionData: ActionData | null) {
+		async setActionData(id: string, actionData: ActionOutcome | null) {
 			await client.update(s.sessions).set({ actionData }).where(eq(s.sessions.id, id));
 		},
 
 		async delete(id: string) {
 			await client.delete(s.sessions).where(eq(s.sessions.id, id));
-		},
-
-		async deleteAllForUser(userId: number) {
-			client.transaction((tx) => deleteAllSessionsOf(tx, userId), { behavior: "immediate" });
 		},
 	};
 }

@@ -1,14 +1,14 @@
 ---
-import { actions, isInputError } from "astro:actions";
+import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import FieldInput from "@src/components/FieldInput.astro";
 import Pagination from "@src/components/Pagination.astro";
+import RelativeTime from "@src/components/RelativeTime.astro";
 import RestaurantStatusTag from "@src/components/RestaurantStatusTag.astro";
 import { can } from "@src/auth/permissions";
 import type { QueuedSuggestionStatus } from "@src/db/schema";
-import { resultToast } from "@src/format/action-toast";
-import { submittedForm } from "@src/actions/submitted-input";
-import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
+import { successToast } from "@src/format/action-toast";
+import { submittedForm } from "@src/actions/outcome";
 import { restaurantHref } from "@src/hrefs";
 import { pageNavigation, parsePageRequest } from "@src/pagination";
 import { suggestionSchema } from "@src/validation/restaurant";
@@ -29,13 +29,10 @@ const [page, queued] = await Promise.all([
 ]);
 const navigation = pageNavigation(Astro.url, page);
 
-const result = Astro.getActionResult(actions.restaurants.suggest);
-const fieldErrors = result?.error && isInputError(result.error) ? result.error.fields : undefined;
-const toast = fieldErrors
-  ? undefined
-  : resultToast(result, "Suggestion failed", { title: "Thank you for the suggestion", text: "We are looking it up on Google Maps." });
 const submitted = submittedForm(Astro.locals, actions.restaurants.suggest);
-const { shape } = suggestionSchema;
+const toast = submitted?.hasFieldErrors
+  ? null
+  : successToast(Astro.locals, actions.restaurants.suggest, { title: "Thank you for the suggestion", text: "We are looking it up on Google Maps." });
 
 const queuedLabels: Record<QueuedSuggestionStatus, string> = {
   queued: "Looking it up",
@@ -48,10 +45,7 @@ const queuedLabels: Record<QueuedSuggestionStatus, string> = {
 <BaseLayout
   title="Suggest a restaurant"
   description="Suggest a kebab restaurant that is missing from Kebab Boxd"
-  includeSidebar={true}
   prefetchUrls={["/restaurants"]}
-  session={session}
-  user={session.user}
   toast={toast}
 >
   <h1>Suggest a restaurant</h1>
@@ -61,13 +55,12 @@ const queuedLabels: Record<QueuedSuggestionStatus, string> = {
       <FieldInput
         label="Google Maps link"
         name="link"
-        value={submitted?.get("link")}
+        submitted={submitted}
         type="url"
         inputmode="url"
         autocomplete="off"
         placeholder="https://maps.app.goo.gl/…"
-        zodField={shape.link}
-        errors={fieldErrors?.link}
+        zodField={suggestionSchema.shape.link}
       />
       <div class="settings-card-footer">
         <button class="btn btn-primary btn-md" type="submit">Send suggestion</button>
@@ -89,9 +82,7 @@ const queuedLabels: Record<QueuedSuggestionStatus, string> = {
               <Row class:list={["flex items-center justify-between gap-3 px-4 py-3", { "hover:bg-active": href }]} href={href}>
                 <span class="min-w-0">
                   <span class="field-label block truncate">{suggestion.name ?? suggestion.link}</span>
-                  <time class="t-body-sm block text-fg-muted" datetime={suggestion.createdAt.toISOString()} title={formatExactTime(suggestion.createdAt)}>
-                    {formatRelativeTime(suggestion.createdAt)}
-                  </time>
+                  <RelativeTime class="t-body-sm block text-fg-muted" date={suggestion.createdAt} />
                 </span>
                 <span class:list={["tag", { "text-danger": suggestion.status !== "queued" }]}>{label}</span>
               </Row>
@@ -103,9 +94,7 @@ const queuedLabels: Record<QueuedSuggestionStatus, string> = {
             <a class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-active" href={restaurantHref(restaurant.id)}>
               <span class="min-w-0">
                 <span class="field-label block truncate">{restaurant.name}</span>
-                <time class="t-body-sm block text-fg-muted" datetime={restaurant.createdAt.toISOString()} title={formatExactTime(restaurant.createdAt)}>
-                  {formatRelativeTime(restaurant.createdAt)}
-                </time>
+                <RelativeTime class="t-body-sm block text-fg-muted" date={restaurant.createdAt} />
               </span>
               <RestaurantStatusTag status={restaurant.status} />
             </a>

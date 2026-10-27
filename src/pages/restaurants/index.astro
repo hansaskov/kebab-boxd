@@ -1,13 +1,12 @@
 ---
 import { Lightbulb } from "@lucide/astro";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
-import Pagination from "@src/components/Pagination.astro";
+import PagedSection from "@src/components/PagedSection.astro";
 import RestaurantList from "@src/components/RestaurantList.astro";
 import SearchForm from "@src/components/SearchForm.astro";
 import TabNav from "@src/components/TabNav.astro";
-import type { RestaurantSort } from "@src/db/queries/restaurants";
-import { restaurantSorts } from "@src/db/queries/restaurants";
-import { firstPageHref, pageNavigation, parsePageRequest } from "@src/pagination";
+import { restaurantSorts, type RestaurantSort } from "@src/db/queries/restaurants";
+import { firstPageHref, parsePageRequest } from "@src/pagination";
 import { parseRestaurantListCriteria } from "@src/validation/restaurant-list-criteria";
 
 const session = Astro.locals.session;
@@ -17,7 +16,6 @@ if (!session) {
 
 const criteria = parseRestaurantListCriteria(Astro.url.searchParams);
 const page = await Astro.locals.db.queries.restaurants.list(criteria, parsePageRequest(Astro.url));
-const navigation = pageNavigation(Astro.url, page);
 
 const sortLabels: Record<RestaurantSort, string> = { "top-rated": "Top rated", popular: "Most reviewed", newest: "Newest" };
 const sortTabs = restaurantSorts.map((sort) => ({
@@ -28,20 +26,14 @@ const sortTabs = restaurantSorts.map((sort) => ({
 
 const restaurants = page.items.map((restaurant) => ({
   ...restaurant,
-  details: [
-    restaurant.location.city,
-    `${restaurant.reviewCount} ${restaurant.reviewCount === 1 ? "review" : "reviews"}`,
-  ],
+  details: [restaurant.location.city, `${restaurant.reviewCount} ${restaurant.reviewCount === 1 ? "review" : "reviews"}`],
 }));
 ---
 
 <BaseLayout
   title="Restaurants"
   description="Browse and search the kebab restaurants on Kebab Boxd"
-  includeSidebar={true}
   prefetchUrls={["/explore", "/restaurants/suggest"]}
-  session={session}
-  user={session.user}
 >
   <div class="flex flex-wrap items-center justify-between gap-2">
     <h1>Restaurants</h1>
@@ -51,18 +43,12 @@ const restaurants = page.items.map((restaurant) => ({
   <SearchForm class="mt-4" id="restaurant-search" label="Search restaurants" value={criteria.search} placeholder="Name or city" />
   <TabNav class="mt-4" aria-label="Sort restaurants" tabs={sortTabs} />
 
-  <section class="mt-4" aria-label="Restaurants">
-    {restaurants.length === 0 ? (
-      <p class="t-body text-fg-muted">
-        {page.isPastEnd
-          ? "There is nothing on this page."
-          : criteria.search
-            ? <>No restaurants match “{criteria.search}”. <a class="link" href="/restaurants/suggest">Suggest it</a>.</>
-            : "There are no restaurants yet."}
-      </p>
-    ) : (
-      <RestaurantList restaurants={restaurants} />
-    )}
-    {navigation && <Pagination id="restaurant-pages" class="mt-4" aria-label="Restaurant pages" navigation={navigation} />}
-  </section>
+  <PagedSection class="mt-4" aria-label="Restaurants" page={page}>
+    <Fragment slot="empty">
+      {criteria.search
+        ? <>No restaurants match “{criteria.search}”. <a class="link" href="/restaurants/suggest">Suggest it</a>.</>
+        : "There are no restaurants yet."}
+    </Fragment>
+    <RestaurantList restaurants={restaurants} />
+  </PagedSection>
 </BaseLayout>

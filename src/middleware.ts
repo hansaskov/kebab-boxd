@@ -7,11 +7,10 @@ import { getActionContext } from "astro:actions";
 import { compressMiddleware } from "@src/middleware/compress";
 import { sameOriginReferer } from "@src/middleware/referer";
 import { redirectClearingSpeculations } from "@src/middleware/speculations";
-import { hasStringRedirect } from "@src/validation/type-guards";
 import { scheduleRetentionPurge } from "@src/retention";
 import { scheduleSuggestionQueue } from "@src/suggestion-queue";
 import { createPictureStore, picturePathPrefix } from "@src/pictures/store";
-import { readSubmittedInput } from "@src/actions/submitted-input";
+import { toOutcome } from "@src/actions/outcome";
 
 const db = createDatabase(createClient(DB_FILE_NAME), createPictureStore(PICTURES_DIR));
 const stopRetentionPurge = scheduleRetentionPurge(db);
@@ -19,50 +18,39 @@ import.meta.hot?.dispose(stopRetentionPurge);
 const stopSuggestionQueue = scheduleSuggestionQueue(db);
 import.meta.hot?.dispose(stopSuggestionQueue);
 
-// The history holds the pages a device opened, not the pictures on them or signing out.
+// The history holds the pages a device opened, not the pictures on them.
 function isPage(routePattern: string) {
-	return !routePattern.startsWith("/api/logout") && !routePattern.startsWith(picturePathPrefix);
+	return !routePattern.startsWith(picturePathPrefix);
+}
+
+function hasRedirect(data: unknown): data is { redirect: string } {
+	return typeof data === "object" && data !== null && "redirect" in data && typeof data.redirect === "string";
 }
 
 const sessionMiddleware = defineMiddleware(async (context, next) => {
-
-  if (context.isPrerendered) return next();
+	if (context.isPrerendered) return next();
 
 	const requestedAt = new Date();
 	context.locals.db = db;
 	const session = await getSessionAndUserFromCookie(context.cookies, db);
 	context.locals.session = session;
 
+	if (!session) return next();
 
-	if (!session) return next()
-
-	const { action, setActionResult, serializeActionResult } = getActionContext(context);
+	const { action } = getActionContext(context);
 	if (action?.calledFrom === "form") {
 		// The handler reads the body, so a copy is kept to give the form back what the user typed if it fails.
 		const submitted = context.request.clone();
-		const actionResult = await action.handler();
+		const { data, error } = await action.handler();
+		await db.mutations.sessions.setActionData(session.id, await toOutcome(action.name, error, submitted));
 
-		await context.locals.db.mutations.sessions.setActionData(session.id, {
-			actionName: action.name,
-			actionResult: serializeActionResult(actionResult),
-			...(actionResult.error && { input: await readSubmittedInput(submitted) }),
-		});
-
-		if (!actionResult.error && hasStringRedirect(actionResult.data)) {
-			return redirectClearingSpeculations(actionResult.data.redirect);
-		}
-
-		return redirectClearingSpeculations(sameOriginReferer(context.request, context.url.origin) ?? context.originPathname);
+		const location = !error && hasRedirect(data) ? data.redirect : undefined;
+		return redirectClearingSpeculations(location ?? sameOriginReferer(context.request, context.url.origin) ?? context.originPathname);
 	}
 
 	if (context.request.method === "GET" && session.actionData) {
-
-		await context.locals.db.mutations.sessions.setActionData(session.id, null);
-
-		setActionResult(session.actionData.actionName, session.actionData.actionResult);
-		if (session.actionData.input) {
-			context.locals.submittedAction = { actionName: session.actionData.actionName, input: session.actionData.input };
-		}
+		await db.mutations.sessions.setActionData(session.id, null);
+		context.locals.actionOutcome = session.actionData;
 	}
 
 	const response = await next();

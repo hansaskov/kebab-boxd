@@ -3,7 +3,7 @@ import { Check, X } from "@lucide/astro";
 import type { HTMLAttributes } from "astro/types";
 import Avatar from "@src/components/Avatar.astro";
 import type { Notification } from "@src/db/queries/notifications";
-import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
+import RelativeTime from "@src/components/RelativeTime.astro";
 import { notificationHref } from "@src/hrefs";
 
 interface Props extends HTMLAttributes<"ol"> {
@@ -43,9 +43,7 @@ const { notifications, class: className, ...props } = Astro.props;
             <>An admin rejected <strong class="font-semibold">{notification.restaurant.name}</strong>.</>
           )}
         </p>
-        <time class="t-body-sm shrink-0 text-fg-muted" datetime={notification.createdAt.toISOString()} title={formatExactTime(notification.createdAt)}>
-          {formatRelativeTime(notification.createdAt, new Date(), "narrow")}
-        </time>
+        <RelativeTime class="t-body-sm shrink-0 text-fg-muted" date={notification.createdAt} narrow />
         <span class:list={["size-2 shrink-0 rounded-full", { "bg-brand-text": !notification.isRead }]}>
           {!notification.isRead && <span class="sr-only">Unread</span>}
         </span>

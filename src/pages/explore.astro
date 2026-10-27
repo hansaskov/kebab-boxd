@@ -21,7 +21,7 @@ const map = viewport(view.center, view.zoom, exploreMapSize);
 
 const { restaurants } = Astro.locals.db.queries;
 const [pins, nearest] = await Promise.all([
-	restaurants.listInBounds(map.bounds, map.center, mapMarkerLimit),
+	restaurants.listNearest(map.center, mapMarkerLimit, map.bounds),
 	restaurants.listNearest(map.center, nearbyRestaurantCount),
 ]);
 
@@ -50,10 +50,7 @@ const isAtHome = home !== undefined && distanceInMeters(home, map.center) < 1;
 <BaseLayout
 	title="Explore"
 	description="Kebab restaurants on a map"
-	includeSidebar={true}
 	prefetchUrls={[controls.zoomIn, controls.zoomOut, "/restaurants"].filter((href) => href !== undefined)}
-	session={session}
-	user={session.user}
 >
 	<div class="flex flex-wrap items-baseline justify-between gap-2">
 		<h1>Explore</h1>

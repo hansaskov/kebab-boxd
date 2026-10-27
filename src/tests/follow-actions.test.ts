@@ -43,7 +43,7 @@ describe("follow and unfollow actions", () => {
 		const bob = insertUser(client, "bob");
 		const context = actionContext(db, await signIn(db, ada.id));
 		await server.profile.follow.call(context, form({ username: "bob" }));
-		await db.mutations.users.ban(bob.id, admin.id);
+		await db.mutations.users.ban(admin.id, bob.username);
 
 		const followAgain = await server.profile.follow.call(context, form({ username: "bob" }));
 		const unfollow = await server.profile.unfollow.call(context, form({ username: "bob" }));
@@ -58,9 +58,32 @@ describe("follow and unfollow actions", () => {
 		const admin = insertUser(client, "root_admin", "admin");
 		const ada = insertUser(client, "ada");
 		const bob = insertUser(client, "bob");
-		await db.mutations.users.ban(bob.id, admin.id);
+		await db.mutations.users.ban(admin.id, bob.username);
 
-		expect(await db.mutations.follows.follow(ada.id, bob.id)).toBe("refused");
+		expect(await db.mutations.follows.follow(ada.id, bob.username)).toEqual({ problem: "forbidden", permission: "user:follow" });
 		expect(await client.$count(followers)).toBe(0);
+	});
+});
+
+describe("an action on a user", () => {
+	it("finds the user inside the transaction of the write", async () => {
+		const { client, db, recordQueries } = createTestDatabase("follow-in-transaction");
+		const ada = insertUser(client, "ada");
+		insertUser(client, "bob");
+		const context = actionContext(db, await signIn(db, ada.id));
+
+		const { queries } = await recordQueries(() => server.profile.follow.call(context, form({ username: "BOB" })));
+
+		expect(queries.at(0)).toBe("begin immediate");
+		expect(queries.at(-1)).toBe("commit");
+	});
+
+	it("tells that a user who does not exist does not exist", async () => {
+		const { client, db } = createTestDatabase("follow-missing");
+		const ada = insertUser(client, "ada");
+
+		const result = await server.profile.follow.call(actionContext(db, await signIn(db, ada.id)), form({ username: "nobody" }));
+
+		expect(result.error?.code).toBe("NOT_FOUND");
 	});
 });

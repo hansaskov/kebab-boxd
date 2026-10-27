@@ -1,57 +1,35 @@
 ---
 import { ChevronDown } from "@lucide/astro";
-import { getConstraintsFromZodSchema } from "@src/validation/constraint";
+import type { ComponentProps } from "astro/types";
 import { ZodNullable, type ZodEnum } from "astro/zod";
+import Field from "@src/components/Field.astro";
+import type { SubmittedForm } from "@src/actions/outcome";
+import { describeField } from "@src/format/field";
+import { getConstraintsFromZodSchema } from "@src/validation/constraint";
 
-interface Props extends astroHTML.JSX.SelectHTMLAttributes {
+interface Props extends Omit<ComponentProps<typeof Field>, "field" | "layout">, astroHTML.JSX.SelectHTMLAttributes {
     name: string;
     zodField: ZodEnum | ZodNullable<ZodEnum>;
-    selected?: string | undefined | null;
     label: string;
-    description?: string;
+    selected?: string | undefined | null;
     noneOption?: string;
-    errors?: string[] | undefined;
+    // The form as the user sent it when it failed. What they chose replaces the selected option.
+    submitted?: SubmittedForm | undefined;
 }
 
-const { zodField, selected, label, description, noneOption, errors, class: className, ...props } = Astro.props
-const enumField = zodField instanceof ZodNullable
-    ? zodField.unwrap()
-    : zodField
-const constraints = getConstraintsFromZodSchema(zodField)
-const options = enumField.options
-const fieldId = props.id ?? props.name
-const descriptionId = `${fieldId}-description`
-const errorId = `${fieldId}-error`
-const hasErrors = errors !== undefined && errors.length > 0
-const describedBy = [description && descriptionId, hasErrors && errorId].filter(Boolean).join(" ") || undefined
+const { zodField, selected, label, description, noneOption, submitted, class: className, ...props } = Astro.props;
+const isNullable = zodField instanceof ZodNullable;
+const options = (isNullable ? zodField.unwrap() : zodField).options;
+const current = submitted ? submitted.get(props.name) || null : selected;
+const field = describeField({ ...props, description, submitted });
 ---
 
-<div class="settings-row">
-    <div class="settings-row-text">
-        <label class="field-label" for={fieldId}>{label}</label>
-        {description && <p id={descriptionId} class="t-body-sm text-fg-muted">{description}</p>}
+<Field field={field} label={label} description={description}>
+    <div class="select">
+        <select class:list={["input", className]} {...getConstraintsFromZodSchema(zodField)} {...props} {...field.control}>
+            {options.map((option) => <option value={option} selected={current === option}>{option}</option>)}
+            {isNullable && <option value="" selected={current == null}>{noneOption ?? "None"}</option>}
+        </select>
+        <ChevronDown size={16} aria-hidden="true" class="select-icon" />
     </div>
-    <div class="settings-row-field space-y-2">
-        <div class="select">
-            <select
-                id={fieldId}
-                class:list={["input", className]}
-                aria-describedby={describedBy}
-                aria-invalid={hasErrors ? "true" : undefined}
-                {...constraints}
-                {...props}
-            >
-                {options.map(opt => (
-                    <option value={opt} selected={selected === opt}>{opt}</option>
-                ))}
-                {zodField instanceof ZodNullable && (
-                    <option value="" selected={selected == null}>{noneOption ?? "None"}</option>
-                )}
-            </select>
-            <ChevronDown size={16} aria-hidden="true" class="select-icon" />
-        </div>
-        {hasErrors && (
-            <p id={errorId} class="t-caption text-danger" role="alert">{errors.join(" ")}</p>
-        )}
-    </div>
-</div>
+</Field>

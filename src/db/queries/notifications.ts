@@ -1,11 +1,10 @@
 import type { Client } from "@src/db/client";
 import { visibleNotification } from "@src/db/filters";
 import { cursorList, type Seek } from "@src/db/pagination";
-import * as s from "@src/db/schema";
 import type { SuggestionDecision } from "@src/db/schema";
 import type { Page, PageRequest } from "@src/pagination";
 
-const pages = cursorList(s.notifications, ["createdAt", "id"], "desc");
+const pages = cursorList("notifications", ["createdAt", "id"], "desc");
 
 const notificationRow = {
 	columns: { id: true, kind: true, readAt: true, createdAt: true },
@@ -26,12 +25,10 @@ export type Notification = Pick<Row, "id" | "createdAt"> & { isRead: boolean } &
 	);
 
 function listRows(client: Client, recipientId: number) {
-	return (seek: Seek<typeof s.notifications>) =>
+	return (seek: Seek<"notifications">) =>
 		client.query.notifications.findMany({
 			...notificationRow,
-			where: { AND: [{ recipientId }, visibleNotification, seek.where] },
-			orderBy: seek.orderBy,
-			limit: seek.limit,
+			...seek({ AND: [{ recipientId }, visibleNotification] }),
 		});
 }
 
@@ -59,16 +56,6 @@ export function createNotificationQueries(client: Client) {
 		async list(recipientId: number, page: PageRequest): Promise<Page<Notification>> {
 			const rows = await pages(page, listRows(client, recipientId));
 			return { ...rows, items: rows.items.map(toNotification) };
-		},
-
-		// The newest notification the user has not read, up to which "mark all as read" marks.
-		async findNewestUnreadId(recipientId: number) {
-			const notification = await client.query.notifications.findFirst({
-				columns: { id: true },
-				where: { AND: [{ recipientId, readAt: { isNull: true } }, visibleNotification] },
-				orderBy: { id: "desc" },
-			});
-			return notification?.id;
 		},
 	};
 }

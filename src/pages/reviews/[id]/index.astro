@@ -3,9 +3,9 @@ import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import DeleteReviewButton from "@src/components/DeleteReviewButton.astro";
 import ReviewCard from "@src/components/ReviewCard.astro";
-import { canOn } from "@src/auth/permissions";
-import { failureToast, resultToast } from "@src/format/action-toast";
-import { profileHref, restaurantHref } from "@src/hrefs";
+import { canOn, refusal } from "@src/auth/permissions";
+import { successToast } from "@src/format/action-toast";
+import { profileHref, refusalPage, restaurantHref } from "@src/hrefs";
 import { parseId } from "@src/validation/id";
 
 const session = Astro.locals.session;
@@ -14,36 +14,24 @@ if (!session) {
 }
 
 const id = parseId(Astro.params.id);
-const review = id && (await Astro.locals.db.queries.reviews.findById(id, session.user.id));
-
-if (!review || !canOn(session.user, "review:view", review)) {
-  return Astro.rewrite("/404");
+const review = id ? await Astro.locals.db.queries.reviews.findById(id, session.user.id) : undefined;
+const refused = refusal(session.user, "review:view", review);
+if (refused || !review) {
+  return Astro.rewrite(refusalPage[refused ?? "not-found"]);
 }
 
 const canEdit = canOn(session.user, "review:edit", review);
 const canDelete = canOn(session.user, "review:delete", review);
 
 const toast =
-  resultToast(Astro.getActionResult(actions.reviews.create), "Publishing failed", {
-    title: "Review published",
-    text: `Your review of ${review.restaurant.name} is up.`,
-  }) ??
-  resultToast(Astro.getActionResult(actions.reviews.update), "Saving failed", {
-    title: "Review saved",
-    text: "Your changes are saved.",
-  }) ??
-  failureToast(Astro.getActionResult(actions.reviews.like), "Like failed") ??
-  failureToast(Astro.getActionResult(actions.reviews.unlike), "Unlike failed") ??
-  failureToast(Astro.getActionResult(actions.reviews.delete), "Deletion failed");
+  successToast(Astro.locals, actions.reviews.create, { title: "Review published", text: `Your review of ${review.restaurant.name} is up.` }) ??
+  successToast(Astro.locals, actions.reviews.update, { title: "Review saved", text: "Your changes are saved." });
 ---
 
 <BaseLayout
   title={`${review.author.fullname} on ${review.restaurant.name}`}
   description={review.description ?? `A review of ${review.restaurant.name}`}
-  includeSidebar={true}
   prefetchUrls={[restaurantHref(review.restaurant.id), profileHref(review.author.username)]}
-  session={session}
-  user={session.user}
   toast={toast}
 >
   <ReviewCard class="rounded-box border border-line bg-surface" review={review} viewer={session.user} />

@@ -173,12 +173,12 @@ describe("reviews of banned users", () => {
 		reviewIdOf(await writeReview(db, await signIn(db, bob.id), grill.id, 2, "Spam spam spam."));
 		const adaSession = await signIn(db, ada.id);
 
-		await db.mutations.users.ban(bob.id, admin.id);
+		await db.mutations.users.ban(admin.id, bob.username);
 
 		expect(restaurantRow(client, grill.id)).toMatchObject({ ratingAvg: 10, reviewCount: 1 });
 		expect((await renderRestaurant(db, adaSession, grill.id)).html).not.toContain("Spam spam spam.");
 
-		await db.mutations.users.unban(bob.id, admin.id);
+		await db.mutations.users.unban(admin.id, bob.username);
 
 		expect(restaurantRow(client, grill.id)).toMatchObject({ ratingAvg: 6, reviewCount: 2 });
 		expect((await renderRestaurant(db, adaSession, grill.id)).html).toContain("Spam spam spam.");

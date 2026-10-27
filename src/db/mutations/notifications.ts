@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, lte } from "drizzle-orm";
+import { and, eq, inArray, isNull, lte, sql } from "drizzle-orm";
 import type { Client, Transaction } from "@src/db/client";
 import { isVisibleNotification } from "@src/db/filters";
 import * as s from "@src/db/schema";
@@ -20,20 +20,33 @@ const preferenceOf = {
 
 const suggestionDecisions = ["suggestion-approved", "suggestion-rejected"] as const satisfies SuggestionDecision[];
 
-function wantsNotification(tx: Transaction, { kind, recipientId }: NotificationEvent) {
-	const recipient = tx.query.users
-		.findFirst({
-			columns: { followNotifications: true, likeNotifications: true, suggestionNotifications: true },
-			where: { id: recipientId },
-		})
-		.sync();
-	return recipient?.[preferenceOf[kind]] === true;
+// Drizzle types a value in an insert from a select only when it has a name.
+function aliased(name: string, value: unknown) {
+	return sql`${value}`.as(name);
 }
 
-// Sending the same event twice leaves one notification.
+// Sending the same event twice leaves one notification. The statement inserts nothing when the recipient has
+// turned the kind off. An insert from a select sets no defaults, so the times are set here.
 export function notify(tx: Transaction, event: NotificationEvent) {
-	if (!wantsNotification(tx, event)) return;
-	tx.insert(s.notifications).values(event).onConflictDoNothing().run();
+	const { actorId = null, reviewId = null, restaurantId = null } = event as Partial<Record<"actorId" | "reviewId" | "restaurantId", number>>;
+	const now = sql`unixepoch()`;
+	tx.insert(s.notifications)
+		.select((qb) =>
+			qb
+				.select({
+					recipientId: s.users.id,
+					kind: aliased("kind", event.kind),
+					actorId: aliased("actor_id", actorId),
+					reviewId: aliased("review_id", reviewId),
+					restaurantId: aliased("restaurant_id", restaurantId),
+					createdAt: now.as("created_at"),
+					updatedAt: now.as("updated_at"),
+				})
+				.from(s.users)
+				.where(and(eq(s.users.id, event.recipientId), eq(s.users[preferenceOf[event.kind]], true))),
+		)
+		.onConflictDoNothing()
+		.run();
 }
 
 export function withdraw(tx: Transaction, event: Extract<NotificationEvent, { actorId: number }>) {

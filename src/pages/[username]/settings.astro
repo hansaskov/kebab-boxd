@@ -1,5 +1,5 @@
 ---
-import { actions, isInputError } from "astro:actions";
+import { actions } from "astro:actions";
 import { settingsSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import DialogDrawer from "@src/components/DialogDrawer.astro";
@@ -9,33 +9,26 @@ import FieldFile from "@src/components/FieldFile.astro";
 import FieldInput from "@src/components/FieldInput.astro";
 import FieldSelect from "@src/components/FieldSelect.astro";
 import FieldTextArea from "@src/components/FieldTextArea.astro";
-import type { Toast } from "@src/components/Toast.astro";
-import {
-    deleteAccountSchema,
-    updateAccountSchema,
-} from "@src/actions/settings";
+import RelativeTime from "@src/components/RelativeTime.astro";
+import { deleteAccountSchema, updateAccountSchema } from "@src/actions/settings";
+import { submittedForm } from "@src/actions/outcome";
 import { coordinatesTextSchema, formatCoordinates } from "@src/validation/coordinates";
-import { resultToast } from "@src/format/action-toast";
-import { submittedForm } from "@src/actions/submitted-input";
+import { successToast } from "@src/format/action-toast";
 import { can } from "@src/auth/permissions";
 import { deviceName } from "@src/format/device-name";
 import { personalDataExportHref, sessionHistoryHref, settingsHref } from "@src/hrefs";
-import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
 
 const { username } = Astro.params;
-
 if (!username) {
     return Astro.rewrite("/404");
 }
 
 const session = Astro.locals.session;
-
 if (!session) {
     return Astro.redirect("/login");
 }
 
-const user = await Astro.locals.db.queries.users.findByUsernameWithPicture(username);
-
+const user = await Astro.locals.db.queries.users.findByUsername(username);
 if (!user) {
     return Astro.rewrite("/404");
 }
@@ -51,115 +44,34 @@ if (!can(session.user, "user:edit-settings", user)) {
 const canManageSessions = can(session.user, "user:manage-sessions", user);
 const canExportData = can(session.user, "user:export-data", user);
 const canDeleteAccount = can(session.user, "user:delete-account", user);
-
-const actionResult = Astro.getActionResult(actions.updateSettings);
-const accountForm = submittedForm(Astro.locals, actions.updateSettings);
-const locationForm = submittedForm(Astro.locals, actions.updateLocation);
-const deleteForm = submittedForm(Astro.locals, actions.deleteAccount);
-const signOutResult = Astro.getActionResult(actions.signOutEverywhere);
-const deleteResult = Astro.getActionResult(actions.deleteAccount);
-const pictureResult = Astro.getActionResult(actions.updateProfilePicture);
-const locationResult = Astro.getActionResult(actions.updateLocation);
 const isOwnAccount = session.user.id === user.id;
 
-const activeSessions = canManageSessions
-    ? await Astro.locals.db.queries.sessions.listActive(user.id)
-    : [];
+const activeSessions = canManageSessions ? await Astro.locals.db.queries.sessions.listActive(user.id) : [];
 
-let usernameErrors: string[] | undefined;
-let confirmationErrors: string[] | undefined;
-const pictureErrors = pictureResult?.error && isInputError(pictureResult.error) ? pictureResult.error.fields.picture : undefined;
-const locationErrors = locationResult?.error && isInputError(locationResult.error) ? locationResult.error.fields.location : undefined;
-let toast: Toast | undefined =
-    (pictureErrors ? undefined : resultToast(pictureResult, "Upload failed", {
-        title: "Picture saved",
-        text: "Your profile shows the new picture.",
-    })) ??
-    resultToast(Astro.getActionResult(actions.removeProfilePicture), "Removal failed", {
-        title: "Picture removed",
-        text: "Your profile shows your initials.",
-    }) ??
-    (locationErrors ? undefined : resultToast(locationResult, "Saving failed", {
-        title: "Location saved",
-        text: "The map starts at your location.",
-    })) ??
-    resultToast(Astro.getActionResult(actions.updateNotifications), "Saving failed", {
-        title: "Notifications saved",
-        text: "You get the notifications you chose.",
-    });
+const accountForm = submittedForm(Astro.locals, actions.updateSettings);
+const pictureForm = submittedForm(Astro.locals, actions.updateProfilePicture);
+const locationForm = submittedForm(Astro.locals, actions.updateLocation);
+const deleteForm = submittedForm(Astro.locals, actions.deleteAccount);
+// A taken username is a conflict with another account, but the user fixes it in the field.
+const usernameErrors = accountForm?.code === "CONFLICT" ? [accountForm.message] : undefined;
+const shownInline = [accountForm, pictureForm, locationForm, deleteForm].some((form) => form?.hasFieldErrors) || usernameErrors !== undefined;
 
-if (actionResult) {
-    if (actionResult.error) {
-        if (actionResult.error.code == "CONFLICT") {
-            usernameErrors = [actionResult.error.message];
-        } else if (
-            isInputError(actionResult.error) &&
-            actionResult.error.fields.username
-        ) {
-            usernameErrors = actionResult.error.fields.username;
-        } else {
-            toast = {
-                kind: "title",
-                variant: "error",
-                title: "Submission failed",
-                text: actionResult.error.message,
-            };
-        }
-    }
-
-    if (actionResult.data) {
-        toast = {
-            kind: "title",
-            title: "Settings updated",
-            text: "Your profile changes have been saved.",
-        };
-    }
-}
-
-if (signOutResult) {
-    toast = signOutResult.error
-        ? {
-              kind: "title",
-              variant: "error",
-              title: "Sign-out failed",
-              text: signOutResult.error.message,
-          }
-        : {
-              kind: "title",
-              title: "Signed out everywhere",
-              text: `${user.fullname} must sign in again on every device.`,
-          };
-}
-
-if (deleteResult?.error) {
-    if (
-        isInputError(deleteResult.error) &&
-        deleteResult.error.fields.confirmation
-    ) {
-        confirmationErrors = deleteResult.error.fields.confirmation;
-    } else {
-        toast = {
-            kind: "title",
-            variant: "error",
-            title: "Deletion failed",
-            text: deleteResult.error.message,
-        };
-    }
-}
-
-const exportHref = personalDataExportHref(user.username);
-const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
+const toast = shownInline
+    ? null
+    : (successToast(Astro.locals, actions.updateSettings, { title: "Settings updated", text: "Your profile changes have been saved." }) ??
+      successToast(Astro.locals, actions.updateProfilePicture, { title: "Picture saved", text: "Your profile shows the new picture." }) ??
+      successToast(Astro.locals, actions.removeProfilePicture, { title: "Picture removed", text: "Your profile shows your initials." }) ??
+      successToast(Astro.locals, actions.updateLocation, { title: "Location saved", text: "The map starts at your location." }) ??
+      successToast(Astro.locals, actions.updateNotifications, { title: "Notifications saved", text: "You get the notifications you chose." }) ??
+      successToast(Astro.locals, actions.signOutEverywhere, { title: "Signed out everywhere", text: `${user.fullname} must sign in again on every device.` }));
+const savedLocation = user.latitude !== null && user.longitude !== null ? formatCoordinates({ latitude: user.latitude, longitude: user.longitude }) : "";
 ---
 
 <BaseLayout
-    class=""
     title="Settings"
     description={`Settings page for ${user.fullname}`}
-    includeSidebar={true}
     prefetchUrls={["/explore", "/reviews", "/"]}
-    session={session}
-    user={session.user}
-    sidebarMenuSections={settingsSidebarMenuSection}
+    sidebarMenuSections={settingsSidebarMenuSections(user.username)}
     toast={toast}
 >
     <h1>Settings</h1>
@@ -174,7 +86,8 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                     name="fullname"
                     description="Shown on your profile. Use your real name."
                     type="text"
-                    value={accountForm?.get("fullname") ?? user.fullname}
+                    value={user.fullname}
+                    submitted={accountForm}
                     zodField={updateAccountSchema.shape.fullname}
                 />
 
@@ -183,7 +96,8 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                     name="username"
                     description="Others use it to find you. It must be unique."
                     type="text"
-                    value={accountForm?.get("username") ?? user.username}
+                    value={user.username}
+                    submitted={accountForm}
                     zodField={updateAccountSchema.shape.username}
                     errors={usernameErrors}
                 />
@@ -191,7 +105,8 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                 <FieldSelect
                     label="Pronouns"
                     name="pronoun"
-                    selected={accountForm ? accountForm.get("pronoun") || null : user.pronoun}
+                    selected={user.pronoun}
+                    submitted={accountForm}
                     description="How others refer to you."
                     zodField={updateAccountSchema.shape.pronoun}
                 />
@@ -200,7 +115,8 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                     label="Bio"
                     name="bio"
                     description="A short text about you on your profile."
-                    value={accountForm?.get("bio") ?? user.bio}
+                    value={user.bio}
+                    submitted={accountForm}
                     zodField={updateAccountSchema.shape.bio}
                 />
                 <div class="settings-card-footer">
@@ -220,7 +136,7 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                 <div class="settings-row">
                     <Avatar class="size-20 text-2xl" name={user.fullname} picture={user.profilePicture} />
                 </div>
-                <FieldFile label="New picture" name="picture" required errors={pictureErrors} />
+                <FieldFile label="New picture" name="picture" required submitted={pictureForm} />
                 <div class="settings-card-footer gap-2">
                     {user.profilePicture && (
                         <button class="btn btn-secondary btn-md" type="submit" formaction={actions.removeProfilePicture} formnovalidate>
@@ -246,10 +162,9 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                     inputmode="decimal"
                     autocomplete="off"
                     placeholder="55.3959, 10.3883"
-                    value={locationForm?.get("location") ??
-                        (user.latitude !== null && user.longitude !== null ? formatCoordinates({ latitude: user.latitude, longitude: user.longitude }) : "")}
+                    value={savedLocation}
+                    submitted={locationForm}
                     zodField={coordinatesTextSchema.nullable()}
-                    errors={locationErrors}
                 />
                 <div class="settings-card-footer">
                     <button class="btn btn-primary btn-md" type="submit">Save location</button>
@@ -288,20 +203,7 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                                     </span>
                                     <span class="t-body-sm text-fg-muted">
                                         Last used{" "}
-                                        {lastRequest ? (
-                                            <time
-                                                datetime={lastRequest.requestedAt.toISOString()}
-                                                title={formatExactTime(
-                                                    lastRequest.requestedAt,
-                                                )}
-                                            >
-                                                {formatRelativeTime(
-                                                    lastRequest.requestedAt,
-                                                )}
-                                            </time>
-                                        ) : (
-                                            "never"
-                                        )}
+                                        {lastRequest ? <RelativeTime date={lastRequest.requestedAt} /> : "never"}
                                     </span>
                                 </a>
                             </li>
@@ -340,7 +242,7 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                     </div>
                     <a
                         class="btn btn-secondary btn-md settings-row-action"
-                        href={exportHref}
+                        href={personalDataExportHref(user.username)}
                         download
                     >
                         Download
@@ -410,7 +312,7 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                     id="delete-account"
                     title="Are you sure?"
                     description="Deleting your account cannot be undone."
-                    open={confirmationErrors !== undefined}
+                    open={deleteForm?.errors("confirmation") !== undefined}
                 >
                     <form
                         class="space-y-5"
@@ -430,9 +332,8 @@ const settingsSidebarMenuSection = settingsSidebarMenuSections(username);
                             autofocus
                             pattern={user.username}
                             title="Type your username exactly as shown."
-                            value={deleteForm?.get("confirmation")}
+                            submitted={deleteForm}
                             zodField={deleteAccountSchema.shape.confirmation}
-                            errors={confirmationErrors}
                         >
                             <Fragment slot="label">
                                 Type <strong>{user.username}</strong> to confirm

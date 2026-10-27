@@ -6,7 +6,7 @@ import LikeButton from "@src/components/LikeButton.astro";
 import Rating from "@src/components/Rating.astro";
 import { canOn, type Subject } from "@src/auth/permissions";
 import type { ReviewCard } from "@src/db/queries/reviews";
-import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
+import RelativeTime from "@src/components/RelativeTime.astro";
 import { editReviewHref, profileHref, restaurantHref, reviewHref } from "@src/hrefs";
 
 interface Props extends HTMLAttributes<"article"> {
@@ -37,9 +37,7 @@ const canEdit = canOn(viewer, "review:edit", review);
         {showRestaurant && <a class="field-label inline link-hover" href={restaurantHref(restaurant.id)}>{restaurant.name}</a>}
       </p>
       <a class="t-body-sm text-fg-muted link-hover" href={reviewHref(review.id)}>
-        <time class="t-body-sm shrink-0 text-fg-muted" datetime={review.createdAt.toISOString()} title={formatExactTime(review.createdAt)}>
-          {formatRelativeTime(review.createdAt)}
-        </time>
+        <RelativeTime class="t-body-sm shrink-0 text-fg-muted" date={review.createdAt} />
       </a>
     </div>
     {!review.isListed && (

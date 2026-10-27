@@ -1,5 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { Client, Transaction } from "@src/db/client";
+import { isProblem, problem, type Problem } from "@src/db/mutations/authorize";
 import * as s from "@src/db/schema";
 import { countRows } from "@src/db/subqueries";
 import { boundsAround } from "@src/map/coordinates";
@@ -15,12 +16,6 @@ const retryDelaySeconds = 60;
 
 // The names are compared without case in every alphabet. SQLite's lower() only knows A to Z.
 const sameName = new Intl.Collator(undefined, { sensitivity: "accent" });
-
-export type QueueResult =
-	| { status: "queued"; id: number }
-	| { status: "full" }
-	// The user was deleted after signing in.
-	| { status: "gone" };
 
 export type FinishResult =
 	| { status: "suggested"; id: number }
@@ -53,9 +48,9 @@ export function createSuggestionQueueMutations(client: Client) {
 			return () => queuedListeners.delete(listener);
 		},
 
-		async queue(userId: number, link: string): Promise<QueueResult> {
+		async queue(userId: number, link: string): Promise<{ id: number } | Problem> {
 			const result = client.transaction(
-				(tx): QueueResult => {
+				(tx) => {
 					const user = tx.query.users
 						.findFirst({
 							columns: {},
@@ -63,14 +58,14 @@ export function createSuggestionQueueMutations(client: Client) {
 							where: { id: userId },
 						})
 						.sync();
-					if (!user) return { status: "gone" };
-					if (user.queued >= maxQueuedPerUser) return { status: "full" };
-					const row = tx.insert(s.suggestionQueue).values({ userId, link }).returning({ id: s.suggestionQueue.id }).get();
-					return { status: "queued", id: row.id };
+					// The user was deleted after signing in.
+					if (!user) return problem("account-gone");
+					if (user.queued >= maxQueuedPerUser) return problem("queue-full");
+					return tx.insert(s.suggestionQueue).values({ userId, link }).returning({ id: s.suggestionQueue.id }).get();
 				},
 				{ behavior: "immediate" },
 			);
-			if (result.status === "queued") for (const listener of queuedListeners) listener();
+			if (!isProblem(result)) for (const listener of queuedListeners) listener();
 			return result;
 		},
 

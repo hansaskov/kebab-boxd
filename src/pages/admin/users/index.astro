@@ -1,14 +1,14 @@
 ---
 import { adminSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
-import Pagination from "@src/components/Pagination.astro";
+import PagedSection from "@src/components/PagedSection.astro";
+import RelativeTime from "@src/components/RelativeTime.astro";
 import SearchForm from "@src/components/SearchForm.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { can } from "@src/auth/permissions";
 import { adminUserHref } from "@src/hrefs";
 import { userFilters, type UserFilter } from "@src/db/queries/users";
-import { formatExactTime, formatRelativeTime } from "@src/format/relative-time";
-import { firstPageHref, pageNavigation, parsePageRequest } from "@src/pagination";
+import { firstPageHref, parsePageRequest } from "@src/pagination";
 import { parseUserListCriteria } from "@src/validation/user-list-criteria";
 
 const session = Astro.locals.session;
@@ -25,8 +25,6 @@ const criteria = parseUserListCriteria(Astro.url.searchParams);
 const { search, filter } = criteria;
 
 const page = await Astro.locals.db.queries.users.list(criteria, parsePageRequest(Astro.url));
-const users = page.items;
-const navigation = pageNavigation(Astro.url, page);
 
 const filterLabels: Record<UserFilter, string> = { all: "All", admin: "Admins", banned: "Banned" };
 const filterTabs = userFilters.map((option) => ({
@@ -40,21 +38,13 @@ const emptyGroupMessages: Record<UserFilter, string> = {
   admin: "There are no admins.",
   banned: "No users are banned.",
 };
-const emptyMessage =
-  page.isPastEnd
-    ?"There are no users on this page."
-    : search
-      ? `No users match “${search}”.`
-      : emptyGroupMessages[filter];
+const emptyMessage = search ? `No users match “${search}”.` : emptyGroupMessages[filter];
 ---
 
 <BaseLayout
   title="Users"
   description="Search and manage the users of Kebab Boxd"
-  includeSidebar={true}
   prefetchUrls={["/admin", "/"]}
-  session={session}
-  user={session.user}
   sidebarMenuSections={adminSidebarMenuSections()}
 >
   <h1>Users</h1>
@@ -63,39 +53,26 @@ const emptyMessage =
 
   <TabNav class="mt-4" aria-label="Filter users" tabs={filterTabs} />
 
-  <section class="mt-6" aria-label="Users">
-    {users.length === 0 ? (
-      <p class="t-body text-fg-muted">{emptyMessage}</p>
-    ) : (
-      <>
-        <p class="t-body-sm text-fg-muted">{page.total} {page.total === 1 ? "user" : "users"}</p>
-        <div class="settings-card mt-3">
-          <ul>
-            {users.map((user) => (
-              <li>
-                <a class="settings-link" href={adminUserHref(user.username)}>
-                  <span>
-                    <span class="field-label block truncate">{user.fullname}</span>
-                    <span class="t-body-sm block truncate text-fg-muted">@{user.username} · {user.email}</span>
-                  </span>
-                  <span class="flex items-center gap-2">
-                    {user.role === "admin" && <span class="tag">Admin</span>}
-                    {user.bannedAt && <span class="tag text-danger">Banned</span>}
-                    <time
-                      class="t-body-sm text-fg-muted max-sm:hidden"
-                      datetime={user.createdAt.toISOString()}
-                      title={formatExactTime(user.createdAt)}
-                    >
-                      Joined {formatRelativeTime(user.createdAt)}
-                    </time>
-                  </span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </>
-    )}
-    {navigation && <Pagination id="user-pages" class="mt-4" aria-label="User pages" navigation={navigation} />}
-  </section>
+  <PagedSection class="mt-6" aria-label="Users" page={page} empty={emptyMessage}>
+    <p class="t-body-sm text-fg-muted">{page.total} {page.total === 1 ? "user" : "users"}</p>
+    <div class="settings-card mt-3">
+      <ul>
+        {page.items.map((user) => (
+          <li>
+            <a class="settings-link" href={adminUserHref(user.username)}>
+              <span>
+                <span class="field-label block truncate">{user.fullname}</span>
+                <span class="t-body-sm block truncate text-fg-muted">@{user.username} · {user.email}</span>
+              </span>
+              <span class="flex items-center gap-2">
+                {user.role === "admin" && <span class="tag">Admin</span>}
+                {user.bannedAt && <span class="tag text-danger">Banned</span>}
+                <span class="t-body-sm text-fg-muted max-sm:hidden">Joined <RelativeTime date={user.createdAt} /></span>
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </PagedSection>
 </BaseLayout>

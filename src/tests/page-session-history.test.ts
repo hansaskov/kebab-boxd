@@ -104,7 +104,7 @@ describe("SessionPage", () => {
 
 		const { html } = await renderSessionPage(db, session, "ada", session.id, "?after=1000_1");
 
-		expect(html).toContain("There are no older requests.");
+		expect(html).toContain("There is nothing on this page.");
 		expect(pageSearch(html, "prev")).toBe("?before=1000_1");
 	});
 

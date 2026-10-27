@@ -1,13 +1,12 @@
 ---
-import { actions, isInputError } from "astro:actions";
+import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import FieldFile from "@src/components/FieldFile.astro";
 import FieldRating from "@src/components/FieldRating.astro";
 import FieldTextArea from "@src/components/FieldTextArea.astro";
-import { canOn } from "@src/auth/permissions";
-import { failureToast } from "@src/format/action-toast";
-import { submittedForm } from "@src/actions/submitted-input";
-import { restaurantHref } from "@src/hrefs";
+import { refusal } from "@src/auth/permissions";
+import { submittedForm } from "@src/actions/outcome";
+import { refusalPage, restaurantHref } from "@src/hrefs";
 import { parseId } from "@src/validation/id";
 import { createReviewSchema, maxPicturesPerReview } from "@src/validation/review";
 
@@ -17,59 +16,36 @@ if (!session) {
 }
 
 const restaurantId = parseId(Astro.url.searchParams.get("restaurant") ?? undefined);
-const restaurant = restaurantId && (await Astro.locals.db.queries.restaurants.findById(restaurantId, session.user.id));
-
-if (!restaurant || !canOn(session.user, "restaurant:view", restaurant)) {
-  return Astro.rewrite("/404");
+const restaurant = restaurantId ? await Astro.locals.db.queries.restaurants.findById(restaurantId, session.user.id) : undefined;
+const refused = refusal(session.user, "restaurant:review", restaurant);
+if (refused || !restaurant) {
+  return Astro.rewrite(refusalPage[refused ?? "not-found"]);
 }
 
-if (!canOn(session.user, "restaurant:review", restaurant)) {
-  return Astro.rewrite("/403");
-}
-
-const result = Astro.getActionResult(actions.reviews.create);
 const submitted = submittedForm(Astro.locals, actions.reviews.create);
-const submittedRating = Number(submitted?.get("rating")) || undefined;
-const fieldErrors = result?.error && isInputError(result.error) ? result.error.fields : undefined;
-const toast = fieldErrors ? undefined : failureToast(result, "Publishing failed");
+const { shape } = createReviewSchema;
 ---
 
 <BaseLayout
   title={`Review ${restaurant.name}`}
   description={`Write a review of ${restaurant.name}`}
-  includeSidebar={true}
   prefetchUrls={[restaurantHref(restaurant.id)]}
-  session={session}
-  user={session.user}
-  toast={toast}
+  toast={submitted?.hasFieldErrors ? null : undefined}
 >
   <h1>Review <a class="link-hover" href={restaurantHref(restaurant.id)}>{restaurant.name}</a></h1>
 
   <form class="mt-4" method="post" action={actions.reviews.create} enctype="multipart/form-data">
     <input type="hidden" name="restaurantId" value={restaurant.id} />
     <fieldset class="settings-card">
-      <FieldRating
-        label="Rating"
-        name="rating"
-        selected={submittedRating}
-        zodField={createReviewSchema.shape.rating}
-        errors={fieldErrors?.rating}
-      />
+      <FieldRating label="Rating" name="rating" submitted={submitted} zodField={shape.rating} />
       <FieldTextArea
         label="Review"
         name="description"
         description="What was good, and what was not?"
-        value={submitted?.get("description")}
-        zodField={createReviewSchema.shape.description}
-        errors={fieldErrors?.description}
+        submitted={submitted}
+        zodField={shape.description}
       />
-      <FieldFile
-        label="Pictures"
-        name="pictures"
-        description={`Up to ${maxPicturesPerReview}.`}
-        multiple
-        errors={fieldErrors?.pictures}
-      />
+      <FieldFile label="Pictures" name="pictures" description={`Up to ${maxPicturesPerReview}.`} multiple submitted={submitted} />
       <div class="settings-card-footer">
         <button class="btn btn-primary btn-md" type="submit">Publish review</button>
       </div>

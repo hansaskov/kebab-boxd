@@ -9,7 +9,7 @@ import type { PageItem, PageRequest } from "@src/pagination";
 export const feeds = ["following", "everyone"] as const;
 export type Feed = (typeof feeds)[number];
 
-const pages = cursorList(s.reviews, ["createdAt", "id"], "desc");
+const pages = cursorList("reviews", ["createdAt", "id"], "desc");
 
 // Everything a review shows wherever it is listed, and what decides what the viewer may do with it.
 export function reviewCard(client: Client, viewerId: number) {
@@ -45,9 +45,7 @@ export function createReviewQueries(client: Client) {
 		pages(page, (seek) =>
 			client.query.reviews.findMany({
 				...reviewCard(client, viewerId),
-				where: { AND: [where, seek.where] },
-				orderBy: seek.orderBy,
-				limit: seek.limit,
+				...seek(where),
 			}),
 		);
 

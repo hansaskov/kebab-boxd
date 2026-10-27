@@ -6,31 +6,34 @@ import SideBar from "@src/components/SideBar.astro";
 import Toast from "@src/components/Toast.astro";
 import type { ComponentProps } from "astro/types";
 import SpeculationsAPI from "@src/components/SpeculationsAPI.astro";
-
+import { failureToast } from "@src/format/action-toast";
 
 interface Props
   extends
     ComponentProps<typeof BaseHead>,
     ComponentProps<typeof SpeculationsAPI>,
-    ComponentProps<typeof Header>,
-    ComponentProps<typeof SideBar>,
-    ComponentProps<typeof Toast> {
-    class?: string
+    ComponentProps<typeof SideBar> {
+    class?: string;
+    // Without it, a page has the sidebar when the user is signed in.
+    includeSidebar?: boolean;
+    // Without it, the page tells when the last action failed. A page that shows the failure itself passes null.
+    toast?: ComponentProps<typeof Toast>["toast"] | null;
   }
 
-const props = Astro.props;
+const { session } = Astro.locals;
+const { includeSidebar = !!session, toast = failureToast(Astro.locals), class: className, ...props } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en" data-theme={props.session?.theme ?? "light"}>
+<html lang="en" data-theme={session?.theme ?? "light"}>
   <head>
     <BaseHead {...props} />
     <slot name="head" />
   </head>
   <body>
-    <div class:list={["flex min-h-dvh", { "lg:flex-row": props.includeSidebar }]}>
+    <div class:list={["flex min-h-dvh", { "lg:flex-row": includeSidebar }]}>
       {
-        props.includeSidebar && (
+        includeSidebar && (
           <>
             <input
               id="site-nav"
@@ -45,22 +48,16 @@ const props = Astro.props;
       }
 
       <div class="flex min-w-0 flex-1 flex-col bg-page">
-        <Header {...props} />
+        <Header includeSidebar={includeSidebar} />
         <div class="flex justify-center">
-          <main
-            id="main-content"
-            class:list={[
-              "w-full max-w-225 px-gutter pt-5 pb-16",
-              Astro.props.class,
-            ]}
-          >
+          <main id="main-content" class:list={["w-full max-w-225 px-gutter pt-5 pb-16", className]}>
             <slot />
           </main>
         </div>
         <Footer />
       </div>
     </div>
-    {props.toast && <Toast {...props} />}
+    {toast && <Toast toast={toast} />}
   </body>
 </html>
 

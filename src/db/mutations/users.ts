@@ -1,22 +1,26 @@
 import { and, eq, isNull } from "drizzle-orm";
 import type { Client, Transaction } from "@src/db/client";
-import { authorizedWrite, writeIfAuthorized } from "@src/db/mutations/authorized-write";
-import { refreshLikeCounts, refreshRestaurantStats, restaurantIdsReviewedBy } from "@src/db/mutations/cached-stats";
+import { hasUsername } from "@src/db/filters";
+import { authorizedWrite, isProblem, problem, targetUserColumns, writeOnUser, type Problem } from "@src/db/mutations/authorize";
+import { refreshLikeCounts, refreshRestaurantStats, restaurantsReviewedBy } from "@src/db/mutations/cached-stats";
 import type { NotificationPreferences } from "@src/db/mutations/notifications";
 import { deletePictures, insertPictures, savingPictures } from "@src/db/mutations/pictures";
 import { deleteAllSessionsOf } from "@src/db/mutations/sessions";
 import * as s from "@src/db/schema";
 import type { Role, User } from "@src/db/schema";
-import { getSQLiteError, isUniqueConstraintError } from "@src/db/sqlite-errors";
+import { isUniqueConstraintError } from "@src/db/sqlite-errors";
 import type { Coordinates } from "@src/map/coordinates";
 import type { PictureStore } from "@src/pictures/store";
 
 export type Profile = Pick<User, "fullname" | "username" | "pronoun" | "bio">;
 
-function findDependentsOf(tx: Transaction, id: number) {
+type Picture = { id: number; url: string };
+
+// The user as the permission needs them, with the rows and files that go when the account is deleted.
+function findWithDependents(tx: Transaction, username: string) {
 	const user = tx.query.users
 		.findFirst({
-			columns: {},
+			columns: targetUserColumns,
 			with: {
 				profilePicture: { columns: { id: true, url: true } },
 				reviews: {
@@ -25,27 +29,34 @@ function findDependentsOf(tx: Transaction, id: number) {
 				},
 				likes: { columns: { reviewId: true } },
 			},
-			where: { id },
+			where: hasUsername(username),
 		})
 		.sync();
-	if (!user) throw new Error(`User ${id} does not exist.`);
+	if (!user) return undefined;
 
-	const reviewPictures = user.reviews.flatMap((review) => review.pictures);
+	const { profilePicture, reviews, likes, ...target } = user;
+	const reviewPictures = reviews.flatMap((review) => review.pictures);
 	return {
-		restaurantIds: user.reviews.map((review) => review.restaurantId),
-		likedReviewIds: user.likes.map((like) => like.reviewId),
-		pictures: user.profilePicture ? [user.profilePicture, ...reviewPictures] : reviewPictures,
+		...target,
+		restaurantIds: reviews.map((review) => review.restaurantId),
+		likedReviewIds: likes.map((like) => like.reviewId),
+		pictures: profilePicture ? [profilePicture, ...reviewPictures] : reviewPictures,
 	};
 }
 
-function findWithProfilePicture(tx: Transaction, id: number) {
+function findWithProfilePicture(tx: Transaction, username: string) {
 	return tx.query.users
 		.findFirst({
-			columns: { id: true, role: true, bannedAt: true },
+			columns: targetUserColumns,
 			with: { profilePicture: { columns: { id: true, url: true } } },
-			where: { id },
+			where: hasUsername(username),
 		})
 		.sync();
+}
+
+// The user a picture write returns, and the picture whose file goes after it.
+function withPicture({ profilePicture, ...user }: NonNullable<ReturnType<typeof findWithProfilePicture>>) {
+	return { user, removed: profilePicture ? [profilePicture] : [] };
 }
 
 function setBannedAt(tx: Transaction, id: number, bannedAt: Date | null) {
@@ -54,25 +65,39 @@ function setBannedAt(tx: Transaction, id: number, bannedAt: Date | null) {
 		.set({ bannedAt })
 		.where(isBanning ? and(eq(s.users.id, id), isNull(s.users.bannedAt)) : eq(s.users.id, id))
 		.run();
-	refreshRestaurantStats(tx, restaurantIdsReviewedBy(tx, id));
+	refreshRestaurantStats(tx, restaurantsReviewedBy(tx, id));
 }
 
+type Target = { id: number; username: string };
+
+// Every mutation names the user it changes by username, finds them inside its transaction and, when it
+// succeeds, returns them: the action needs the username as stored to name the page it goes back to.
 export function createUserMutations(client: Client, pictures: PictureStore) {
+	// The files of the pictures go once the rows that point to them are gone.
+	async function removingFiles(result: { user: Target; removed: Picture[] } | Problem) {
+		if (isProblem(result)) return result;
+		await pictures.remove(result.removed.map((picture) => picture.url));
+		return result.user;
+	}
+
+	function editSettings(actorId: number, username: string, write: (tx: Transaction, user: Target) => void) {
+		return writeOnUser(client, actorId, username, "user:edit-settings", write);
+	}
+
 	return {
-		async updateProfile(id: number, profile: Profile): Promise<"updated" | "username-taken"> {
+		async updateProfile(actorId: number, username: string, profile: Profile) {
 			try {
-				await client.update(s.users).set(profile).where(eq(s.users.id, id));
-				return "updated";
+				return editSettings(actorId, username, (tx, { id }) => {
+					tx.update(s.users).set(profile).where(eq(s.users.id, id)).run();
+				});
 			} catch (error) {
-				if (isUniqueConstraintError(getSQLiteError(error))) {
-					return "username-taken";
-				}
+				if (isUniqueConstraintError(error)) return problem("username-taken");
 				throw error;
 			}
 		},
 
-		async setLocation(id: number, location: Coordinates | null, actorId: number) {
-			return writeIfAuthorized(client, actorId, id, "user:edit-settings", (tx) => {
+		async setLocation(actorId: number, username: string, location: Coordinates | null) {
+			return editSettings(actorId, username, (tx, { id }) => {
 				tx.update(s.users)
 					.set({ latitude: location?.latitude ?? null, longitude: location?.longitude ?? null })
 					.where(eq(s.users.id, id))
@@ -80,78 +105,72 @@ export function createUserMutations(client: Client, pictures: PictureStore) {
 			});
 		},
 
-		async setNotificationPreferences(id: number, preferences: NotificationPreferences, actorId: number) {
-			return writeIfAuthorized(client, actorId, id, "user:edit-settings", (tx) => {
+		async setNotificationPreferences(actorId: number, username: string, preferences: NotificationPreferences) {
+			return editSettings(actorId, username, (tx, { id }) => {
 				tx.update(s.users).set(preferences).where(eq(s.users.id, id)).run();
 			});
 		},
 
-		async setProfilePicture(id: number, file: File, actorId: number) {
-			const result = await savingPictures(
-				pictures,
-				[file],
-				"profile",
-				(urls) =>
-					authorizedWrite(client, actorId, "user:edit-settings", (tx) => findWithProfilePicture(tx, id), (tx, user) => {
-						const [pictureId] = insertPictures(tx, urls);
-						tx.update(s.users).set({ profilePictureId: pictureId }).where(eq(s.users.id, id)).run();
-						if (user.profilePicture) deletePictures(tx, [user.profilePicture.id]);
-						return { replaced: user.profilePicture };
-					}),
-				(written) => written !== "refused",
+		async setProfilePicture(actorId: number, username: string, file: File) {
+			const result = await savingPictures(pictures, [file], "profile", (urls) =>
+				authorizedWrite(client, actorId, "user:edit-settings", (tx) => findWithProfilePicture(tx, username), (tx, user) => {
+					const [pictureId] = insertPictures(tx, urls);
+					tx.update(s.users).set({ profilePictureId: pictureId }).where(eq(s.users.id, user.id)).run();
+					if (user.profilePicture) deletePictures(tx, [user.profilePicture.id]);
+					return withPicture(user);
+				}),
 			);
-			if (result === "refused" || result === "invalid-picture") return result;
-			if (result.replaced) await pictures.remove([result.replaced.url]);
-			return "updated";
+			return removingFiles(result);
 		},
 
-		async removeProfilePicture(id: number, actorId: number) {
-			const result = authorizedWrite(client, actorId, "user:edit-settings", (tx) => findWithProfilePicture(tx, id), (tx, user) => {
+		async removeProfilePicture(actorId: number, username: string) {
+			const result = authorizedWrite(client, actorId, "user:edit-settings", (tx) => findWithProfilePicture(tx, username), (tx, user) => {
 				if (user.profilePicture) deletePictures(tx, [user.profilePicture.id]);
-				return { removed: user.profilePicture };
+				return withPicture(user);
 			});
-			if (result === "refused") return result;
-			if (result.removed) await pictures.remove([result.removed.url]);
-			return "updated";
+			return removingFiles(result);
 		},
 
 		async verifyEmail(id: number) {
 			await client.update(s.users).set({ emailVerified: true }).where(eq(s.users.id, id));
 		},
 
-		async setRole(id: number, role: Role, actorId: number) {
-			return writeIfAuthorized(client, actorId, id, "user:change-role", (tx) => {
+		async setRole(actorId: number, username: string, role: Role) {
+			return writeOnUser(client, actorId, username, "user:change-role", (tx, { id }) => {
 				tx.update(s.users).set({ role }).where(eq(s.users.id, id)).run();
 			});
 		},
 
-		async ban(id: number, actorId: number) {
-			return writeIfAuthorized(client, actorId, id, "user:ban", (tx) => {
+		async ban(actorId: number, username: string) {
+			return writeOnUser(client, actorId, username, "user:ban", (tx, { id }) => {
 				setBannedAt(tx, id, new Date());
 				deleteAllSessionsOf(tx, id);
 			});
 		},
 
-		async unban(id: number, actorId: number) {
-			return writeIfAuthorized(client, actorId, id, "user:ban", (tx) => {
+		async unban(actorId: number, username: string) {
+			return writeOnUser(client, actorId, username, "user:ban", (tx, { id }) => {
 				setBannedAt(tx, id, null);
 			});
 		},
 
-		async delete(id: number, actorId: number) {
-			const result = authorizedWrite(client, actorId, "user:delete-account", (tx) => findWithProfilePicture(tx, id), (tx) => {
-				const dependents = findDependentsOf(tx, id);
+		async signOutEverywhere(actorId: number, username: string) {
+			return writeOnUser(client, actorId, username, "user:manage-sessions", (tx, { id }) => {
+				deleteAllSessionsOf(tx, id);
+			});
+		},
 
+		async delete(actorId: number, username: string) {
+			const result = authorizedWrite(client, actorId, "user:delete-account", (tx) => findWithDependents(tx, username), (tx, dependents) => {
+				const { id } = dependents;
 				tx.update(s.restaurants).set({ suggestedBy: null }).where(eq(s.restaurants.suggestedBy, id)).run();
 				tx.delete(s.users).where(eq(s.users.id, id)).run();
 				deletePictures(tx, dependents.pictures.map((picture) => picture.id));
 				refreshLikeCounts(tx, dependents.likedReviewIds);
 				refreshRestaurantStats(tx, dependents.restaurantIds);
-				return dependents;
+				return { user: { id, username: dependents.username }, removed: dependents.pictures };
 			});
-			if (result === "refused") return result;
-			await pictures.remove(result.pictures.map((picture) => picture.url));
-			return "updated";
+			return removingFiles(result);
 		},
 	};
 }

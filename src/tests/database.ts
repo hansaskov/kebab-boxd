@@ -65,3 +65,8 @@ export function restaurantRow(client: Client, id: number) {
 export function insertReview(client: Client, authorId: number, restaurantId: number, rating: number, createdAt = new Date()) {
 	return client.insert(s.reviews).values({ authorId, restaurantId, rating, createdAt }).returning().get();
 }
+
+// The newest notification the user has not read, as every page of theirs gets it with the session.
+export async function newestUnreadId(db: Database, userId: number) {
+	return (await signIn(db, userId)).user.newestUnreadNotificationId;
+}

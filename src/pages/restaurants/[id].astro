@@ -1,20 +1,18 @@
 ---
 import { SquarePen } from "@lucide/astro";
-import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import AverageRating from "@src/components/AverageRating.astro";
 import CollectButton from "@src/components/CollectButton.astro";
 import MapView from "@src/components/MapView.astro";
-import Pagination from "@src/components/Pagination.astro";
+import PagedSection from "@src/components/PagedSection.astro";
 import RestaurantStatusTag from "@src/components/RestaurantStatusTag.astro";
 import ReviewList from "@src/components/ReviewList.astro";
 import SuggestionDecision from "@src/components/SuggestionDecision.astro";
-import { canOn } from "@src/auth/permissions";
+import { canOn, refusal } from "@src/auth/permissions";
 import { restaurantMapSize, restaurantMapZoom } from "@src/data/map";
-import { failureToast } from "@src/format/action-toast";
-import { exploreHref, newReviewHref, profileHref } from "@src/hrefs";
+import { exploreHref, newReviewHref, profileHref, refusalPage } from "@src/hrefs";
 import { viewport } from "@src/map/viewport";
-import { pageNavigation, parsePageRequest } from "@src/pagination";
+import { parsePageRequest } from "@src/pagination";
 import { parseId } from "@src/validation/id";
 
 const session = Astro.locals.session;
@@ -24,14 +22,13 @@ if (!session) {
 
 const id = parseId(Astro.params.id);
 const { restaurants, reviews } = Astro.locals.db.queries;
-const restaurant = id && (await restaurants.findById(id, session.user.id));
-
-if (!restaurant || !canOn(session.user, "restaurant:view", restaurant)) {
-  return Astro.rewrite("/404");
+const restaurant = id ? await restaurants.findById(id, session.user.id) : undefined;
+const refused = refusal(session.user, "restaurant:view", restaurant);
+if (refused || !restaurant) {
+  return Astro.rewrite(refusalPage[refused ?? "not-found"]);
 }
 
 const page = await reviews.listByRestaurant(restaurant.id, session.user.id, parsePageRequest(Astro.url));
-const navigation = pageNavigation(Astro.url, page);
 
 const { location } = restaurant;
 const map = viewport(location, restaurantMapZoom, restaurantMapSize);
@@ -42,24 +39,12 @@ const address = [location.addressLine1, location.addressLine2, [location.postalC
 const canReview = canOn(session.user, "restaurant:review", restaurant);
 const canCollect = canOn(session.user, "restaurant:collect", restaurant);
 const canModerate = canOn(session.user, "restaurant:moderate", restaurant);
-
-const toast =
-  failureToast(Astro.getActionResult(actions.restaurants.favorite), "Saving failed") ??
-  failureToast(Astro.getActionResult(actions.restaurants.addToBucketList), "Saving failed") ??
-  failureToast(Astro.getActionResult(actions.reviews.like), "Like failed") ??
-  failureToast(Astro.getActionResult(actions.reviews.unlike), "Unlike failed") ??
-  failureToast(Astro.getActionResult(actions.admin.approveRestaurant), "Approval failed") ??
-  failureToast(Astro.getActionResult(actions.admin.rejectRestaurant), "Rejection failed");
 ---
 
 <BaseLayout
   title={restaurant.name}
   description={`Reviews of ${restaurant.name}${location.city ? ` in ${location.city}` : ""}`}
-  includeSidebar={true}
   prefetchUrls={canReview ? [newReviewHref(restaurant.id), "/restaurants"] : ["/restaurants"]}
-  session={session}
-  user={session.user}
-  toast={toast}
 >
   <header class="flex flex-wrap items-start gap-4">
     <div class="min-w-0 flex-1">
@@ -103,13 +88,8 @@ const toast =
     markers={[{ coordinates: location, href: exploreHref({ center: location, zoom: restaurantMapZoom }), label: "Show nearby restaurants" }]}
   />
 
-  <section class="mt-8" aria-labelledby="reviews-heading">
-    <h2 id="reviews-heading">Reviews</h2>
-    {page.items.length === 0 ? (
-      <p class="t-body mt-2 text-fg-muted">{page.isPastEnd ? "There is nothing on this page." : "No reviews yet."}</p>
-    ) : (
-      <ReviewList class="mt-3" reviews={page.items} viewer={session.user} showRestaurant={false} />
-    )}
-    {navigation && <Pagination id="review-pages" class="mt-4" aria-label="Review pages" navigation={navigation} />}
-  </section>
+  <PagedSection class="mt-8 space-y-3" aria-label="Reviews" page={page} empty="No reviews yet.">
+    <h2 slot="heading">Reviews</h2>
+    <ReviewList reviews={page.items} viewer={session.user} showRestaurant={false} />
+  </PagedSection>
 </BaseLayout>

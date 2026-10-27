@@ -13,31 +13,25 @@ if (!can(session.user, "admin-console:view")) {
   return Astro.rewrite("/403");
 }
 
-const [totals, restaurantTotals] = await Promise.all([
-  Astro.locals.db.queries.users.countByFilter(),
-  Astro.locals.db.queries.restaurants.countByStatus(),
-]);
+const counts = await Astro.locals.db.queries.admin.countOverview();
 
 const userGroups = [
-  { label: "Users", count: totals.all, href: "/admin/users" },
-  { label: "Admins", count: totals.admin, href: "/admin/users?filter=admin" },
-  { label: "Banned", count: totals.banned, href: "/admin/users?filter=banned" },
+  { label: "Users", count: counts.all, href: "/admin/users" },
+  { label: "Admins", count: counts.admin, href: "/admin/users?filter=admin" },
+  { label: "Banned", count: counts.banned, href: "/admin/users?filter=banned" },
 ];
 
 const restaurantGroups = [
-  { label: "Waiting", count: restaurantTotals.pending, href: "/admin/restaurants" },
-  { label: "Approved", count: restaurantTotals.approved, href: "/admin/restaurants?status=approved" },
-  { label: "Rejected", count: restaurantTotals.rejected, href: "/admin/restaurants?status=rejected" },
+  { label: "Waiting", count: counts.pending, href: "/admin/restaurants" },
+  { label: "Approved", count: counts.approved, href: "/admin/restaurants?status=approved" },
+  { label: "Rejected", count: counts.rejected, href: "/admin/restaurants?status=rejected" },
 ];
 ---
 
 <BaseLayout
   title="Admin console"
   description="Manage the users and restaurants of Kebab Boxd"
-  includeSidebar={true}
   prefetchUrls={["/admin/users", "/admin/restaurants"]}
-  session={session}
-  user={session.user}
   sidebarMenuSections={adminSidebarMenuSections()}
 >
   <h1>Admin console</h1>

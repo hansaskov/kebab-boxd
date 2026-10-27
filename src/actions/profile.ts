@@ -1,31 +1,17 @@
 import { defineAction } from "astro:actions";
-import { authorizeTargetUser, refusedSinceRequestStarted, targetUserSchema } from "@src/actions/authorize";
+import { orThrow, requireSession, targetUserSchema } from "@src/actions/authorize";
+
+function followAction(write: "follow" | "unfollow") {
+  return defineAction({
+    accept: "form",
+    input: targetUserSchema,
+    handler: async ({ username }, { locals }) => {
+      orThrow(await locals.db.mutations.follows[write](requireSession(locals).user.id, username));
+    },
+  });
+}
 
 export const profileActions = {
-  follow: defineAction({
-    accept: "form",
-    input: targetUserSchema,
-    handler: async (input, context) => {
-      const { session, targetUser } = await authorizeTargetUser(context.locals, input.username, "user:follow");
-
-      const result = await context.locals.db.mutations.follows.follow(session.user.id, targetUser.id);
-
-      if (result === "refused") {
-        throw refusedSinceRequestStarted();
-      }
-    },
-  }),
-  unfollow: defineAction({
-    accept: "form",
-    input: targetUserSchema,
-    handler: async (input, context) => {
-      const { session, targetUser } = await authorizeTargetUser(context.locals, input.username, "user:unfollow");
-
-      const result = await context.locals.db.mutations.follows.unfollow(session.user.id, targetUser.id);
-
-      if (result === "refused") {
-        throw refusedSinceRequestStarted();
-      }
-    },
-  }),
+  follow: followAction("follow"),
+  unfollow: followAction("unfollow"),
 };

@@ -1,3 +1,4 @@
+import { isProblem } from "@src/db/mutations/authorize";
 import { describe, expect, it, vi } from "vitest";
 import { finishedSuggestionRetentionSeconds } from "@src/data/retention-periods";
 import type { Database } from "@src/db";
@@ -25,7 +26,7 @@ const address: Address = { addressLine1: "Kongensgade 13", postalCode: "5000", c
 
 async function queue(db: Database, userId: number) {
 	const result = await db.mutations.suggestionQueue.queue(userId, shareLink);
-	if (result.status !== "queued") throw new Error("The link was not queued.");
+	if (isProblem(result)) throw new Error("The link was not queued.");
 	return result.id;
 }
 
@@ -120,7 +121,7 @@ describe("suggestion queue", () => {
 		await db.mutations.suggestionQueue.retryLater(queued, start);
 
 		expect(row()).toMatchObject({ status: "queued", attempts: 1 });
-		expect(await processNextSuggestion(db, start)).toBe(false);
+		expect((await processNextSuggestion(db, start)).processed).toBe(false);
 		expect((await db.queries.suggestionQueue.next())?.runAfter.getTime()).toBe(Math.floor(start.getTime() / 1000) * 1000 + 60_000);
 
 		for (let attempt = 2; attempt <= maxAttempts; attempt++) await db.mutations.suggestionQueue.retryLater(queued, start);
@@ -149,7 +150,7 @@ describe("suggestion queue", () => {
 		const ada = insertUser(client, "ada");
 		for (let link = 0; link < maxQueuedPerUser; link++) await queue(db, ada.id);
 
-		expect(await db.mutations.suggestionQueue.queue(ada.id, shareLink)).toEqual({ status: "full" });
+		expect(await db.mutations.suggestionQueue.queue(ada.id, shareLink)).toEqual({ problem: "queue-full" });
 	});
 
 	it("does not try a link again when it cannot be read", async () => {
@@ -158,7 +159,7 @@ describe("suggestion queue", () => {
 		const link = "https://www.google.com/maps/place/Kebab%E0%A4/data=!1s0x1:0x2!3d55!4d10";
 		await db.mutations.suggestionQueue.queue(ada.id, link);
 
-		expect(await processNextSuggestion(db)).toBe(true);
+		expect((await processNextSuggestion(db)).processed).toBe(true);
 		expect(client.query.suggestionQueue.findFirst().sync()).toMatchObject({ status: "not-a-place", attempts: 0 });
 	});
 
@@ -167,7 +168,7 @@ describe("suggestion queue", () => {
 		const ada = insertUser(client, "ada");
 		client.delete(s.users).run();
 
-		expect(await db.mutations.suggestionQueue.queue(ada.id, shareLink)).toEqual({ status: "gone" });
+		expect(await db.mutations.suggestionQueue.queue(ada.id, shareLink)).toEqual({ problem: "account-gone" });
 	});
 
 	it("wakes up when a link is queued", async () => {
@@ -204,8 +205,8 @@ describe("suggestion queue", () => {
 		await queue(db, ada.id);
 		insertRestaurant(client, "Bosporus Grill", { status: "approved" });
 
-		expect(await processNextSuggestion(db)).toBe(true);
-		expect(await processNextSuggestion(db)).toBe(false);
+		expect((await processNextSuggestion(db)).processed).toBe(true);
+		expect((await processNextSuggestion(db)).processed).toBe(false);
 
 		const restaurant = client.query.restaurants.findFirst({ where: { name: "Shawarma Village" }, with: { location: true } }).sync();
 		expect(restaurant).toMatchObject({ googleMapsId: shawarmaVillage.googleMapsId, status: "pending", suggestedBy: ada.id });

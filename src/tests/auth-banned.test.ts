@@ -16,7 +16,7 @@ describe("a banned user", () => {
 			emailVerified: true,
 		};
 		const user = await signInWithProviderAccount(db, googleAccount);
-		await db.mutations.users.ban(user.id, admin.id);
+		await db.mutations.users.ban(admin.id, user.username);
 
 		await expect(signInWithProviderAccount(db, googleAccount)).rejects.toBeInstanceOf(UserBannedError);
 	});
@@ -25,7 +25,7 @@ describe("a banned user", () => {
 		const { client, db } = createTestDatabase("banned-session");
 		const admin = insertUser(client, "admin", "admin");
 		const bob = insertUser(client, "bob");
-		await db.mutations.users.ban(bob.id, admin.id);
+		await db.mutations.users.ban(admin.id, bob.username);
 		const session = await createSession(bob.id, db);
 
 		expect(await getSession(session.id, db)).toBeNull();

@@ -1,4 +1,3 @@
-import { COUNTRIES } from "@src/data/countries";
 import type { NewLocation } from "@src/db/schema";
 import type { Coordinates } from "@src/map/coordinates";
 
@@ -22,7 +21,7 @@ const searchUrl = "https://nominatim.openstreetmap.org/search";
 const userAgent = "Kebab Boxd (https://hans.askov.dk)";
 const lookupTimeoutMs = 10_000;
 
-const countryNamesByCode = new Map<string, string>(Object.values(COUNTRIES).map((country) => [country.code, country.name]));
+const countryNames = new Intl.DisplayNames("en", { type: "region", fallback: "none" });
 
 export function toAddress(address: NominatimAddress): Address {
 	const street = [address.road, address.house_number].filter(Boolean).join(" ");
@@ -30,7 +29,8 @@ export function toAddress(address: NominatimAddress): Address {
 		addressLine1: street || null,
 		postalCode: address.postcode ?? null,
 		city: address.city ?? address.town ?? address.village ?? address.hamlet ?? address.municipality ?? null,
-		country: (address.country_code && countryNamesByCode.get(address.country_code.toUpperCase())) ?? null,
+		// Intl throws on a code that is not two letters.
+		country: (address.country_code?.match(/^[a-z]{2}$/i) && countryNames.of(address.country_code.toUpperCase())) || null,
 	};
 }
 

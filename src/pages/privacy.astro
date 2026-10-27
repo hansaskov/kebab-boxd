@@ -18,14 +18,19 @@ const cookies = [
   { name: googleCookieNames.state, purpose: "Protects sign-in with Google.", lifetime: `after ${minutes(oauthCookieOptions.maxAge)}` },
   { name: googleCookieNames.codeVerifier, purpose: "Protects sign-in with Google.", lifetime: `after ${minutes(oauthCookieOptions.maxAge)}` },
 ];
+
+const rights = [
+  { text: "Download all your data", section: "your-data", label: "Your data" },
+  { text: "Correct your profile", section: "account", label: "Account" },
+  { text: "Remove your location", section: "location", label: "Location" },
+  { text: "Delete your account and data", section: "danger-zone", label: "Danger zone" },
+];
 ---
 
 <BaseLayout
   title="Privacy"
   description="How Kebab Boxd uses your personal data"
-  includeSidebar={session !== null}
   prefetchUrls={userSettingsHref ? ["/", userSettingsHref] : ["/login"]}
-  {...session && { session, user: session.user }}
 >
   <h1>Privacy</h1>
 
@@ -119,22 +124,12 @@ const cookies = [
   <section class="mt-8">
     <h2>Your rights</h2>
     <ul class="t-body mt-2 list-disc space-y-2 pl-5">
-      <li>
-        Download all your data:{" "}
-        {userSettingsHref ? <a class="link" href={`${userSettingsHref}#your-data`}>Settings, Your data</a> : "Settings, Your data"}.
-      </li>
-      <li>
-        Correct your profile:{" "}
-        {userSettingsHref ? <a class="link" href={`${userSettingsHref}#account`}>Settings, Account</a> : "Settings, Account"}.
-      </li>
-      <li>
-        Remove your location:{" "}
-        {userSettingsHref ? <a class="link" href={`${userSettingsHref}#location`}>Settings, Location</a> : "Settings, Location"}.
-      </li>
-      <li>
-        Delete your account and data:{" "}
-        {userSettingsHref ? <a class="link" href={`${userSettingsHref}#danger-zone`}>Settings, Danger zone</a> : "Settings, Danger zone"}.
-      </li>
+      {rights.map((right) => (
+        <li>
+          {right.text}:{" "}
+          {userSettingsHref ? <a class="link" href={`${userSettingsHref}#${right.section}`}>Settings, {right.label}</a> : `Settings, ${right.label}`}.
+        </li>
+      ))}
       <li>
         Object to how we use your data, or ask us to limit it: email <a class="link" href={`mailto:${DATA_CONTROLLER_EMAIL}`}>{DATA_CONTROLLER_EMAIL}</a>.
       </li>

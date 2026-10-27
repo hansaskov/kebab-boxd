@@ -36,7 +36,7 @@ describe("unbanUser action", () => {
 		const { client, db } = createTestDatabase("admin-unban");
 		const admin = insertUser(client, "ada", "admin");
 		const bob = insertUser(client, "bob");
-		await db.mutations.users.ban(bob.id, admin.id);
+		await db.mutations.users.ban(admin.id, bob.username);
 
 		const result = await server.admin.unbanUser.call(actionContext(db, await signIn(db, admin.id)), form({ username: "bob" }));
 
@@ -76,7 +76,7 @@ describe("changeUserRole action", () => {
 		expect(userRow(client, ada.id)?.role).toBe("user");
 	});
 
-	it("keeps one admin when two admins demote each other at the same time", async () => {
+	it("keeps one admin when two admins demote each other one after the other", async () => {
 		const { client, db } = createTestDatabase("admin-role-race");
 		const ada = insertUser(client, "ada", "admin");
 		const bob = insertUser(client, "bob", "admin");
@@ -87,7 +87,7 @@ describe("changeUserRole action", () => {
 		const bobDemotesAda = await server.admin.changeUserRole.call(bobContext, form({ username: "ada", role: "user" }));
 
 		expect(adaDemotesBob.error).toBeUndefined();
-		expect(bobDemotesAda.error?.code).toBe("CONFLICT");
+		expect(bobDemotesAda.error?.code).toBe("FORBIDDEN");
 		expect(userRow(client, ada.id)?.role).toBe("admin");
 		expect(userRow(client, bob.id)?.role).toBe("user");
 	});

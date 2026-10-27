@@ -11,7 +11,7 @@ export function refreshLikeCounts(tx: Transaction, reviewIds: number[]) {
 }
 
 // The reviews of banned authors leave the stats until the ban is lifted.
-export function refreshRestaurantStats(tx: Transaction, restaurantIds: number[]) {
+export function refreshRestaurantStats(tx: Transaction, restaurantIds: number[] | ReturnType<typeof restaurantsReviewedBy>) {
 	const unbannedAuthors = tx.select({ id: s.users.id }).from(s.users).where(isNull(s.users.bannedAt));
 	const ofRestaurant = and(eq(s.reviews.restaurantId, s.restaurants.id), inArray(s.reviews.authorId, unbannedAuthors));
 
@@ -31,7 +31,7 @@ export function refreshRestaurantStats(tx: Transaction, restaurantIds: number[])
 		.run();
 }
 
-export function restaurantIdsReviewedBy(tx: Transaction, authorId: number) {
-	const reviews = tx.query.reviews.findMany({ columns: { restaurantId: true }, where: { authorId } }).sync();
-	return [...new Set(reviews.map((review) => review.restaurantId))];
+// The restaurants the author reviewed, as a subquery for `refreshRestaurantStats`.
+export function restaurantsReviewedBy(tx: Transaction, authorId: number) {
+	return tx.select({ id: s.reviews.restaurantId }).from(s.reviews).where(eq(s.reviews.authorId, authorId));
 }

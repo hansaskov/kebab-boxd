@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { can, type UserPermission } from "@src/auth/permissions";
+import { can, refusal, type UserPermission } from "@src/auth/permissions";
 
 const user = { id: 1, role: "user", bannedAt: null } as const;
 const otherUser = { id: 2, role: "user", bannedAt: null } as const;
@@ -41,5 +41,30 @@ describe("can", () => {
 		);
 
 		expect(decided).toEqual(allowed);
+	});
+});
+
+describe("refusal", () => {
+	const listed = { authorId: otherUser.id, isListed: true };
+	const hidden = { authorId: otherUser.id, isListed: false };
+
+	it("tells that a resource does not exist when it is missing", () => {
+		expect(refusal(user, "review:like", undefined)).toBe("not-found");
+	});
+
+	it("tells that a resource the user may not see does not exist, whatever they ask to do", () => {
+		expect(refusal(user, "review:like", hidden)).toBe("not-found");
+		expect(refusal(user, "restaurant:review", { status: "pending", suggestedBy: otherUser.id })).toBe("not-found");
+	});
+
+	it("forbids what the user may not do with a resource they can see", () => {
+		expect(refusal(user, "review:edit", listed)).toBe("forbidden");
+		expect(refusal(user, "restaurant:review", { status: "pending", suggestedBy: user.id })).toBe("forbidden");
+		expect(refusal(user, "user:ban", otherUser)).toBe("forbidden");
+	});
+
+	it("allows what the user may do", () => {
+		expect(refusal(user, "review:like", listed)).toBeUndefined();
+		expect(refusal(admin, "review:delete", hidden)).toBeUndefined();
 	});
 });

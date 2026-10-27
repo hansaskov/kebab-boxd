@@ -1,6 +1,6 @@
 import { defineAction } from "astro:actions";
 import { z } from "astro/zod";
-import { authorizeRestaurant, authorizeTargetUser, refusedSinceRequestStarted, targetUserSchema } from "@src/actions/authorize";
+import { orThrow, requireSession, targetUserSchema } from "@src/actions/authorize";
 import { roles } from "@src/db/schema";
 import { adminUserHref } from "@src/hrefs";
 import { restaurantTargetSchema } from "@src/validation/restaurant";
@@ -13,14 +13,19 @@ function decideSuggestionAction(status: "approved" | "rejected") {
   return defineAction({
     accept: "form",
     input: restaurantTargetSchema,
-    handler: async ({ restaurantId }, context) => {
-      const { session } = await authorizeRestaurant(context.locals, restaurantId, "restaurant:moderate");
+    handler: async ({ restaurantId }, { locals }) => {
+      orThrow(await locals.db.mutations.restaurants.setStatus(requireSession(locals).user.id, restaurantId, status));
+    },
+  });
+}
 
-      const result = await context.locals.db.mutations.restaurants.setStatus(session.user.id, restaurantId, status);
-
-      if (result === "refused") {
-        throw refusedSinceRequestStarted("this restaurant");
-      }
+function banAction(write: "ban" | "unban") {
+  return defineAction({
+    accept: "form",
+    input: targetUserSchema,
+    handler: async ({ username }, { locals }) => {
+      const user = orThrow(await locals.db.mutations.users[write](requireSession(locals).user.id, username));
+      return { redirect: adminUserHref(user.username) };
     },
   });
 }
@@ -28,53 +33,14 @@ function decideSuggestionAction(status: "approved" | "rejected") {
 export const adminActions = {
   approveRestaurant: decideSuggestionAction("approved"),
   rejectRestaurant: decideSuggestionAction("rejected"),
-  banUser: defineAction({
-    accept: "form",
-    input: targetUserSchema,
-    handler: async (input, context) => {
-      const { session, targetUser } = await authorizeTargetUser(context.locals, input.username, "user:ban");
-
-      const result = await context.locals.db.mutations.users.ban(targetUser.id, session.user.id);
-
-      if (result === "refused") {
-        throw refusedSinceRequestStarted();
-      }
-
-      return { redirect: adminUserHref(targetUser.username) };
-    },
-  }),
-  unbanUser: defineAction({
-    accept: "form",
-    input: targetUserSchema,
-    handler: async (input, context) => {
-      const { session, targetUser } = await authorizeTargetUser(context.locals, input.username, "user:ban");
-
-      const result = await context.locals.db.mutations.users.unban(targetUser.id, session.user.id);
-
-      if (result === "refused") {
-        throw refusedSinceRequestStarted();
-      }
-
-      return { redirect: adminUserHref(targetUser.username) };
-    },
-  }),
+  banUser: banAction("ban"),
+  unbanUser: banAction("unban"),
   changeUserRole: defineAction({
     accept: "form",
     input: changeUserRoleSchema,
-    handler: async (input, context) => {
-      const { session, targetUser } = await authorizeTargetUser(
-        context.locals,
-        input.username,
-        "user:change-role",
-      );
-
-      const result = await context.locals.db.mutations.users.setRole(targetUser.id, input.role, session.user.id);
-
-      if (result === "refused") {
-        throw refusedSinceRequestStarted();
-      }
-
-      return { redirect: adminUserHref(targetUser.username) };
+    handler: async ({ username, role }, { locals }) => {
+      const user = orThrow(await locals.db.mutations.users.setRole(requireSession(locals).user.id, username, role));
+      return { redirect: adminUserHref(user.username) };
     },
   }),
 };

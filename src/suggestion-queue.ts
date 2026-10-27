@@ -7,10 +7,13 @@ const tickIntervalMs = 1500;
 // After an error in the worker itself, such as a database that cannot be opened.
 const errorDelayMs = 60_000;
 
-// Turns the oldest waiting link into a suggested restaurant. Returns false when no link is due.
-export async function processNextSuggestion(db: Database, now = new Date()) {
+// Turns the oldest waiting link into a suggested restaurant. When no link is due, tells when the next one is.
+export async function processNextSuggestion(
+	db: Database,
+	now = new Date(),
+): Promise<{ processed: true } | { processed: false; dueAt: Date | undefined }> {
 	const queued = await db.queries.suggestionQueue.next();
-	if (!queued || queued.runAfter > now) return false;
+	if (!queued || queued.runAfter > now) return { processed: false, dueAt: queued?.runAfter };
 
 	// A failed lookup at Google or OpenStreetMap, or a busy database, is tried again. A link that cannot be
 	// read never gets better.
@@ -22,7 +25,7 @@ export async function processNextSuggestion(db: Database, now = new Date()) {
 		console.error(`Could not suggest the link ${queued.link}`, error);
 		await db.mutations.suggestionQueue.retryLater(queued.id, now);
 	}
-	return true;
+	return { processed: true };
 }
 
 // Works through the waiting links one at a time, then sleeps until a link is due or a new one is queued.
@@ -46,12 +49,12 @@ export function scheduleSuggestionQueue(db: Database) {
 		while (!stopped.signal.aborted) {
 			queuedMeanwhile = false;
 			try {
-				if (await processNextSuggestion(db)) {
+				const result = await processNextSuggestion(db);
+				if (result.processed) {
 					await delay(tickIntervalMs, undefined, { ref: false });
 					continue;
 				}
-				const next = await db.queries.suggestionQueue.next();
-				await sleep(next && next.runAfter.getTime() - Date.now());
+				await sleep(result.dueAt && result.dueAt.getTime() - Date.now());
 			} catch (error) {
 				console.error("Could not process the suggestion queue", error);
 				await sleep(errorDelayMs);

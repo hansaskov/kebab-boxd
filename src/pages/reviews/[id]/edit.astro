@@ -1,14 +1,13 @@
 ---
-import { actions, isInputError } from "astro:actions";
+import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import DeleteReviewButton from "@src/components/DeleteReviewButton.astro";
 import FieldFile from "@src/components/FieldFile.astro";
 import FieldRating from "@src/components/FieldRating.astro";
 import FieldTextArea from "@src/components/FieldTextArea.astro";
-import { canOn } from "@src/auth/permissions";
-import { failureToast } from "@src/format/action-toast";
-import { submittedForm } from "@src/actions/submitted-input";
-import { restaurantHref, reviewHref } from "@src/hrefs";
+import { refusal } from "@src/auth/permissions";
+import { submittedForm } from "@src/actions/outcome";
+import { refusalPage, restaurantHref, reviewHref } from "@src/hrefs";
 import { parseId } from "@src/validation/id";
 import { maxPicturesPerReview, updateReviewSchema } from "@src/validation/review";
 
@@ -18,53 +17,35 @@ if (!session) {
 }
 
 const id = parseId(Astro.params.id);
-const review = id && (await Astro.locals.db.queries.reviews.findById(id, session.user.id));
-
-if (!review || !canOn(session.user, "review:view", review)) {
-  return Astro.rewrite("/404");
+const review = id ? await Astro.locals.db.queries.reviews.findById(id, session.user.id) : undefined;
+const refused = refusal(session.user, "review:edit", review);
+if (refused || !review) {
+  return Astro.rewrite(refusalPage[refused ?? "not-found"]);
 }
 
-if (!canOn(session.user, "review:edit", review)) {
-  return Astro.rewrite("/403");
-}
-
-const result = Astro.getActionResult(actions.reviews.update);
 const submitted = submittedForm(Astro.locals, actions.reviews.update);
-const submittedRating = Number(submitted?.get("rating")) || undefined;
-const fieldErrors = result?.error && isInputError(result.error) ? result.error.fields : undefined;
-const toast =
-  (fieldErrors ? undefined : failureToast(result, "Saving failed")) ??
-  failureToast(Astro.getActionResult(actions.reviews.delete), "Deletion failed");
+const { shape } = updateReviewSchema;
 ---
 
 <BaseLayout
   title={`Edit review of ${review.restaurant.name}`}
   description={`Change your review of ${review.restaurant.name}`}
-  includeSidebar={true}
   prefetchUrls={[reviewHref(review.id), restaurantHref(review.restaurant.id)]}
-  session={session}
-  user={session.user}
-  toast={toast}
+  toast={submitted?.hasFieldErrors ? null : undefined}
 >
   <h1>Edit review of <a class="link-hover" href={restaurantHref(review.restaurant.id)}>{review.restaurant.name}</a></h1>
 
   <form class="mt-4" method="post" action={actions.reviews.update} enctype="multipart/form-data">
     <input type="hidden" name="reviewId" value={review.id} />
     <fieldset class="settings-card">
-      <FieldRating
-        label="Rating"
-        name="rating"
-        selected={submittedRating ?? review.rating}
-        zodField={updateReviewSchema.shape.rating}
-        errors={fieldErrors?.rating}
-      />
+      <FieldRating label="Rating" name="rating" selected={review.rating} submitted={submitted} zodField={shape.rating} />
       <FieldTextArea
         label="Review"
         name="description"
         description="What was good, and what was not?"
-        value={submitted?.get("description") ?? review.description}
-        zodField={updateReviewSchema.shape.description}
-        errors={fieldErrors?.description}
+        value={review.description}
+        submitted={submitted}
+        zodField={shape.description}
       />
       {review.pictures.length > 0 && (
         <div class="settings-row">
@@ -96,7 +77,7 @@ const toast =
         name="pictures"
         description={`A review can have up to ${maxPicturesPerReview}.`}
         multiple
-        errors={fieldErrors?.pictures}
+        submitted={submitted}
       />
       <div class="settings-card-footer">
         <button class="btn btn-primary btn-md" type="submit">Save review</button>

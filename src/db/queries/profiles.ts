@@ -1,17 +1,17 @@
 import type { Client } from "@src/db/client";
 import { approvedRestaurant, hasUsername, publicReview, unbannedUser } from "@src/db/filters";
+import type { Collection } from "@src/db/mutations/restaurants";
 import { cursorList } from "@src/db/pagination";
 import { personCard } from "@src/db/queries/people";
 import { createReviewQueries } from "@src/db/queries/reviews";
-import * as s from "@src/db/schema";
 import { countRows, hasRows } from "@src/db/subqueries";
-import type { PageItem, PageRequest } from "@src/pagination";
+import type { PageRequest } from "@src/pagination";
 import type { ProfileTab } from "@src/validation/profile-tab";
 
-const favoritePages = cursorList(s.favorites, ["createdAt", "restaurantId"], "desc");
-const bucketListPages = cursorList(s.bucketList, ["createdAt", "restaurantId"], "desc");
-const followerPages = cursorList(s.followers, ["createdAt", "followerId"], "desc");
-const followingPages = cursorList(s.followers, ["createdAt", "followingId"], "desc");
+const favoritePages = cursorList("favorites", ["createdAt", "restaurantId"], "desc");
+const bucketListPages = cursorList("bucketList", ["createdAt", "restaurantId"], "desc");
+const followerPages = cursorList("followers", ["createdAt", "followerId"], "desc");
+const followingPages = cursorList("followers", ["createdAt", "followingId"], "desc");
 
 const collectedRestaurant = {
 	columns: { restaurantId: true, createdAt: true },
@@ -23,26 +23,11 @@ const collectedRestaurant = {
 	},
 } as const;
 
-function listFavorites(client: Client, userId: number, page: PageRequest) {
-	return favoritePages(page, (seek) =>
-		client.query.favorites.findMany({
-			...collectedRestaurant,
-			where: { AND: [{ userId, restaurant: approvedRestaurant }, seek.where] },
-			orderBy: seek.orderBy,
-			limit: seek.limit,
-		}),
-	);
-}
-
-function listBucketList(client: Client, userId: number, page: PageRequest) {
-	return bucketListPages(page, (seek) =>
-		client.query.bucketList.findMany({
-			...collectedRestaurant,
-			where: { AND: [{ userId, restaurant: approvedRestaurant }, seek.where] },
-			orderBy: seek.orderBy,
-			limit: seek.limit,
-		}),
-	);
+function listCollection(client: Client, collection: Collection, userId: number, page: PageRequest) {
+	const where = { userId, restaurant: approvedRestaurant };
+	return collection === "favorites"
+		? favoritePages(page, (seek) => client.query.favorites.findMany({ ...collectedRestaurant, ...seek(where) }))
+		: bucketListPages(page, (seek) => client.query.bucketList.findMany({ ...collectedRestaurant, ...seek(where) }));
 }
 
 function listFollowers(client: Client, userId: number, viewerId: number, page: PageRequest) {
@@ -50,9 +35,7 @@ function listFollowers(client: Client, userId: number, viewerId: number, page: P
 		client.query.followers.findMany({
 			columns: { followerId: true, createdAt: true },
 			with: { follower: personCard(client, viewerId) },
-			where: { AND: [{ followingId: userId, follower: unbannedUser }, seek.where] },
-			orderBy: seek.orderBy,
-			limit: seek.limit,
+			...seek({ followingId: userId, follower: unbannedUser }),
 		}),
 	);
 }
@@ -62,9 +45,7 @@ function listFollowing(client: Client, userId: number, viewerId: number, page: P
 		client.query.followers.findMany({
 			columns: { followingId: true, createdAt: true },
 			with: { following: personCard(client, viewerId) },
-			where: { AND: [{ followerId: userId, following: unbannedUser }, seek.where] },
-			orderBy: seek.orderBy,
-			limit: seek.limit,
+			...seek({ followerId: userId, following: unbannedUser }),
 		}),
 	);
 }
@@ -104,9 +85,9 @@ export function createProfileQueries(client: Client) {
 				case "reviews":
 					return { tab, page: await reviews.listPublicByAuthor(userId, viewerId, page) };
 				case "favorites":
-					return { tab, page: await listFavorites(client, userId, page) };
+					return { tab, page: await listCollection(client, "favorites", userId, page) };
 				case "bucket-list":
-					return { tab, page: await listBucketList(client, userId, page) };
+					return { tab, page: await listCollection(client, "bucketList", userId, page) };
 				case "followers":
 					return { tab, page: await listFollowers(client, userId, viewerId, page) };
 				case "following":
@@ -116,4 +97,3 @@ export function createProfileQueries(client: Client) {
 	};
 }
 
-export type CollectedRestaurant = PageItem<Awaited<ReturnType<typeof listFavorites>>>;

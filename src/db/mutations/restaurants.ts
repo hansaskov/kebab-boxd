@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { Client, Transaction } from "@src/db/client";
-import { authorizedWrite } from "@src/db/mutations/authorized-write";
+import { authorizedWrite } from "@src/db/mutations/authorize";
 import { notify, withdrawDecision } from "@src/db/mutations/notifications";
 import * as s from "@src/db/schema";
 
@@ -28,7 +28,7 @@ export function createRestaurantMutations(client: Client) {
 			});
 		},
 
-		async collect(collection: Collection, userId: number, restaurantId: number) {
+		async collect(userId: number, restaurantId: number, collection: Collection) {
 			const table = collections[collection];
 			return authorizedWrite(client, userId, "restaurant:collect", (tx) => findTargetRestaurant(tx, restaurantId), (tx) => {
 				tx.insert(table).values({ userId, restaurantId }).onConflictDoNothing().run();
@@ -37,7 +37,7 @@ export function createRestaurantMutations(client: Client) {
 		},
 
 		// Removing needs no permission: the row belongs to the user, whatever became of the restaurant.
-		async uncollect(collection: Collection, userId: number, restaurantId: number) {
+		async uncollect(userId: number, restaurantId: number, collection: Collection) {
 			const table = collections[collection];
 			await client.delete(table).where(and(eq(table.userId, userId), eq(table.restaurantId, restaurantId)));
 		},

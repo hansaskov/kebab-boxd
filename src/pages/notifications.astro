@@ -2,42 +2,30 @@
 import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import NotificationList from "@src/components/NotificationList.astro";
-import Pagination from "@src/components/Pagination.astro";
-import { failureToast } from "@src/format/action-toast";
+import PagedSection from "@src/components/PagedSection.astro";
 import { notificationHref } from "@src/hrefs";
-import { pageNavigation, parsePageRequest } from "@src/pagination";
+import { parsePageRequest } from "@src/pagination";
 
 const session = Astro.locals.session;
-
 if (!session) {
   return Astro.redirect("/login");
 }
 
-const { notifications } = Astro.locals.db.queries;
-const [page, newestUnreadId] = await Promise.all([
-  notifications.list(session.user.id, parsePageRequest(Astro.url)),
-  notifications.findNewestUnreadId(session.user.id),
-]);
-const navigation = pageNavigation(Astro.url, page);
+const page = await Astro.locals.db.queries.notifications.list(session.user.id, parsePageRequest(Astro.url));
+const newestUnreadId = session.user.newestUnreadNotificationId;
 
 const unreadHrefs = page.items.filter((notification) => !notification.isRead).map(notificationHref);
 const prefetchUrls = [...new Set(unreadHrefs)].slice(0, 3);
-
-const toast = failureToast(Astro.getActionResult(actions.notifications.markAllRead), "Marking failed");
 ---
 
 <BaseLayout
   title="Notifications"
   description="What happened to your reviews, suggestions and followers"
-  includeSidebar={true}
   prefetchUrls={prefetchUrls.length > 0 ? prefetchUrls : ["/"]}
-  session={session}
-  user={session.user}
-  toast={toast}
 >
   <div class="flex items-center justify-between gap-3">
     <h1>Notifications</h1>
-    {newestUnreadId !== undefined && (
+    {newestUnreadId !== null && (
       <form method="post" action={actions.notifications.markAllRead}>
         <input type="hidden" name="upToId" value={newestUnreadId} />
         <button class="btn btn-secondary btn-sm" type="submit">Mark all as read</button>
@@ -45,14 +33,7 @@ const toast = failureToast(Astro.getActionResult(actions.notifications.markAllRe
     )}
   </div>
 
-  <section class="mt-4" aria-label="Notifications">
-    {page.items.length === 0 ? (
-      <p class="t-body text-fg-muted">
-        {page.isPastEnd ? "There is nothing on this page." : "You have no notifications."}
-      </p>
-    ) : (
-      <NotificationList notifications={page.items} />
-    )}
-    {navigation && <Pagination id="notification-pages" class="mt-4" aria-label="Notification pages" navigation={navigation} />}
-  </section>
+  <PagedSection class="mt-4" aria-label="Notifications" page={page} empty="You have no notifications.">
+    <NotificationList notifications={page.items} />
+  </PagedSection>
 </BaseLayout>
