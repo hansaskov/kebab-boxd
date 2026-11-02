@@ -1,12 +1,12 @@
 ---
-import { Heart, Pencil } from "@lucide/astro";
+import { Heart, Pencil, Star, StarHalf } from "@lucide/astro";
+import { actions } from "astro:actions";
 import type { HTMLAttributes } from "astro/types";
 import Avatar from "@src/components/Avatar.astro";
-import LikeButton from "@src/components/LikeButton.astro";
-import Rating from "@src/components/Rating.astro";
 import { canOn, type Subject } from "@src/auth/permissions";
 import type { ReviewCard } from "@src/db/queries/reviews";
 import RelativeTime from "@src/components/RelativeTime.astro";
+import { describeStars, splitStars, toStars } from "@src/format/rating";
 import { editReviewHref, profileHref, restaurantHref, reviewHref } from "@src/hrefs";
 
 interface Props extends HTMLAttributes<"article"> {
@@ -21,6 +21,7 @@ const { author, restaurant } = review;
 
 const canLike = canOn(viewer, "review:like", review) || (review.isLikedByViewer && canOn(viewer, "review:unlike", review));
 const canEdit = canOn(viewer, "review:edit", review);
+const stars = splitStars(review.rating);
 ---
 
 <article class:list={["px-4 py-4", className]} {...props}>
@@ -45,7 +46,14 @@ const canEdit = canOn(viewer, "review:edit", review);
     )}
   </header>
 
-  <Rating class="mt-2" rating={review.rating} />
+  <span
+    class="mt-2 inline-flex items-center gap-0.5 text-brand-text"
+    role="img"
+    aria-label={describeStars(toStars(review.rating))}
+  >
+    {Array.from({ length: stars.full }, () => <Star size={16} fill="currentColor" aria-hidden="true" />)}
+    {stars.half && <StarHalf size={16} fill="currentColor" aria-hidden="true" />}
+  </span>
   {review.description && <p class="t-body mt-1 whitespace-pre-line">{review.description}</p>}
 
   {review.pictures.length > 0 && (
@@ -63,7 +71,14 @@ const canEdit = canOn(viewer, "review:edit", review);
   {(canLike || canEdit || review.likeCount > 0) && (
     <footer class="mt-3 flex items-center gap-2">
       {canLike ? (
-        <LikeButton reviewId={review.id} liked={review.isLikedByViewer} likeCount={review.likeCount} />
+        <form class="flex" method="post" action={review.isLikedByViewer ? actions.reviews.unlike : actions.reviews.like}>
+          <input type="hidden" name="reviewId" value={review.id} />
+          <button class="btn btn-sm btn-secondary" type="submit" aria-pressed={review.isLikedByViewer ? "true" : "false"}>
+            <Heart class:list={{ "text-danger": review.isLikedByViewer }} size={16} fill={review.isLikedByViewer ? "currentColor" : "none"} aria-hidden="true" />
+            <span class="sr-only">Like</span>
+            <span class="tabular-nums">{review.likeCount}</span>
+          </button>
+        </form>
       ) : (
         review.likeCount > 0 && (
           <p class="t-body-sm flex items-center gap-1 text-fg-muted">

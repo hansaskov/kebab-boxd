@@ -4,7 +4,6 @@ import { settingsSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import DialogDrawer from "@src/components/DialogDrawer.astro";
 import Avatar from "@src/components/Avatar.astro";
-import FieldCheckbox from "@src/components/FieldCheckbox.astro";
 import FieldFile from "@src/components/FieldFile.astro";
 import FieldInput from "@src/components/FieldInput.astro";
 import FieldSelect from "@src/components/FieldSelect.astro";
@@ -219,9 +218,16 @@ const savedLocation = user.latitude !== null && user.longitude !== null ? format
         <form class="mt-3" method="post" action={actions.updateNotifications}>
             <input type="hidden" name="currentUsername" value={user.username} />
             <fieldset class="settings-card">
-                <FieldCheckbox label="New followers" name="followNotifications" checked={user.followNotifications} />
-                <FieldCheckbox label="Likes on reviews" name="likeNotifications" checked={user.likeNotifications} />
-                <FieldCheckbox label="Decisions on suggestions" name="suggestionNotifications" checked={user.suggestionNotifications} />
+                {[
+                    { label: "New followers", name: "followNotifications", checked: user.followNotifications },
+                    { label: "Likes on reviews", name: "likeNotifications", checked: user.likeNotifications },
+                    { label: "Decisions on suggestions", name: "suggestionNotifications", checked: user.suggestionNotifications },
+                ].map(({ label, name, checked }) => (
+                    <label class="flex cursor-pointer items-center justify-between gap-6 py-5">
+                        <span class="field-label">{label}</span>
+                        <input type="checkbox" class="checkbox" name={name} checked={checked} />
+                    </label>
+                ))}
                 <div class="settings-card-footer">
                     <button class="btn btn-primary btn-md" type="submit">Save notifications</button>
                 </div>

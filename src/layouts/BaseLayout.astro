@@ -1,33 +1,79 @@
 ---
-import BaseHead from "@src/components/BaseHead.astro";
-import Header from "@src/components/Header.astro";
-import Footer from "@src/components/Footer.astro";
-import SideBar from "@src/components/SideBar.astro";
-import Toast from "@src/components/Toast.astro";
+import "@src/styles.css";
+import { Bell, ChevronUp, CircleUser, DoorOpen, Menu, Moon, Settings, Shield, Sun } from "@lucide/astro";
+import { actions } from "astro:actions";
 import type { ComponentProps } from "astro/types";
+import Avatar from "@src/components/Avatar.astro";
+import Toast from "@src/components/Toast.astro";
 import SpeculationsAPI from "@src/components/SpeculationsAPI.astro";
+import { can } from "@src/auth/permissions";
+import { defaultSidebarMenuSections, type SidebarMenuSection } from "@src/data/sidebar-menu-sections";
 import { failureToast } from "@src/format/action-toast";
+import { profileHref, settingsHref } from "@src/hrefs";
 
-interface Props
-  extends
-    ComponentProps<typeof BaseHead>,
-    ComponentProps<typeof SpeculationsAPI>,
-    ComponentProps<typeof SideBar> {
-    class?: string;
-    // Without it, a page has the sidebar when the user is signed in.
-    includeSidebar?: boolean;
-    // Without it, the page tells when the last action failed. A page that shows the failure itself passes null.
-    toast?: ComponentProps<typeof Toast>["toast"] | null;
-  }
+interface Props extends ComponentProps<typeof SpeculationsAPI> {
+  title: string;
+  description: string;
+  preview?: string;
+  ogType?: string;
+  sidebarMenuSections?: SidebarMenuSection[];
+  class?: string;
+  // Without it, a page has the sidebar when the user is signed in.
+  includeSidebar?: boolean;
+  // Without it, the page tells when the last action failed. A page that shows the failure itself passes null.
+  toast?: ComponentProps<typeof Toast>["toast"] | null;
+}
 
 const { session } = Astro.locals;
-const { includeSidebar = !!session, toast = failureToast(Astro.locals), class: className, ...props } = Astro.props;
+const user = session?.user;
+const {
+  title,
+  description,
+  preview = "/preview.webp",
+  ogType = "website",
+  sidebarMenuSections = defaultSidebarMenuSections,
+  includeSidebar = !!session,
+  toast = failureToast(Astro.locals),
+  class: className,
+  ...props
+} = Astro.props;
+
+const image = new URL(preview, Astro.url);
+const unread = user?.unreadNotificationCount ?? 0;
+
+const { pathname } = Astro.url;
+const matches = (href: string) =>
+  href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+const activeHref = sidebarMenuSections
+  .flatMap((section) => section.items.map((item) => item.href))
+  .filter(matches)
+  .toSorted((a, b) => b.length - a.length)
+  .at(0);
 ---
 
 <!doctype html>
 <html lang="en" data-theme={session?.theme ?? "light"}>
   <head>
-    <BaseHead {...props} />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+
+    <title>{title}</title>
+    <meta name="title" content={title} />
+    <meta name="description" content={description} />
+
+    <meta property="og:type" content={ogType} />
+    <meta property="og:url" content={Astro.url} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={image} />
+
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content={Astro.url} />
+    <meta property="twitter:title" content={title} />
+    <meta property="twitter:description" content={description} />
+    <meta property="twitter:image" content={image} />
     <slot name="head" />
   </head>
   <body>
@@ -41,20 +87,135 @@ const { includeSidebar = !!session, toast = failureToast(Astro.locals), class: c
               class="sr-only"
               aria-label="Toggle navigation menu"
             />
-            <SideBar {...props} />
+            <aside class="nav-panel flex flex-col">
+              <div class="px-5 pt-6 pb-2">
+                <a href="/" class="block text-xl font-bold tracking-tight">Kebab Boxd</a>
+              </div>
+
+              <nav class="flex-1 overflow-y-auto px-3 pb-3">
+                <ul class="flex flex-col gap-1" aria-label="Main navigation">
+                  {sidebarMenuSections.map((section) => (
+                    <>
+                      <li class="t-overline px-3 pt-4 pb-1" aria-hidden="true">{section.title}</li>
+                      {section.items.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <li>
+                            <a
+                              href={item.href}
+                              class="nav-link"
+                              aria-current={item.href === activeHref ? "page" : undefined}
+                            >
+                              <Icon size={20} aria-hidden="true" />
+                              {item.name}
+                            </a>
+                          </li>
+                        );
+                      })}
+                    </>
+                  ))}
+                </ul>
+              </nav>
+
+              {session && user && (
+                <div class="relative p-3 border-t border-line">
+                  <button
+                    popovertarget="sidebar-user-menu"
+                    style="anchor-name:--sidebar-user-menu"
+                    class="flex items-center gap-3 px-2 py-2 rounded-field hover:bg-active cursor-pointer w-full text-left"
+                  >
+                    <Avatar class="size-10" name={user.fullname} picture={user.profilePicture} />
+                    <div class="flex-1 text-left min-w-0">
+                      <div class="font-semibold text-sm truncate">{user.fullname}</div>
+                      <div class="text-xs text-fg-muted truncate">@{user.username}</div>
+                    </div>
+                    <ChevronUp size={16} aria-hidden="true" />
+                  </button>
+                  <ul class="popover-panel menu-list" popover id="sidebar-user-menu">
+                    <li><a href={profileHref(user.username)}><CircleUser size={16} aria-hidden="true" />Profile</a></li>
+                    <li><a href={settingsHref(user.username)}><Settings size={16} aria-hidden="true" />Settings</a></li>
+                    <form method="post" action={actions.session.toggleTheme}>
+                      <li>
+                        <button type="submit">
+                          {session.theme === "dark" ? <Moon size={16} aria-hidden="true" /> : <Sun size={16} aria-hidden="true" />}
+                          Theme
+                        </button>
+                      </li>
+                    </form>
+                    {can(user, "admin-console:view") && (
+                      <>
+                        <li data-menu-title="true">Admin</li>
+                        <li><a href="/admin"><Shield size={16} aria-hidden="true" />Admin console</a></li>
+                      </>
+                    )}
+                    <form method="post" action={actions.session.signOut} class="border-t border-line pt-1 mt-1">
+                      <li>
+                        <button data-danger type="submit"><DoorOpen size={16} aria-hidden="true" />Sign out</button>
+                      </li>
+                    </form>
+                  </ul>
+                </div>
+              )}
+            </aside>
             <label for="site-nav" class="nav-scrim" aria-hidden="true"></label>
           </>
         )
       }
 
       <div class="flex min-w-0 flex-1 flex-col bg-page">
-        <Header includeSidebar={includeSidebar} />
+        <header
+          class="sticky top-0 z-30 h-16 w-full border-b border-line bg-page/90 backdrop-blur-sm lg:border-b-0 lg:bg-transparent lg:backdrop-blur-none"
+        >
+          <div class="flex h-full items-center gap-2 pl-gutter pr-2.5">
+            {
+              includeSidebar && (
+                <label for="site-nav" class="icon-btn lg:hidden" title="Open menu">
+                  <Menu size={20} aria-hidden="true" />
+                </label>
+              )
+            }
+
+            <div class:list={["flex flex-1 justify-center lg:hidden", { "justify-start": !includeSidebar }]}>
+              <a href="/" class="text-fg text-lg font-bold tracking-tight">Kebab Boxd</a>
+            </div>
+
+            <div class="ml-auto flex items-center justify-end">
+              {user && (
+                <a
+                  href="/notifications"
+                  class="icon-btn relative"
+                  title="Notifications"
+                  aria-current={pathname === "/notifications" ? "page" : undefined}
+                >
+                  <Bell size={20} aria-hidden="true" />
+                  <span class="sr-only">Notifications{unread > 0 && `, ${unread} unread`}</span>
+                  {unread > 0 && (
+                    <span
+                      class="t-caption absolute top-1 right-1 grid h-4.5 min-w-4.5 place-items-center rounded-full bg-brand px-1 leading-none font-semibold text-on-brand tabular-nums"
+                      aria-hidden="true"
+                    >
+                      {unread > 99 ? "99+" : unread}
+                    </span>
+                  )}
+                </a>
+              )}
+            </div>
+          </div>
+        </header>
         <div class="flex justify-center">
           <main id="main-content" class:list={["w-full max-w-225 px-gutter pt-5 pb-16", className]}>
             <slot />
           </main>
         </div>
-        <Footer />
+        <footer class="shrink-0 mt-auto border-t border-line px-gutter py-8">
+          <div class="t-caption flex items-center justify-center gap-3 text-fg-muted">
+            <span>Kebab Boxd</span>
+            <span class="select-none text-fg-subtle" aria-hidden="true">•</span>
+            <span>{new Date().getFullYear()}</span>
+            <span class="select-none text-fg-subtle" aria-hidden="true">•</span>
+            <a class="link link-hover text-fg-muted" href="/privacy">Privacy</a>
+          </div>
+        </footer>
       </div>
     </div>
     {toast && <Toast toast={toast} />}

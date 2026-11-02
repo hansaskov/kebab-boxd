@@ -8,7 +8,6 @@ import PersonList from "@src/components/PersonList.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
 import RestaurantList from "@src/components/RestaurantList.astro";
 import ReviewList from "@src/components/ReviewList.astro";
-import SuspendedProfile from "@src/components/SuspendedProfile.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { can } from "@src/auth/permissions";
 import { profileHref, settingsHref } from "@src/hrefs";
@@ -138,6 +137,9 @@ const layout = list
       </PagedSection>
     </>
   ) : (
-    <SuspendedProfile username={user.username} isFollowing={isFollowing} />
+    <div class="mt-16 flex flex-col items-center gap-6 text-center">
+      <h1 class="t-subheading">This account has been suspended.</h1>
+      {isFollowing && <FollowButton username={user.username} following />}
+    </div>
   )}
 </BaseLayout>

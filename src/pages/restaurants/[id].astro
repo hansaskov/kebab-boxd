@@ -1,8 +1,8 @@
 ---
-import { SquarePen } from "@lucide/astro";
+import { Bookmark, BookmarkCheck, Heart, SquarePen } from "@lucide/astro";
+import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import AverageRating from "@src/components/AverageRating.astro";
-import CollectButton from "@src/components/CollectButton.astro";
 import MapView from "@src/components/MapView.astro";
 import PagedSection from "@src/components/PagedSection.astro";
 import RestaurantStatusTag from "@src/components/RestaurantStatusTag.astro";
@@ -67,8 +67,30 @@ const canModerate = canOn(session.user, "restaurant:moderate", restaurant);
 
   {(canCollect || restaurant.isFavoriteOfViewer || restaurant.isInBucketListOfViewer) && (
     <div class="mt-4 flex gap-2">
-      <CollectButton class="flex-1 sm:flex-none" restaurantId={restaurant.id} collection="favorites" collected={restaurant.isFavoriteOfViewer} />
-      <CollectButton class="flex-1 sm:flex-none" restaurantId={restaurant.id} collection="bucketList" collected={restaurant.isInBucketListOfViewer} />
+      {[
+        {
+          label: "Favorite",
+          collected: restaurant.isFavoriteOfViewer,
+          add: actions.restaurants.favorite,
+          remove: actions.restaurants.unfavorite,
+          icon: <Heart size={16} fill={restaurant.isFavoriteOfViewer ? "currentColor" : "none"} aria-hidden="true" />,
+        },
+        {
+          label: "Bucket list",
+          collected: restaurant.isInBucketListOfViewer,
+          add: actions.restaurants.addToBucketList,
+          remove: actions.restaurants.removeFromBucketList,
+          icon: restaurant.isInBucketListOfViewer ? <BookmarkCheck size={16} aria-hidden="true" /> : <Bookmark size={16} aria-hidden="true" />,
+        },
+      ].map(({ label, collected, add, remove, icon }) => (
+        <form class="flex flex-1 sm:flex-none" method="post" action={collected ? remove : add}>
+          <input type="hidden" name="restaurantId" value={restaurant.id} />
+          <button class="btn btn-secondary btn-md w-full" type="submit" aria-pressed={collected ? "true" : "false"}>
+            {icon}
+            {label}
+          </button>
+        </form>
+      ))}
     </div>
   )}
 
