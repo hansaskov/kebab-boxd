@@ -1,8 +1,12 @@
-import { asc, desc, getColumns, sql, type Column, type GetColumnData, type SQL } from "drizzle-orm";
+import { asc, desc, getColumns, sql, type Column, type GetColumnData, type RelationsFilter, type SQL } from "drizzle-orm";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
-import type { Filter, TableName } from "@src/db/filters";
 import { relations } from "@src/db/relations";
 import type { Page, PageRequest } from "@src/pagination";
+
+type Tables = typeof relations;
+
+export type TableName = keyof Tables;
+export type Filter<Table extends TableName> = RelationsFilter<Tables[Table], Tables>;
 
 type SchemaTable<Name extends TableName> = (typeof relations)[Name]["table"];
 

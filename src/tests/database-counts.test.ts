@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createTestDatabase, insertRestaurant, insertUser } from "@src/tests/database";
+import * as s from "@src/db/schema";
+import { createTestDatabase, insertRestaurant, insertReview, insertUser } from "@src/tests/database";
 
 describe("admin.countOverview", () => {
 	it("counts the users and restaurants of every group with one statement", async () => {
@@ -40,6 +41,44 @@ describe("users.list", () => {
 
 		expect(result.items.map((user) => user.username)).toEqual(["adrian", "adam"]);
 		expect(result.total).toBe(3);
+		expect(queries).toHaveLength(1);
+	});
+});
+
+describe("profiles.findByUsername", () => {
+	it("counts what the profile shows and leaves out banned users and restaurants that are not approved", async () => {
+		const { client, db, recordQueries } = createTestDatabase("counts-profile");
+		const admin = insertUser(client, "ada", "admin");
+		const bob = insertUser(client, "bob");
+		const cleo = insertUser(client, "cleo");
+		const dan = insertUser(client, "dan");
+		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
+		const express = insertRestaurant(client, "Mangal Express");
+		client
+			.insert(s.followers)
+			.values([
+				{ followerId: cleo.id, followingId: bob.id },
+				{ followerId: dan.id, followingId: bob.id },
+				{ followerId: admin.id, followingId: bob.id },
+				{ followerId: bob.id, followingId: cleo.id },
+			])
+			.run();
+		insertReview(client, bob.id, grill.id, 4);
+		insertReview(client, bob.id, express.id, 3);
+		client.insert(s.favorites).values([{ userId: bob.id, restaurantId: grill.id }, { userId: bob.id, restaurantId: express.id }]).run();
+		client.insert(s.bucketList).values({ userId: bob.id, restaurantId: express.id }).run();
+		await db.mutations.users.ban(admin.id, dan.username);
+
+		const { result, queries } = await recordQueries(() => db.queries.profiles.findByUsername("bob", cleo.id));
+
+		expect(result).toMatchObject({
+			followerCount: 2,
+			followingCount: 1,
+			reviewCount: 1,
+			favoriteCount: 1,
+			bucketListCount: 0,
+			isFollowedByViewer: true,
+		});
 		expect(queries).toHaveLength(1);
 	});
 });

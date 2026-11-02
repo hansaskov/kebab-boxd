@@ -1,12 +1,18 @@
-import { and, eq, isNull, max, sql, type SQLWrapper } from "drizzle-orm";
+import { and, eq, exists, isNull, max, or, sql, type SQLWrapper } from "drizzle-orm";
 import { inactivityTimeoutSeconds } from "@src/data/retention-periods";
 import type { Client } from "@src/db/client";
-import { isVisibleNotification } from "@src/db/filters";
 import * as s from "@src/db/schema";
 
-function isUnreadOf(recipientId: SQLWrapper) {
+// A notification is hidden while the user who caused it is banned.
+function isUnreadOf(client: Client, recipientId: SQLWrapper) {
 	const n = s.notifications;
-	return and(eq(n.recipientId, recipientId), isNull(n.readAt), isVisibleNotification(n));
+	const actorIsUnbanned = exists(
+		client
+			.select({ row: sql`1` })
+			.from(s.users)
+			.where(and(eq(s.users.id, n.actorId), isNull(s.users.bannedAt))),
+	);
+	return and(eq(n.recipientId, recipientId), isNull(n.readAt), or(isNull(n.actorId), actorIsUnbanned));
 }
 
 function activeSince() {
@@ -37,9 +43,9 @@ export function createSessionQueries(client: Client) {
 						// Every page shows the count, so it comes with the session instead of costing a query of its own.
 						// "Mark all as read" marks up to the newest, so it marks the notifications the count told of.
 						extras: {
-							unreadNotificationCount: (user) => client.$count(s.notifications, isUnreadOf(user.id)),
+							unreadNotificationCount: (user) => client.$count(s.notifications, isUnreadOf(client, user.id)),
 							newestUnreadNotificationId: (user) =>
-								sql<number | null>`(${client.select({ id: max(s.notifications.id) }).from(s.notifications).where(isUnreadOf(user.id))})`,
+								sql<number | null>`(${client.select({ id: max(s.notifications.id) }).from(s.notifications).where(isUnreadOf(client, user.id))})`,
 						},
 					},
 				},

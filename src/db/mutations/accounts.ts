@@ -1,7 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { generateSecureRandomString } from "@src/auth/hash";
 import type { Client } from "@src/db/client";
-import { hasEmail, hasUsername } from "@src/db/filters";
 import * as s from "@src/db/schema";
 import type { User } from "@src/db/schema";
 import { USERNAME_MAX_LENGTH } from "@src/validation/username";
@@ -57,7 +56,7 @@ export function createAccountMutations(client: Client) {
 					}
 
 					const emailTakenBy = tx.query.users
-						.findFirst({ columns: { id: true, bannedAt: true }, where: hasEmail(account.email) })
+						.findFirst({ columns: { id: true, bannedAt: true }, where: { RAW: (user) => sql`lower(${user.email}) = lower(${account.email})` } })
 						.sync();
 					if (emailTakenBy) {
 						return { status: "email-taken", user: emailTakenBy };
@@ -76,7 +75,7 @@ export function createAccountMutations(client: Client) {
 
 					const preferredUsername = buildUsername(account.fullname, inserted.id);
 					const preferredIsTaken = tx.query.users
-						.findFirst({ columns: { id: true }, where: hasUsername(preferredUsername) })
+						.findFirst({ columns: { id: true }, where: { username: preferredUsername.toLowerCase() } })
 						.sync();
 					const username = preferredIsTaken
 						? buildUsername(account.fullname, generateSecureRandomString())

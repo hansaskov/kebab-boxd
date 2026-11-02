@@ -1,6 +1,5 @@
 import { and, eq, isNull } from "drizzle-orm";
 import type { Client, Transaction } from "@src/db/client";
-import { hasUsername } from "@src/db/filters";
 import { authorizedWrite, isProblem, problem, targetUserColumns, writeOnUser, type Problem } from "@src/db/mutations/authorize";
 import { refreshLikeCounts, refreshRestaurantStats, restaurantsReviewedBy } from "@src/db/mutations/cached-stats";
 import type { NotificationPreferences } from "@src/db/mutations/notifications";
@@ -29,7 +28,7 @@ function findWithDependents(tx: Transaction, username: string) {
 				},
 				likes: { columns: { reviewId: true } },
 			},
-			where: hasUsername(username),
+			where: { username: username.toLowerCase() },
 		})
 		.sync();
 	if (!user) return undefined;
@@ -49,7 +48,7 @@ function findWithProfilePicture(tx: Transaction, username: string) {
 		.findFirst({
 			columns: targetUserColumns,
 			with: { profilePicture: { columns: { id: true, url: true } } },
-			where: hasUsername(username),
+			where: { username: username.toLowerCase() },
 		})
 		.sync();
 }

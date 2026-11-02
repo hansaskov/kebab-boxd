@@ -1,5 +1,4 @@
 import type { Client } from "@src/db/client";
-import { visibleNotification } from "@src/db/filters";
 import { cursorList, type Seek } from "@src/db/pagination";
 import type { SuggestionDecision } from "@src/db/schema";
 import type { Page, PageRequest } from "@src/pagination";
@@ -28,7 +27,8 @@ function listRows(client: Client, recipientId: number) {
 	return (seek: Seek<"notifications">) =>
 		client.query.notifications.findMany({
 			...notificationRow,
-			...seek({ AND: [{ recipientId }, visibleNotification] }),
+			// Hidden while the user who caused it is banned, and shown again when the ban is lifted.
+			...seek({ recipientId, OR: [{ actorId: { isNull: true } }, { actor: { bannedAt: { isNull: true } } }] }),
 		});
 }
 

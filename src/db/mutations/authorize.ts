@@ -1,6 +1,5 @@
 import { refusal, type Refusal, type Resource, type ResourcePermission, type UserPermission } from "@src/auth/permissions";
 import type { Client, Transaction } from "@src/db/client";
-import { hasUsername } from "@src/db/filters";
 
 // Why a write did not happen. The actions turn each one into the message the user sees.
 export type Problem =
@@ -43,7 +42,7 @@ export function authorizedWrite<P extends ResourcePermission, R extends Resource
 export const targetUserColumns = { id: true, username: true, role: true, bannedAt: true } as const;
 
 export function findTargetUser(tx: Transaction, username: string) {
-	return tx.query.users.findFirst({ columns: targetUserColumns, where: hasUsername(username) }).sync();
+	return tx.query.users.findFirst({ columns: targetUserColumns, where: { username: username.toLowerCase() } }).sync();
 }
 
 // A write on the user named `username`, found inside the transaction. Returns the user it wrote to.

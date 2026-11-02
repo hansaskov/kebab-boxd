@@ -1,6 +1,5 @@
-import { and, eq, inArray, isNull, lte, sql } from "drizzle-orm";
+import { and, eq, exists, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { Client, Transaction } from "@src/db/client";
-import { isVisibleNotification } from "@src/db/filters";
 import * as s from "@src/db/schema";
 import type { NotificationKind, SuggestionDecision, User } from "@src/db/schema";
 
@@ -70,7 +69,22 @@ export function createNotificationMutations(client: Client) {
 			await client
 				.update(n)
 				.set({ readAt: new Date() })
-				.where(and(eq(n.recipientId, recipientId), isNull(n.readAt), lte(n.id, upToId), isVisibleNotification(n)));
+				.where(
+					and(
+						eq(n.recipientId, recipientId),
+						isNull(n.readAt),
+						lte(n.id, upToId),
+						or(
+							isNull(n.actorId),
+							exists(
+								client
+									.select({ row: sql`1` })
+									.from(s.users)
+									.where(and(eq(s.users.id, n.actorId), isNull(s.users.bannedAt))),
+							),
+						),
+					),
+				);
 		},
 	};
 }

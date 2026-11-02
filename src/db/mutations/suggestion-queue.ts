@@ -2,7 +2,6 @@ import { and, eq, sql } from "drizzle-orm";
 import type { Client, Transaction } from "@src/db/client";
 import { isProblem, problem, type Problem } from "@src/db/mutations/authorize";
 import * as s from "@src/db/schema";
-import { countRows } from "@src/db/subqueries";
 import { boundsAround } from "@src/map/coordinates";
 import type { Place } from "@src/map/google-maps";
 import type { Address } from "@src/map/nominatim";
@@ -54,7 +53,12 @@ export function createSuggestionQueueMutations(client: Client) {
 					const user = tx.query.users
 						.findFirst({
 							columns: {},
-							extras: { queued: () => countRows(client, "suggestionQueue", { userId, status: "queued" }) },
+							extras: {
+								queued: client.$count(
+									s.suggestionQueue,
+									and(eq(s.suggestionQueue.userId, userId), eq(s.suggestionQueue.status, "queued")),
+								),
+							},
 							where: { id: userId },
 						})
 						.sync();

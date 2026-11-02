@@ -1,7 +1,7 @@
+import { and, eq, isNotNull, or, sql, type SQL } from "drizzle-orm";
 import type { Client } from "@src/db/client";
-import { countRows } from "@src/db/subqueries";
-import { containsText, hasUsername, type Filter } from "@src/db/filters";
 import { cursorList } from "@src/db/pagination";
+import * as s from "@src/db/schema";
 import type { PageRequest } from "@src/pagination";
 
 export const userFilters = ["all", "admin", "banned"] as const;
@@ -12,27 +12,26 @@ export interface UserListCriteria {
 	filter: UserFilter;
 }
 
-export const userFilterWhere = {
-	all: {},
-	admin: { role: "admin" },
-	banned: { bannedAt: { isNotNull: true } },
-} satisfies Record<UserFilter, Filter<"users">>;
+type Users = typeof s.users;
 
-function matching({ search, filter }: UserListCriteria): Filter<"users"> {
-	if (!search) return userFilterWhere[filter];
+const userFilterWhere = {
+	all: () => undefined,
+	admin: (user) => eq(user.role, "admin"),
+	banned: (user) => isNotNull(user.bannedAt),
+} satisfies Record<UserFilter, (user: Users) => SQL | undefined>;
 
-	return {
-		AND: [
-			userFilterWhere[filter],
-			{
-				OR: [
-					{ RAW: (user) => containsText(user.username, search) },
-					{ RAW: (user) => containsText(user.fullname, search) },
-					{ RAW: (user) => containsText(user.email, search) },
-				],
-			},
-		],
-	};
+// Written as SQL, so that the list and its count use the same condition.
+function matching({ search, filter }: UserListCriteria, user: Users) {
+	return and(
+		userFilterWhere[filter](user),
+		search
+			? or(
+					sql`instr(lower(${user.username}), lower(${search})) > 0`,
+					sql`instr(lower(${user.fullname}), lower(${search})) > 0`,
+					sql`instr(lower(${user.email}), lower(${search})) > 0`,
+				)
+			: undefined,
+	);
 }
 
 const pages = cursorList("users", ["id"], "desc");
@@ -40,17 +39,16 @@ const pages = cursorList("users", ["id"], "desc");
 export function createUserQueries(client: Client) {
 	return {
 		async findByUsername(username: string) {
-			return client.query.users.findFirst({ with: { profilePicture: { columns: { url: true } } }, where: hasUsername(username) });
+			return client.query.users.findFirst({ with: { profilePicture: { columns: { url: true } } }, where: { username: username.toLowerCase() } });
 		},
 
 		// Each row carries the number of users that match, which SQLite counts once for the whole statement.
 		async list(criteria: UserListCriteria, page: PageRequest) {
-			const where = matching(criteria);
 			const users = await pages(page, (seek) =>
 				client.query.users.findMany({
 					columns: { id: true, fullname: true, username: true, email: true, role: true, bannedAt: true, createdAt: true },
-					extras: { total: () => countRows(client, "users", where) },
-					...seek(where),
+					extras: { total: client.$count(s.users, matching(criteria, s.users)) },
+					...seek({ RAW: (user) => matching(criteria, user) ?? sql`true` }),
 				}),
 			);
 			return { ...users, total: users.items[0]?.total ?? 0 };

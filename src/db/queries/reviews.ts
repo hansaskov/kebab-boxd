@@ -1,9 +1,8 @@
-import { and, eq, exists, sql } from "drizzle-orm";
+import { and, eq, exists, isNull, sql } from "drizzle-orm";
 import type { Client } from "@src/db/client";
-import { isListedReview, listedReview, publicReview, type Filter } from "@src/db/filters";
-import { cursorList } from "@src/db/pagination";
+import { cursorList, type Filter } from "@src/db/pagination";
+import { isInReviewWindow } from "@src/db/review-window";
 import * as s from "@src/db/schema";
-import { asBoolean } from "@src/db/subqueries";
 import type { PageItem, PageRequest } from "@src/pagination";
 
 export const feeds = ["following", "everyone"] as const;
@@ -21,16 +20,30 @@ export function reviewCard(client: Client, viewerId: number) {
 			pictures: { columns: { id: true, url: true }, orderBy: { id: "asc" } },
 		},
 		extras: {
-			isListed: (review: typeof s.reviews) => asBoolean(isListedReview(review)),
-			isLikedByViewer: (review: typeof s.reviews) =>
-				asBoolean(
+			// Shown in feeds, on restaurants and to like: in the review window, at an approved restaurant and by an unbanned author.
+			isListed: (review: typeof s.reviews) =>
+				and(
+					isInReviewWindow(review),
 					exists(
 						client
 							.select({ row: sql`1` })
-							.from(s.likes)
-							.where(and(eq(s.likes.reviewId, review.id), eq(s.likes.userId, viewerId))),
+							.from(s.restaurants)
+							.where(and(eq(s.restaurants.id, review.restaurantId), eq(s.restaurants.status, "approved"))),
 					),
-				),
+					exists(
+						client
+							.select({ row: sql`1` })
+							.from(s.users)
+							.where(and(eq(s.users.id, review.authorId), isNull(s.users.bannedAt))),
+					),
+				)!.mapWith(Boolean),
+			isLikedByViewer: (review: typeof s.reviews) =>
+				exists(
+					client
+						.select({ row: sql`1` })
+						.from(s.likes)
+						.where(and(eq(s.likes.reviewId, review.id), eq(s.likes.userId, viewerId))),
+				).mapWith(Boolean),
 		},
 	} as const;
 }
@@ -55,11 +68,24 @@ export function createReviewQueries(client: Client) {
 		},
 
 		async listFeed(viewerId: number, feed: Feed, page: PageRequest) {
-			return list(viewerId, { AND: [listedReview, byFeed[feed](viewerId)] }, page);
+			return list(
+				viewerId,
+				{
+					AND: [
+						{ restaurant: { status: "approved" }, author: { bannedAt: { isNull: true } }, RAW: (review) => isInReviewWindow(review) },
+						byFeed[feed](viewerId),
+					],
+				},
+				page,
+			);
 		},
 
 		async listByRestaurant(restaurantId: number, viewerId: number, page: PageRequest) {
-			return list(viewerId, { AND: [listedReview, { restaurantId }] }, page);
+			return list(
+				viewerId,
+				{ restaurantId, restaurant: { status: "approved" }, author: { bannedAt: { isNull: true } }, RAW: (review) => isInReviewWindow(review) },
+				page,
+			);
 		},
 
 		// Includes the reviews that are not public, so only the author or an admin may see the list.
@@ -68,7 +94,8 @@ export function createReviewQueries(client: Client) {
 		},
 
 		async listPublicByAuthor(authorId: number, viewerId: number, page: PageRequest) {
-			return list(viewerId, { ...publicReview, authorId }, page);
+			// The profile decides who may see it, so the reviews of a banned author are included.
+			return list(viewerId, { authorId, restaurant: { status: "approved" }, RAW: (review) => isInReviewWindow(review) }, page);
 		},
 	};
 }

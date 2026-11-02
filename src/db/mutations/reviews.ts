@@ -1,14 +1,13 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, exists, isNull, sql } from "drizzle-orm";
 import type { Client, Transaction } from "@src/db/client";
-import { isListedReview } from "@src/db/filters";
 import { authorizedWrite, isProblem, problem, type Problem } from "@src/db/mutations/authorize";
 import { refreshLikeCounts, refreshRestaurantStats } from "@src/db/mutations/cached-stats";
 import { notify, withdraw } from "@src/db/mutations/notifications";
 import { attachReviewPictures, deletePictures, savingPictures } from "@src/db/mutations/pictures";
 import { findTargetRestaurant } from "@src/db/mutations/restaurants";
+import { isInReviewWindow } from "@src/db/review-window";
 import * as s from "@src/db/schema";
 import type { Review } from "@src/db/schema";
-import { asBoolean } from "@src/db/subqueries";
 import type { PictureStore } from "@src/pictures/store";
 import { maxPicturesPerReview } from "@src/validation/review";
 
@@ -26,7 +25,24 @@ function findTargetReview(tx: Transaction, id: number) {
 		.findFirst({
 			columns: { id: true, authorId: true, restaurantId: true },
 			with: { pictures: { columns: { id: true, url: true } } },
-			extras: { isListed: (review) => asBoolean(isListedReview(review)) },
+			extras: {
+				isListed: (review) =>
+					and(
+						isInReviewWindow(review),
+						exists(
+							tx
+								.select({ row: sql`1` })
+								.from(s.restaurants)
+								.where(and(eq(s.restaurants.id, review.restaurantId), eq(s.restaurants.status, "approved"))),
+						),
+						exists(
+							tx
+								.select({ row: sql`1` })
+								.from(s.users)
+								.where(and(eq(s.users.id, review.authorId), isNull(s.users.bannedAt))),
+						),
+					)!.mapWith(Boolean),
+			},
 			where: { id },
 		})
 		.sync();

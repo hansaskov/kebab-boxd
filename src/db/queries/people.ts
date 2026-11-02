@@ -1,9 +1,7 @@
 import { and, eq, exists, sql } from "drizzle-orm";
 import type { Client } from "@src/db/client";
-import { containsText, unbannedUser } from "@src/db/filters";
 import { cursorList } from "@src/db/pagination";
 import * as s from "@src/db/schema";
-import { asBoolean } from "@src/db/subqueries";
 import type { PageItem, PageRequest } from "@src/pagination";
 
 // Everything a user shows in a list of people, and what decides whether the viewer may follow them.
@@ -13,14 +11,12 @@ export function personCard(client: Client, viewerId: number) {
 		with: { profilePicture: { columns: { url: true } } },
 		extras: {
 			isFollowedByViewer: (user: typeof s.users) =>
-				asBoolean(
-					exists(
-						client
-							.select({ row: sql`1` })
-							.from(s.followers)
-							.where(and(eq(s.followers.followerId, viewerId), eq(s.followers.followingId, user.id))),
-					),
-				),
+				exists(
+					client
+						.select({ row: sql`1` })
+						.from(s.followers)
+						.where(and(eq(s.followers.followerId, viewerId), eq(s.followers.followingId, user.id))),
+				).mapWith(Boolean),
 		},
 	} as const;
 }
@@ -35,8 +31,11 @@ export function createPeopleQueries(client: Client) {
 				client.query.users.findMany({
 					...personCard(client, viewerId),
 					...seek({
-						...unbannedUser,
-						OR: [{ RAW: (user) => containsText(user.username, text) }, { RAW: (user) => containsText(user.fullname, text) }],
+						bannedAt: { isNull: true },
+						OR: [
+							{ RAW: (user) => sql`instr(lower(${user.username}), lower(${text})) > 0` },
+							{ RAW: (user) => sql`instr(lower(${user.fullname}), lower(${text})) > 0` },
+						],
 					}),
 				}),
 			);

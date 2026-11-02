@@ -1,10 +1,8 @@
 import { and, eq, exists, sql } from "drizzle-orm";
 import type { Client } from "@src/db/client";
-import { approvedRestaurant, containsText, type Filter } from "@src/db/filters";
-import { cursorList, type Seek } from "@src/db/pagination";
+import { cursorList, type Filter, type Seek } from "@src/db/pagination";
 import * as s from "@src/db/schema";
 import type { RestaurantStatus } from "@src/db/schema";
-import { asBoolean, countsOf, selectCounts } from "@src/db/subqueries";
 import { longitudeScale, type Bounds, type Coordinates } from "@src/map/coordinates";
 import type { PageRequest } from "@src/pagination";
 
@@ -15,12 +13,6 @@ export interface RestaurantListCriteria {
 	search: string;
 	sort: RestaurantSort;
 }
-
-export const restaurantStatusWhere = {
-	approved: { status: "approved" },
-	pending: { status: "pending" },
-	rejected: { status: "rejected" },
-} satisfies Record<RestaurantStatus, Filter<"restaurants">>;
 
 const topRatedPages = cursorList("restaurants", ["ratingAvg", "id"], "desc");
 const popularPages = cursorList("restaurants", ["reviewCount", "id"], "desc");
@@ -36,22 +28,20 @@ function matching(search: string): Filter<"restaurants"> {
 	if (!search) return {};
 	return {
 		OR: [
-			{ RAW: (restaurant) => containsText(restaurant.name, search) },
-			{ location: { RAW: (location) => containsText(location.city, search) } },
+			{ RAW: (restaurant) => sql`instr(lower(${restaurant.name}), lower(${search})) > 0` },
+			{ location: { RAW: (location) => sql`instr(lower(${location.city}), lower(${search})) > 0` } },
 		],
 	};
 }
 
 function isInCollection(client: Client, table: typeof s.favorites | typeof s.bucketList, viewerId: number) {
 	return (restaurant: typeof s.restaurants) =>
-		asBoolean(
-			exists(
-				client
-					.select({ row: sql`1` })
-					.from(table)
-					.where(and(eq(table.restaurantId, restaurant.id), eq(table.userId, viewerId))),
-			),
-		);
+		exists(
+			client
+				.select({ row: sql`1` })
+				.from(table)
+				.where(and(eq(table.restaurantId, restaurant.id), eq(table.userId, viewerId))),
+		).mapWith(Boolean);
 }
 
 // Orders by the squared distance in degrees, with longitude scaled to the latitude. Over the distances a map
@@ -87,7 +77,7 @@ export function createRestaurantQueries(client: Client) {
 			const read = (seek: Seek<"restaurants">) =>
 				client.query.restaurants.findMany({
 					...summary,
-					...seek({ AND: [approvedRestaurant, matching(search)] }),
+					...seek({ AND: [{ status: "approved" }, matching(search)] }),
 				});
 			switch (sort) {
 				case "top-rated":
@@ -134,7 +124,7 @@ export function createRestaurantQueries(client: Client) {
 						latitude: { gte: bounds.south, lte: bounds.north },
 						longitude: { gte: bounds.west, lte: bounds.east },
 					}),
-					restaurant: approvedRestaurant,
+					restaurant: { status: "approved" },
 				},
 				orderBy: byDistanceFrom(center),
 				limit,
@@ -163,7 +153,16 @@ export function createRestaurantQueries(client: Client) {
 		},
 
 		async countByStatus() {
-			return selectCounts(client, countsOf(client, "restaurants", restaurantStatusWhere));
+			const counts = await client.query.restaurants.findFirst({
+				columns: {},
+				extras: {
+					approved: client.$count(s.restaurants, eq(s.restaurants.status, "approved")),
+					pending: client.$count(s.restaurants, eq(s.restaurants.status, "pending")),
+					rejected: client.$count(s.restaurants, eq(s.restaurants.status, "rejected")),
+				},
+			});
+			// Without a restaurant there is no row to read the counts from, and every count is 0.
+			return counts ?? { approved: 0, pending: 0, rejected: 0 };
 		},
 	};
 }
