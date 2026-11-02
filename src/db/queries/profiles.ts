@@ -1,13 +1,10 @@
 import { and, eq, exists, isNull, sql } from "drizzle-orm";
 import type { Client } from "@src/db/client";
-import type { Collection } from "@src/db/mutations/restaurants";
 import { cursorList } from "@src/db/pagination";
 import { personCard } from "@src/db/queries/people";
-import { createReviewQueries } from "@src/db/queries/reviews";
 import { isInReviewWindow } from "@src/db/review-window";
 import * as s from "@src/db/schema";
 import type { PageRequest } from "@src/pagination";
-import type { ProfileTab } from "@src/validation/profile-tab";
 
 const favoritePages = cursorList("favorites", ["createdAt", "restaurantId"], "desc");
 const bucketListPages = cursorList("bucketList", ["createdAt", "restaurantId"], "desc");
@@ -24,36 +21,7 @@ const collectedRestaurant = {
 	},
 } as const;
 
-function listCollection(client: Client, collection: Collection, userId: number, page: PageRequest) {
-	const where = { userId, restaurant: { status: "approved" } } as const;
-	return collection === "favorites"
-		? favoritePages(page, (seek) => client.query.favorites.findMany({ ...collectedRestaurant, ...seek(where) }))
-		: bucketListPages(page, (seek) => client.query.bucketList.findMany({ ...collectedRestaurant, ...seek(where) }));
-}
-
-function listFollowers(client: Client, userId: number, viewerId: number, page: PageRequest) {
-	return followerPages(page, (seek) =>
-		client.query.followers.findMany({
-			columns: { followerId: true, createdAt: true },
-			with: { follower: personCard(client, viewerId) },
-			...seek({ followingId: userId, follower: { bannedAt: { isNull: true } } }),
-		}),
-	);
-}
-
-function listFollowing(client: Client, userId: number, viewerId: number, page: PageRequest) {
-	return followingPages(page, (seek) =>
-		client.query.followers.findMany({
-			columns: { followingId: true, createdAt: true },
-			with: { following: personCard(client, viewerId) },
-			...seek({ followerId: userId, following: { bannedAt: { isNull: true } } }),
-		}),
-	);
-}
-
 export function createProfileQueries(client: Client) {
-	const reviews = createReviewQueries(client);
-
 	return {
 		async findByUsername(username: string, viewerId: number) {
 			return client.query.users.findFirst({
@@ -147,19 +115,42 @@ export function createProfileQueries(client: Client) {
 			});
 		},
 
-		async list(userId: number, viewerId: number, tab: ProfileTab, page: PageRequest) {
-			switch (tab) {
-				case "reviews":
-					return { tab, page: await reviews.listPublicByAuthor(userId, viewerId, page) };
-				case "favorites":
-					return { tab, page: await listCollection(client, "favorites", userId, page) };
-				case "bucket-list":
-					return { tab, page: await listCollection(client, "bucketList", userId, page) };
-				case "followers":
-					return { tab, page: await listFollowers(client, userId, viewerId, page) };
-				case "following":
-					return { tab, page: await listFollowing(client, userId, viewerId, page) };
-			}
+		async listFavorites(userId: number, page: PageRequest) {
+			return favoritePages(page, (seek) =>
+				client.query.favorites.findMany({
+					...collectedRestaurant,
+					...seek({ userId, restaurant: { status: "approved" } }),
+				}),
+			);
+		},
+
+		async listBucketList(userId: number, page: PageRequest) {
+			return bucketListPages(page, (seek) =>
+				client.query.bucketList.findMany({
+					...collectedRestaurant,
+					...seek({ userId, restaurant: { status: "approved" } }),
+				}),
+			);
+		},
+
+		async listFollowers(userId: number, viewerId: number, page: PageRequest) {
+			return followerPages(page, (seek) =>
+				client.query.followers.findMany({
+					columns: { followerId: true, createdAt: true },
+					with: { follower: personCard(client, viewerId) },
+					...seek({ followingId: userId, follower: { bannedAt: { isNull: true } } }),
+				}),
+			);
+		},
+
+		async listFollowing(userId: number, viewerId: number, page: PageRequest) {
+			return followingPages(page, (seek) =>
+				client.query.followers.findMany({
+					columns: { followingId: true, createdAt: true },
+					with: { following: personCard(client, viewerId) },
+					...seek({ followerId: userId, following: { bannedAt: { isNull: true } } }),
+				}),
+			);
 		},
 	};
 }

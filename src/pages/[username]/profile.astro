@@ -26,7 +26,7 @@ if (!session) {
   return Astro.redirect("/login");
 }
 
-const { profiles } = Astro.locals.db.queries;
+const { profiles, reviews } = Astro.locals.db.queries;
 const user = await profiles.findByUsername(username, session.user.id);
 
 if (!user) {
@@ -41,10 +41,36 @@ const canEditProfile = can(session.user, "user:edit-settings", user);
 const canFollow = can(session.user, "user:follow", user);
 const isFollowing = user.isFollowedByViewer && can(session.user, "user:unfollow", user);
 
+const canView = can(session.user, "user:view-profile", user);
 const tab = parseProfileTab(Astro.url.searchParams);
-const list = can(session.user, "user:view-profile", user)
-  ? await profiles.list(user.id, session.user.id, tab, parsePageRequest(Astro.url))
-  : undefined;
+const pageRequest = parsePageRequest(Astro.url);
+let reviewPage;
+let restaurantPage;
+let personPage;
+
+if (canView) {
+  switch (tab) {
+    case "reviews":
+      reviewPage = await reviews.listPublicByAuthor(user.id, session.user.id, pageRequest);
+      break;
+    case "favorites":
+      restaurantPage = await profiles.listFavorites(user.id, pageRequest);
+      break;
+    case "bucket-list":
+      restaurantPage = await profiles.listBucketList(user.id, pageRequest);
+      break;
+    case "followers": {
+      const page = await profiles.listFollowers(user.id, session.user.id, pageRequest);
+      personPage = { ...page, items: page.items.map((row) => row.follower) };
+      break;
+    }
+    case "following": {
+      const page = await profiles.listFollowing(user.id, session.user.id, pageRequest);
+      personPage = { ...page, items: page.items.map((row) => row.following) };
+      break;
+    }
+  }
+}
 const isOwnProfile = session.user.id === user.id;
 
 const tabs: Record<ProfileTab, { label: string; total: number; empty: string }> = {
@@ -62,7 +88,7 @@ const listTabs = (["reviews", "favorites", "bucket-list"] as const).map((option)
   current: option === tab,
 }));
 
-const layout = list
+const layout = canView
   ? {
       title: user.fullname,
       description: user.bio ?? `Reviews, favorites and bucket list of ${user.fullname}`,
@@ -75,7 +101,7 @@ const layout = list
   : { title: "Account suspended", description: "This account has been suspended", prefetchUrls: ["/"] };
 ---
 <BaseLayout {...layout}>
-  {list ? (
+  {canView ? (
     <>
       <header class="flex flex-wrap items-center gap-4">
         <Avatar class="size-20 text-2xl" name={user.fullname} picture={user.profilePicture} />
@@ -116,25 +142,29 @@ const layout = list
 
       <TabNav class="mt-8" aria-label="Profile lists" tabs={listTabs} />
 
-      <PagedSection class="mt-4" aria-label={tabs[tab].label} page={list.page} empty={tabs[tab].empty}>
-        {(tab === "followers" || tab === "following") && <h2 slot="heading" class="mb-3">{tabs[tab].label}</h2>}
-        {list.tab === "reviews" ? (
-          <ReviewList reviews={list.page.items} viewer={session.user} showAuthor={false} />
-        ) : list.tab === "followers" ? (
-          <PersonList people={list.page.items.map((row) => row.follower)} viewer={session.user} />
-        ) : list.tab === "following" ? (
-          <PersonList people={list.page.items.map((row) => row.following)} viewer={session.user} />
-        ) : (
+      {reviewPage && (
+        <PagedSection class="mt-4" aria-label={tabs[tab].label} page={reviewPage} empty={tabs[tab].empty}>
+          <ReviewList reviews={reviewPage.items} viewer={session.user} showAuthor={false} />
+        </PagedSection>
+      )}
+      {restaurantPage && (
+        <PagedSection class="mt-4" aria-label={tabs[tab].label} page={restaurantPage} empty={tabs[tab].empty}>
           <RestaurantList
-            restaurants={list.page.items.map(({ restaurant }) => ({ ...restaurant, details: [restaurant.location.city] }))}
+            restaurants={restaurantPage.items.map(({ restaurant }) => ({ ...restaurant, details: [restaurant.location.city] }))}
             remove={isOwnProfile
-              ? list.tab === "favorites"
+              ? tab === "favorites"
                 ? { action: actions.restaurants.unfavorite, label: "Remove from favorites" }
                 : { action: actions.restaurants.removeFromBucketList, label: "Remove from bucket list" }
               : undefined}
           />
-        )}
-      </PagedSection>
+        </PagedSection>
+      )}
+      {personPage && (
+        <PagedSection class="mt-4" aria-label={tabs[tab].label} page={personPage} empty={tabs[tab].empty}>
+          <h2 slot="heading" class="mb-3">{tabs[tab].label}</h2>
+          <PersonList people={personPage.items} viewer={session.user} />
+        </PagedSection>
+      )}
     </>
   ) : (
     <div class="mt-16 flex flex-col items-center gap-6 text-center">

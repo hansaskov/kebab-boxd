@@ -61,7 +61,7 @@ describe("ProfilePage follower lists", () => {
 		const admin = insertUser(client, "root_admin", "admin");
 		const ada = insertUser(client, "ada");
 		const bob = insertUser(client, "bob");
-		const fans = Array.from({ length: 11 }, (_, i) => insertUser(client, `fan_${String(i).padStart(2, "0")}`));
+		const fans = Array.from({ length: 12 }, (_, i) => insertUser(client, `fan_${String(i).padStart(2, "0")}`));
 		for (const fan of fans) await db.mutations.follows.follow(fan.id, bob.username);
 		await db.mutations.follows.follow(bob.id, ada.username);
 		await db.mutations.users.ban(admin.id, fans[0]!.username);
