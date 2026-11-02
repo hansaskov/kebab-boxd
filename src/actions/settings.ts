@@ -45,7 +45,7 @@ export const deleteAccountSchema = currentUserSchema
   });
 
 function account(locals: App.Locals) {
-  return { actor: requireSession(locals).user, mutations: locals.db.mutations.users };
+  return { actor: requireSession(locals).user, users: locals.db.users };
 }
 
 export const settingsActions = {
@@ -53,8 +53,8 @@ export const settingsActions = {
     accept: "form",
     input: updateAccountSchema,
     handler: async ({ currentUsername, bio, ...profile }, { locals }) => {
-      const { actor, mutations } = account(locals);
-      orThrow(await mutations.updateProfile(actor.id, currentUsername, { ...profile, bio: bio || null }));
+      const { actor, users } = account(locals);
+      orThrow(await users.updateProfile(actor.id, currentUsername, { ...profile, bio: bio || null }));
       return { redirect: settingsHref(profile.username) };
     },
   }),
@@ -62,8 +62,8 @@ export const settingsActions = {
     accept: "form",
     input: updateProfilePictureSchema,
     handler: async ({ currentUsername, picture }, { locals }) => {
-      const { actor, mutations } = account(locals);
-      const user = orThrow(await mutations.setProfilePicture(actor.id, currentUsername, picture));
+      const { actor, users } = account(locals);
+      const user = orThrow(await users.setProfilePicture(actor.id, currentUsername, picture));
       return { redirect: settingsHref(user.username) };
     },
   }),
@@ -71,8 +71,8 @@ export const settingsActions = {
     accept: "form",
     input: currentUserSchema,
     handler: async ({ currentUsername }, { locals }) => {
-      const { actor, mutations } = account(locals);
-      const user = orThrow(await mutations.removeProfilePicture(actor.id, currentUsername));
+      const { actor, users } = account(locals);
+      const user = orThrow(await users.removeProfilePicture(actor.id, currentUsername));
       return { redirect: settingsHref(user.username) };
     },
   }),
@@ -80,8 +80,8 @@ export const settingsActions = {
     accept: "form",
     input: updateLocationSchema,
     handler: async ({ currentUsername, location }, { locals }) => {
-      const { actor, mutations } = account(locals);
-      const user = orThrow(await mutations.setLocation(actor.id, currentUsername, location));
+      const { actor, users } = account(locals);
+      const user = orThrow(await users.setLocation(actor.id, currentUsername, location));
       return { redirect: settingsHref(user.username) };
     },
   }),
@@ -89,8 +89,8 @@ export const settingsActions = {
     accept: "form",
     input: updateNotificationsSchema,
     handler: async ({ currentUsername, ...preferences }, { locals }) => {
-      const { actor, mutations } = account(locals);
-      const user = orThrow(await mutations.setNotificationPreferences(actor.id, currentUsername, preferences));
+      const { actor, users } = account(locals);
+      const user = orThrow(await users.setNotificationPreferences(actor.id, currentUsername, preferences));
       return { redirect: settingsHref(user.username) };
     },
   }),
@@ -98,8 +98,8 @@ export const settingsActions = {
     accept: "form",
     input: currentUserSchema,
     handler: async ({ currentUsername }, { locals, cookies }) => {
-      const { actor, mutations } = account(locals);
-      const user = orThrow(await mutations.signOutEverywhere(actor.id, currentUsername));
+      const { actor, users } = account(locals);
+      const user = orThrow(await users.signOutEverywhere(actor.id, currentUsername));
       if (actor.id !== user.id) return { redirect: settingsHref(user.username) };
       deleteSessionTokenCookie(cookies);
       return { redirect: "/login" };
@@ -109,8 +109,8 @@ export const settingsActions = {
     accept: "form",
     input: deleteAccountSchema,
     handler: async ({ currentUsername }, { locals, cookies }) => {
-      const { actor, mutations } = account(locals);
-      orThrow(await mutations.delete(actor.id, currentUsername));
+      const { actor, users } = account(locals);
+      orThrow(await users.delete(actor.id, currentUsername));
       deleteSessionTokenCookie(cookies);
       return { redirect: "/login?notice=account-deleted" };
     },

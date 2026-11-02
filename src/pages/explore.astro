@@ -19,7 +19,7 @@ const home: Coordinates | undefined = latitude !== null && longitude !== null ? 
 const view = parseMapView(Astro.url.searchParams, { center: home ?? defaultMapCenter, zoom: defaultMapZoom });
 const map = viewport(view.center, view.zoom, exploreMapSize);
 
-const { restaurants } = Astro.locals.db.queries;
+const { restaurants } = Astro.locals.db;
 const [pins, nearest] = await Promise.all([
 	restaurants.listNearest(map.center, mapMarkerLimit, map.bounds),
 	restaurants.listNearest(map.center, nearbyRestaurantCount),

@@ -1,13 +1,7 @@
 import { google, googleCookieNames, InvalidIdTokenError } from "@src/auth/providers/google";
 import { oauthCookieOptions } from "@src/auth/oauth";
-import {
-	EmailAlreadyRegisteredError,
-	signInWithProviderAccount,
-	UserBannedError,
-} from "@src/auth/sign-in";
 import type { ProviderAccount } from "@src/auth/provider-account";
 import { createSession, setSessionTokenCookie } from "@src/auth/session";
-import type { User } from "@src/db/schema";
 
 import type { APIContext } from "astro";
 
@@ -48,26 +42,19 @@ export async function GET(context: APIContext): Promise<Response> {
 	}
 
 	const db = context.locals.db;
+	const signIn = await db.accounts.signIn(providerAccount);
 
-	let user: User;
-	try {
-		user = await signInWithProviderAccount(db, providerAccount);
-	} catch (error) {
-		if (error instanceof EmailAlreadyRegisteredError) {
+	switch (signIn.status) {
+		case "banned":
+			return restart(context, "banned");
+		case "email-taken":
 			return new Response(
 				"An account with this email already exists. Sign in with the method you used before.",
 				{ status: 409 },
 			);
-		}
-
-		if (error instanceof UserBannedError) {
-			return restart(context, "banned");
-		}
-
-		throw error;
 	}
 
-	const session = await createSession(user.id, db);
+	const session = await createSession(signIn.user.id, db);
 	setSessionTokenCookie(context.cookies, session.token, session.lastVerifiedAt);
 
 	return context.redirect("/");

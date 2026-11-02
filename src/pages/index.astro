@@ -3,17 +3,17 @@ import BaseLayout from "@src/layouts/BaseLayout.astro";
 import PagedSection from "@src/components/PagedSection.astro";
 import ReviewList from "@src/components/ReviewList.astro";
 import TabNav from "@src/components/TabNav.astro";
-import type { Feed } from "@src/db/queries/reviews";
+import { feeds, type Feed } from "@src/db/reviews";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
-import { parseFeed } from "@src/validation/feed";
+import { parseOption } from "@src/validation/search-params";
 
 const session = Astro.locals.session;
 if (!session) {
   return Astro.redirect("/login");
 }
 
-const feed = parseFeed(Astro.url.searchParams);
-const page = await Astro.locals.db.queries.reviews.listFeed(session.user.id, feed, parsePageRequest(Astro.url));
+const feed = parseOption(Astro.url.searchParams, "feed", feeds, "following");
+const page = await Astro.locals.db.reviews.listFeed(session.user.id, feed, parsePageRequest(Astro.url));
 
 const feedHref = (option: Feed) => firstPageHref(Astro.url, { feed: option === "following" ? undefined : option });
 const tabs = [

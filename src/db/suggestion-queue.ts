@@ -1,11 +1,13 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { Client, Transaction } from "@src/db/client";
-import { isProblem, problem, type Problem } from "@src/db/mutations/authorize";
+import { isProblem, problem, type Problem } from "@src/db/problem";
 import * as s from "@src/db/schema";
 import { boundsAround } from "@src/map/coordinates";
 import type { Place } from "@src/map/google-maps";
 import type { Address } from "@src/map/nominatim";
 
+// Finished links are kept for weeks, so only the latest are shown.
+const maxListed = 20;
 // Two suggestions with the same name this close to each other are taken to be the same restaurant.
 const duplicateDistanceMeters = 150;
 // Enough to suggest a few restaurants in a row, too few to flood the queue.
@@ -37,10 +39,33 @@ function findDuplicate(tx: Transaction, { name, googleMapsId, latitude, longitud
 	return candidates.find((restaurant) => restaurant.googleMapsId === googleMapsId || sameName.compare(restaurant.name, name) === 0);
 }
 
-export function createSuggestionQueueMutations(client: Client) {
+export function createSuggestionQueue(client: Client) {
 	const queuedListeners = new Set<() => void>();
 
 	return {
+		// A duplicate of a restaurant that was rejected or deleted is left out: the place may be suggested again.
+		async listBy(userId: number) {
+			return client.query.suggestionQueue.findMany({
+				columns: { id: true, link: true, status: true, name: true, createdAt: true },
+				with: { duplicate: { columns: { id: true, status: true } } },
+				where: {
+					userId,
+					OR: [{ status: { ne: "duplicate" } }, { duplicate: { status: { in: ["approved", "pending"] } } }],
+				},
+				orderBy: { createdAt: "desc", id: "desc" },
+				limit: maxListed,
+			});
+		},
+
+		// The waiting link to look up first, which may not be due yet.
+		async next() {
+			return client.query.suggestionQueue.findFirst({
+				columns: { id: true, link: true, runAfter: true },
+				where: { status: "queued" },
+				orderBy: { runAfter: "asc", id: "asc" },
+			});
+		},
+
 		// Lets the worker sleep while the queue is empty. Returns the function that stops listening.
 		onQueued(listener: () => void) {
 			queuedListeners.add(listener);

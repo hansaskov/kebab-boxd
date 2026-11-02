@@ -21,7 +21,7 @@ if (!session) {
     return Astro.redirect("/login");
 }
 
-const owner = await Astro.locals.db.queries.users.findByUsername(username);
+const owner = await Astro.locals.db.users.findByUsername(username);
 
 if (!owner) {
     return Astro.rewrite("/404");
@@ -35,7 +35,7 @@ if (!can(session.user, "user:manage-sessions", owner)) {
     return Astro.rewrite("/403");
 }
 
-const selectedSession = await Astro.locals.db.queries.sessions.findActive(
+const selectedSession = await Astro.locals.db.sessions.findActive(
     sessionId,
     owner.id,
 );
@@ -44,7 +44,7 @@ if (!selectedSession) {
     return Astro.rewrite("/404");
 }
 
-const page = await Astro.locals.db.queries.history.listBySession(
+const page = await Astro.locals.db.history.listBySession(
     sessionId,
     parsePageRequest(Astro.url),
 );

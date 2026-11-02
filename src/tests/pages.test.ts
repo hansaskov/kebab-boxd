@@ -51,7 +51,7 @@ describe("pages", () => {
 		const bob = insertUser(client, "bob");
 		client.update(s.users).set({ bio: "Secret sauce" }).where(eq(s.users.id, bob.id)).run();
 		insertReview(client, bob.id, insertRestaurant(client, "Bosporus Grill", { status: "approved" }).id, 9);
-		await db.mutations.users.ban(admin.id, bob.username);
+		await db.users.ban(admin.id, bob.username);
 		const profileFor = async (userId: number) =>
 			(await renderPage(ProfilePage, { db, session: await signIn(db, userId) }, "/bob/profile", { username: "bob" })).html;
 

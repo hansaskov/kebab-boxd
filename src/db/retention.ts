@@ -7,7 +7,7 @@ function secondsBefore(now: Date, seconds: number) {
 	return new Date(now.getTime() - seconds * 1000);
 }
 
-export function createRetentionMutations(client: Client) {
+export function createRetention(client: Client) {
 	return {
 		async purge(now: Date) {
 			return client.transaction(

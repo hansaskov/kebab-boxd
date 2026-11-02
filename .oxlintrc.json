@@ -28,7 +28,7 @@
     "no-restricted-imports": ["error", {
       "patterns": [{
         "group": ["drizzle-orm", "drizzle-orm/*"],
-        "message": "Database access belongs in src/db. Add a query or mutation there and call it through Astro.locals.db."
+        "message": "Database access belongs in src/db. Add it to the module of its concept there and call it through Astro.locals.db."
       }]
     }]
   },

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { finishedSuggestionRetentionSeconds } from "@src/data/retention-periods";
 import type { Database } from "@src/db";
-import { isProblem } from "@src/db/mutations/authorize";
-import { maxAttempts, maxQueuedPerUser } from "@src/db/mutations/suggestion-queue";
+import { isProblem } from "@src/db/problem";
+import { maxAttempts, maxQueuedPerUser } from "@src/db/suggestion-queue";
 import type { Place } from "@src/map/google-maps";
 import type { Address } from "@src/map/nominatim";
 import { processNextSuggestion } from "@src/suggestion-queue";
@@ -22,7 +22,7 @@ const shawarmaVillage: Place = {
 const address: Address = { addressLine1: "Kongensgade 13", postalCode: "5000", city: "Odense", country: "Denmark" };
 
 async function queue(db: Database, userId: number, link = shareLink) {
-	const result = await db.mutations.suggestionQueue.queue(userId, link);
+	const result = await db.suggestionQueue.queue(userId, link);
 	if (isProblem(result)) throw new Error(`The link was not queued: ${result.problem}.`);
 	return result.id;
 }
@@ -32,7 +32,7 @@ describe("the SuggestionQueue", () => {
 		const { client, db } = createTestDatabase();
 		const ada = insertUser(client, "ada");
 
-		const result = await db.mutations.suggestionQueue.finish(await queue(db, ada.id), shawarmaVillage, address);
+		const result = await db.suggestionQueue.finish(await queue(db, ada.id), shawarmaVillage, address);
 
 		expect(result.status).toBe("suggested");
 		const restaurant = client.query.restaurants.findFirst({ with: { location: true } }).sync();
@@ -45,8 +45,8 @@ describe("the SuggestionQueue", () => {
 		const { client, db } = createTestDatabase();
 		const admin = insertUser(client, "root_admin", "admin");
 		const ada = insertUser(client, "ada");
-		const finish = async (place: Place) => (await db.mutations.suggestionQueue.finish(await queue(db, ada.id), place, address)).status;
-		const first = await db.mutations.suggestionQueue.finish(await queue(db, ada.id), { ...shawarmaVillage, name: "Døner Village" }, address);
+		const finish = async (place: Place) => (await db.suggestionQueue.finish(await queue(db, ada.id), place, address)).status;
+		const first = await db.suggestionQueue.finish(await queue(db, ada.id), { ...shawarmaVillage, name: "Døner Village" }, address);
 		if (first.status !== "suggested") throw new Error(`The first link became ${first.status}.`);
 
 		expect(await finish({ ...shawarmaVillage, name: "Another name" })).toBe("duplicate");
@@ -54,10 +54,10 @@ describe("the SuggestionQueue", () => {
 		expect(await finish({ ...shawarmaVillage, googleMapsId: "0x1:0x3", name: "Doner Village", latitude: 55.3962 })).toBe("suggested");
 		expect(await finish({ ...shawarmaVillage, googleMapsId: "0x1:0x4", name: "Døner Village", latitude: 56.1567, longitude: 10.2108 })).toBe("suggested");
 
-		await db.mutations.restaurants.setStatus(admin.id, first.id, "approved");
+		await db.restaurants.decide(admin.id, first.id, "approved");
 		expect(await finish({ ...shawarmaVillage, name: "Døner Village" })).toBe("duplicate");
 
-		await db.mutations.restaurants.setStatus(admin.id, first.id, "rejected");
+		await db.restaurants.decide(admin.id, first.id, "rejected");
 		expect(await finish({ ...shawarmaVillage, name: "Døner Village" })).toBe("suggested");
 	});
 
@@ -67,8 +67,8 @@ describe("the SuggestionQueue", () => {
 		const bob = insertUser(client, "bob");
 		for (let link = 0; link < maxQueuedPerUser; link++) await queue(db, ada.id);
 
-		expect(await db.mutations.suggestionQueue.queue(ada.id, shareLink)).toEqual({ problem: "queue-full" });
-		expect(await db.mutations.suggestionQueue.queue(bob.id, shareLink)).not.toHaveProperty("problem");
+		expect(await db.suggestionQueue.queue(ada.id, shareLink)).toEqual({ problem: "queue-full" });
+		expect(await db.suggestionQueue.queue(bob.id, shareLink)).not.toHaveProperty("problem");
 	});
 
 	it("tries a link again later while Google or OpenStreetMap cannot be reached, and gives up after the last attempt", async () => {
@@ -78,15 +78,15 @@ describe("the SuggestionQueue", () => {
 		const start = new Date();
 		const row = () => client.query.suggestionQueue.findFirst({ where: { id: queued } }).sync();
 
-		await db.mutations.suggestionQueue.retryLater(queued, start);
+		await db.suggestionQueue.retryLater(queued, start);
 
 		expect(row()).toMatchObject({ status: "queued", attempts: 1 });
 		expect(await processNextSuggestion(db, start)).toMatchObject({ processed: false });
 
-		for (let attempt = 2; attempt <= maxAttempts; attempt++) await db.mutations.suggestionQueue.retryLater(queued, start);
+		for (let attempt = 2; attempt <= maxAttempts; attempt++) await db.suggestionQueue.retryLater(queued, start);
 
 		expect(row()).toMatchObject({ status: "failed", attempts: maxAttempts });
-		expect(await db.queries.suggestionQueue.next()).toBeUndefined();
+		expect(await db.suggestionQueue.next()).toBeUndefined();
 	});
 
 	it("does not try again a link that cannot be read, and forgets it after the retention period", async () => {
@@ -99,7 +99,7 @@ describe("the SuggestionQueue", () => {
 
 		const waiting = await queue(db, ada.id);
 		const later = new Date(Date.now() + (finishedSuggestionRetentionSeconds + 60) * 1000);
-		await db.mutations.retention.purge(later);
+		await db.retention.purge(later);
 
 		expect(client.query.suggestionQueue.findMany({ columns: { id: true } }).sync()).toEqual([{ id: waiting }]);
 	});

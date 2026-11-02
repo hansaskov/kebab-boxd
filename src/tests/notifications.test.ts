@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Database } from "@src/db";
-import type { Notification } from "@src/db/queries/notifications";
+import type { Notification } from "@src/db/notifications";
 import { createTestDatabase, insertRestaurant, insertUser, newestUnreadId, signIn } from "@src/tests/database";
 
 function summary(notification: Notification) {
@@ -17,7 +17,7 @@ function summary(notification: Notification) {
 }
 
 async function inbox(db: Database, userId: number) {
-	const page = await db.queries.notifications.list(userId, { limit: 25, cursor: undefined });
+	const page = await db.notifications.list(userId, { limit: 25, cursor: undefined });
 	return page.items.map(summary);
 }
 
@@ -33,12 +33,12 @@ describe("Notifications", () => {
 		const ada = insertUser(client, "ada");
 		const bob = insertUser(client, "bob");
 
-		await db.mutations.follows.follow(ada.id, "bob");
-		await db.mutations.follows.follow(ada.id, "bob");
+		await db.follows.follow(ada.id, "bob");
+		await db.follows.follow(ada.id, "bob");
 
 		expect(await inbox(db, bob.id)).toEqual(["ada followed"]);
 
-		await db.mutations.follows.unfollow(ada.id, "bob");
+		await db.follows.unfollow(ada.id, "bob");
 
 		expect(await inbox(db, bob.id)).toEqual([]);
 	});
@@ -49,13 +49,13 @@ describe("Notifications", () => {
 		const ada = insertUser(client, "ada");
 		const grill = insertRestaurant(client, "Bosporus Grill", { suggestedBy: ada.id });
 
-		await db.mutations.restaurants.setStatus(admin.id, grill.id, "approved");
-		await db.mutations.notifications.markAllRead(ada.id, (await newestUnreadId(db, ada.id))!);
-		await db.mutations.restaurants.setStatus(admin.id, grill.id, "approved");
+		await db.restaurants.decide(admin.id, grill.id, "approved");
+		await db.notifications.markAllRead(ada.id, (await newestUnreadId(db, ada.id))!);
+		await db.restaurants.decide(admin.id, grill.id, "approved");
 
 		expect(await inbox(db, ada.id)).toEqual(["suggestion-approved Bosporus Grill (read)"]);
 
-		await db.mutations.restaurants.setStatus(admin.id, grill.id, "rejected");
+		await db.restaurants.decide(admin.id, grill.id, "rejected");
 
 		expect(await inbox(db, ada.id)).toEqual(["suggestion-rejected Bosporus Grill"]);
 	});
@@ -65,12 +65,12 @@ describe("Notifications", () => {
 		const ada = insertUser(client, "ada");
 		const bob = insertUser(client, "bob");
 		const cleo = insertUser(client, "cleo");
-		await db.mutations.follows.follow(cleo.id, "bob");
+		await db.follows.follow(cleo.id, "bob");
 
-		await db.mutations.users.setNotificationPreferences(bob.id, "bob", { ...allOn, followNotifications: false });
-		await db.mutations.follows.follow(ada.id, "bob");
-		await db.mutations.users.setNotificationPreferences(bob.id, "bob", allOn);
-		await db.mutations.follows.follow(ada.id, "bob");
+		await db.users.setNotificationPreferences(bob.id, "bob", { ...allOn, followNotifications: false });
+		await db.follows.follow(ada.id, "bob");
+		await db.users.setNotificationPreferences(bob.id, "bob", allOn);
+		await db.follows.follow(ada.id, "bob");
 
 		expect(await inbox(db, bob.id)).toEqual(["cleo followed"]);
 	});
@@ -81,15 +81,15 @@ describe("Notifications", () => {
 		const ada = insertUser(client, "ada");
 		const bob = insertUser(client, "bob");
 		const cleo = insertUser(client, "cleo");
-		await db.mutations.follows.follow(ada.id, "bob");
-		await db.mutations.follows.follow(cleo.id, "bob");
+		await db.follows.follow(ada.id, "bob");
+		await db.follows.follow(cleo.id, "bob");
 
-		await db.mutations.users.ban(admin.id, ada.username);
+		await db.users.ban(admin.id, ada.username);
 
 		expect(await inbox(db, bob.id)).toEqual(["cleo followed"]);
 		expect(await unreadCount(db, bob.id)).toBe(1);
 
-		await db.mutations.users.unban(admin.id, ada.username);
+		await db.users.unban(admin.id, ada.username);
 
 		expect(await inbox(db, bob.id)).toEqual(["cleo followed", "ada followed"]);
 		expect(await unreadCount(db, bob.id)).toBe(2);
@@ -102,14 +102,14 @@ describe("Notifications", () => {
 		const bob = insertUser(client, "bob");
 		const cleo = insertUser(client, "cleo");
 		const dan = insertUser(client, "dan");
-		await db.mutations.follows.follow(dan.id, "bob");
-		await db.mutations.users.ban(admin.id, dan.username);
-		await db.mutations.follows.follow(ada.id, "bob");
+		await db.follows.follow(dan.id, "bob");
+		await db.users.ban(admin.id, dan.username);
+		await db.follows.follow(ada.id, "bob");
 		const seen = await newestUnreadId(db, bob.id);
-		await db.mutations.follows.follow(cleo.id, "bob");
+		await db.follows.follow(cleo.id, "bob");
 
-		await db.mutations.notifications.markAllRead(bob.id, seen!);
-		await db.mutations.users.unban(admin.id, dan.username);
+		await db.notifications.markAllRead(bob.id, seen!);
+		await db.users.unban(admin.id, dan.username);
 
 		expect(await inbox(db, bob.id)).toEqual(["cleo followed", "ada followed (read)", "dan followed"]);
 	});

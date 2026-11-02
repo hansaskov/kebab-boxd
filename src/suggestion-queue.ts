@@ -12,18 +12,18 @@ export async function processNextSuggestion(
 	db: Database,
 	now = new Date(),
 ): Promise<{ processed: true } | { processed: false; dueAt: Date | undefined }> {
-	const queued = await db.queries.suggestionQueue.next();
+	const queued = await db.suggestionQueue.next();
 	if (!queued || queued.runAfter > now) return { processed: false, dueAt: queued?.runAfter };
 
 	// A failed lookup at Google or OpenStreetMap, or a busy database, is tried again. A link that cannot be
 	// read never gets better.
 	try {
 		const lookup = await findPlace(queued.link);
-		if (lookup) await db.mutations.suggestionQueue.finish(queued.id, lookup.place, lookup.address);
-		else await db.mutations.suggestionQueue.markNotAPlace(queued.id);
+		if (lookup) await db.suggestionQueue.finish(queued.id, lookup.place, lookup.address);
+		else await db.suggestionQueue.markNotAPlace(queued.id);
 	} catch (error) {
 		console.error(`Could not suggest the link ${queued.link}`, error);
-		await db.mutations.suggestionQueue.retryLater(queued.id, now);
+		await db.suggestionQueue.retryLater(queued.id, now);
 	}
 	return { processed: true };
 }
@@ -62,7 +62,7 @@ export function scheduleSuggestionQueue(db: Database) {
 		}
 	}
 
-	const stopListening = db.mutations.suggestionQueue.onQueued(() => {
+	const stopListening = db.suggestionQueue.onQueued(() => {
 		queuedMeanwhile = true;
 		wake?.();
 	});

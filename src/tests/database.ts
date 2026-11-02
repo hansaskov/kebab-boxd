@@ -7,7 +7,7 @@ import { createDatabase } from "@src/db";
 import type { Database } from "@src/db";
 import { createClient, migrateClient } from "@src/db/client";
 import type { Client } from "@src/db/client";
-import { isProblem } from "@src/db/mutations/authorize";
+import { isProblem } from "@src/db/problem";
 import * as s from "@src/db/schema";
 import type { PageRequest } from "@src/pagination";
 import { createPictureStore } from "@src/pictures/store";
@@ -63,7 +63,7 @@ export function insertReview(client: Client, authorId: number, restaurantId: num
 
 // Publishes a review the way a user does, so the cached rating of the restaurant follows.
 export async function writeReview(db: Database, authorId: number, restaurantId: number, rating: number, files: File[] = []) {
-	const result = await db.mutations.reviews.create(authorId, restaurantId, { rating, description: null }, files);
+	const result = await db.reviews.create(authorId, restaurantId, { rating, description: null }, files);
 	if (isProblem(result)) throw new Error(`The review was refused: ${result.problem}.`);
 	return result.id;
 }

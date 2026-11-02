@@ -7,9 +7,9 @@ import SearchForm from "@src/components/SearchForm.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { can } from "@src/auth/permissions";
 import { adminUserHref } from "@src/hrefs";
-import { userFilters, type UserFilter } from "@src/db/queries/users";
+import { userFilters, type UserFilter } from "@src/db/users";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
-import { parseUserListCriteria } from "@src/validation/user-list-criteria";
+import { parseOption, parseSearch } from "@src/validation/search-params";
 
 const session = Astro.locals.session;
 
@@ -21,10 +21,10 @@ if (!can(session.user, "admin-console:view")) {
   return Astro.rewrite("/403");
 }
 
-const criteria = parseUserListCriteria(Astro.url.searchParams);
-const { search, filter } = criteria;
+const search = parseSearch(Astro.url.searchParams);
+const filter = parseOption(Astro.url.searchParams, "filter", userFilters, "all");
 
-const page = await Astro.locals.db.queries.users.list(criteria, parsePageRequest(Astro.url));
+const page = await Astro.locals.db.users.list(search, filter, parsePageRequest(Astro.url));
 
 const filterLabels: Record<UserFilter, string> = { all: "All", admin: "Admins", banned: "Banned" };
 const filterTabs = userFilters.map((option) => ({

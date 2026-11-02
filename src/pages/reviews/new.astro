@@ -16,7 +16,7 @@ if (!session) {
 }
 
 const restaurantId = parseId(Astro.url.searchParams.get("restaurant") ?? undefined);
-const restaurant = restaurantId ? await Astro.locals.db.queries.restaurants.findById(restaurantId, session.user.id) : undefined;
+const restaurant = restaurantId ? await Astro.locals.db.restaurants.findById(restaurantId, session.user.id) : undefined;
 const refused = refusal(session.user, "restaurant:review", restaurant);
 if (refused || !restaurant) {
   return Astro.rewrite(refusalPage[refused ?? "not-found"]);

@@ -5,23 +5,24 @@ import PagedSection from "@src/components/PagedSection.astro";
 import RestaurantList from "@src/components/RestaurantList.astro";
 import SearchForm from "@src/components/SearchForm.astro";
 import TabNav from "@src/components/TabNav.astro";
-import { restaurantSorts, type RestaurantSort } from "@src/db/queries/restaurants";
+import { restaurantSorts, type RestaurantSort } from "@src/db/restaurants";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
-import { parseRestaurantListCriteria } from "@src/validation/restaurant-list-criteria";
+import { parseOption, parseSearch } from "@src/validation/search-params";
 
 const session = Astro.locals.session;
 if (!session) {
   return Astro.redirect("/login");
 }
 
-const criteria = parseRestaurantListCriteria(Astro.url.searchParams);
-const page = await Astro.locals.db.queries.restaurants.list(criteria, parsePageRequest(Astro.url));
+const search = parseSearch(Astro.url.searchParams);
+const sort = parseOption(Astro.url.searchParams, "sort", restaurantSorts, "top-rated");
+const page = await Astro.locals.db.restaurants.list(search, sort, parsePageRequest(Astro.url));
 
 const sortLabels: Record<RestaurantSort, string> = { "top-rated": "Top rated", popular: "Most reviewed", newest: "Newest" };
-const sortTabs = restaurantSorts.map((sort) => ({
-  label: sortLabels[sort],
-  href: firstPageHref(Astro.url, { sort: sort === "top-rated" ? undefined : sort }),
-  current: sort === criteria.sort,
+const sortTabs = restaurantSorts.map((option) => ({
+  label: sortLabels[option],
+  href: firstPageHref(Astro.url, { sort: option === "top-rated" ? undefined : option }),
+  current: option === sort,
 }));
 
 const restaurants = page.items.map((restaurant) => ({
@@ -40,13 +41,13 @@ const restaurants = page.items.map((restaurant) => ({
     <a class="btn btn-secondary btn-sm" href="/restaurants/suggest"><Lightbulb size={16} aria-hidden="true" />Suggest a restaurant</a>
   </div>
 
-  <SearchForm class="mt-4" id="restaurant-search" label="Search restaurants" value={criteria.search} placeholder="Name or city" />
+  <SearchForm class="mt-4" id="restaurant-search" label="Search restaurants" value={search} placeholder="Name or city" />
   <TabNav class="mt-4" aria-label="Sort restaurants" tabs={sortTabs} />
 
   <PagedSection class="mt-4" aria-label="Restaurants" page={page}>
     <Fragment slot="empty">
-      {criteria.search
-        ? <>No restaurants match “{criteria.search}”. <a class="link" href="/restaurants/suggest">Suggest it</a>.</>
+      {search
+        ? <>No restaurants match “{search}”. <a class="link" href="/restaurants/suggest">Suggest it</a>.</>
         : "There are no restaurants yet."}
     </Fragment>
     <RestaurantList restaurants={restaurants} />

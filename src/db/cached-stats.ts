@@ -1,7 +1,10 @@
-import { and, avg, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, avg, eq, inArray, sql } from "drizzle-orm";
 import type { Transaction } from "@src/db/client";
-import { isInReviewWindow } from "@src/db/review-window";
 import * as s from "@src/db/schema";
+import { isInReviewWindow, isUnbannedUser } from "@src/db/visibility";
+
+// The LikeCount, ReviewCount and RatingAvg are cached on their rows. Every write that changes what they count
+// calls these in its transaction.
 
 export function refreshLikeCounts(tx: Transaction, reviewIds: number[]) {
 	tx.update(s.reviews)
@@ -12,8 +15,7 @@ export function refreshLikeCounts(tx: Transaction, reviewIds: number[]) {
 
 // The reviews of banned authors leave the stats until the ban is lifted.
 export function refreshRestaurantStats(tx: Transaction, restaurantIds: number[] | ReturnType<typeof restaurantsReviewedBy>) {
-	const unbannedAuthors = tx.select({ id: s.users.id }).from(s.users).where(isNull(s.users.bannedAt));
-	const ofRestaurant = and(eq(s.reviews.restaurantId, s.restaurants.id), inArray(s.reviews.authorId, unbannedAuthors));
+	const ofRestaurant = and(eq(s.reviews.restaurantId, s.restaurants.id), isUnbannedUser(s.reviews.authorId));
 
 	const authorAverages = tx
 		.select({ rating: avg(s.reviews.rating).as("author_rating") })

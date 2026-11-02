@@ -9,6 +9,7 @@ import { can } from "@src/auth/permissions";
 import { restaurantStatuses, type RestaurantStatus } from "@src/db/schema";
 import { profileHref, restaurantHref } from "@src/hrefs";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
+import { parseOption } from "@src/validation/search-params";
 
 const session = Astro.locals.session;
 
@@ -20,8 +21,8 @@ if (!can(session.user, "admin-console:view")) {
   return Astro.rewrite("/403");
 }
 
-const status = restaurantStatuses.find((option) => option === Astro.url.searchParams.get("status")) ?? "pending";
-const { restaurants } = Astro.locals.db.queries;
+const status = parseOption(Astro.url.searchParams, "status", restaurantStatuses, "pending");
+const { restaurants } = Astro.locals.db;
 const [page, counts] = await Promise.all([
   restaurants.listByStatus(status, parsePageRequest(Astro.url)),
   restaurants.countByStatus(),

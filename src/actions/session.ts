@@ -7,13 +7,13 @@ export const sessionActions = {
     accept: "form",
     handler: async (_, { locals }) => {
       const session = requireSession(locals);
-      await locals.db.mutations.sessions.setTheme(session.id, session.theme === "dark" ? "light" : "dark");
+      await locals.db.sessions.setTheme(session.id, session.theme === "dark" ? "light" : "dark");
     },
   }),
   signOut: defineAction({
     accept: "form",
     handler: async (_, { locals, cookies }) => {
-      await locals.db.mutations.sessions.delete(requireSession(locals).id);
+      await locals.db.sessions.delete(requireSession(locals).id);
       deleteSessionTokenCookie(cookies);
       return { redirect: "/login" };
     },

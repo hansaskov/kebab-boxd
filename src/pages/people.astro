@@ -4,7 +4,7 @@ import PagedSection from "@src/components/PagedSection.astro";
 import PersonList from "@src/components/PersonList.astro";
 import SearchForm from "@src/components/SearchForm.astro";
 import { parsePageRequest } from "@src/pagination";
-import { parseSearch } from "@src/validation/search";
+import { parseSearch } from "@src/validation/search-params";
 
 const session = Astro.locals.session;
 if (!session) {
@@ -12,7 +12,7 @@ if (!session) {
 }
 
 const search = parseSearch(Astro.url.searchParams);
-const page = search ? await Astro.locals.db.queries.people.search(search, session.user.id, parsePageRequest(Astro.url)) : undefined;
+const page = search ? await Astro.locals.db.users.search(search, session.user.id, parsePageRequest(Astro.url)) : undefined;
 ---
 
 <BaseLayout title="People" description="Find people to follow on Kebab Boxd" prefetchUrls={["/"]}>

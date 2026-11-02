@@ -11,7 +11,7 @@ function requestPicture(db: Database, url: string) {
 }
 
 async function picturesOf(db: Database, reviewId: number, viewerId: number) {
-	return (await db.queries.reviews.findById(reviewId, viewerId))?.pictures ?? [];
+	return (await db.reviews.findById(reviewId, viewerId))?.pictures ?? [];
 }
 
 function setUp() {
@@ -41,7 +41,7 @@ describe("Pictures", () => {
 	it("are refused together with the review when one file is not a picture, and leave no files behind", async () => {
 		const { client, db, picturesDirectory, ada, grill } = setUp();
 
-		const result = await db.mutations.reviews.create(ada.id, grill.id, { rating: 8, description: null }, [await pictureFile(), textFile()]);
+		const result = await db.reviews.create(ada.id, grill.id, { rating: 8, description: null }, [await pictureFile(), textFile()]);
 
 		expect(result).toEqual({ problem: "invalid-picture" });
 		expect(client.query.reviews.findMany().sync()).toEqual([]);
@@ -52,16 +52,16 @@ describe("Pictures", () => {
 		const { db, picturesDirectory, ada, grill } = setUp();
 		const kept = await writeReview(db, ada.id, grill.id, 8, [await pictureFile(), await pictureFile()]);
 		const deleted = await writeReview(db, ada.id, grill.id, 8, [await pictureFile()]);
-		await db.mutations.users.setProfilePicture(ada.id, ada.username, await pictureFile());
+		await db.users.setProfilePicture(ada.id, ada.username, await pictureFile());
 		const [, removed] = await picturesOf(db, kept, ada.id);
 
-		await db.mutations.reviews.update(ada.id, kept, { rating: 8, description: null, addPictures: [], removePictureIds: [removed!.id] });
-		await db.mutations.reviews.delete(ada.id, deleted);
+		await db.reviews.update(ada.id, kept, { rating: 8, description: null, addPictures: [], removePictureIds: [removed!.id] });
+		await db.reviews.delete(ada.id, deleted);
 
 		expect(storedPictureNames(picturesDirectory)).toHaveLength(2);
 		expect((await requestPicture(db, removed!.url)).status).toBe(404);
 
-		await db.mutations.users.delete(ada.id, ada.username);
+		await db.users.delete(ada.id, ada.username);
 
 		expect(storedPictureNames(picturesDirectory)).toEqual([]);
 	});

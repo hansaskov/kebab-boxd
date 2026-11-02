@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { createSession, getSession } from "@src/auth/session";
 import type { ProviderAccount } from "@src/auth/provider-account";
-import { EmailAlreadyRegisteredError, signInWithProviderAccount, UserBannedError } from "@src/auth/sign-in";
+import type { Database } from "@src/db";
 import * as s from "@src/db/schema";
 import { usernameSchema } from "@src/validation/username";
 import { createTestDatabase, insertRestaurant, insertReview, insertUser, restaurantRow, signIn, writeReview } from "@src/tests/database";
@@ -18,12 +18,19 @@ function googleAccount(overrides: Partial<ProviderAccount> = {}): ProviderAccoun
 	};
 }
 
+// Signs in as a User who may sign in, as the Google callback does.
+async function signInWith(db: Database, account: ProviderAccount) {
+	const result = await db.accounts.signIn(account);
+	if (result.status !== "signed-in") throw new Error(`The sign-in was refused: ${result.status}.`);
+	return result.user;
+}
+
 describe("signing in with a Provider", () => {
 	it("returns the same User every time the same Account signs in", async () => {
 		const { client, db } = createTestDatabase();
 
-		const first = await signInWithProviderAccount(db, googleAccount());
-		const second = await signInWithProviderAccount(db, googleAccount());
+		const first = await signInWith(db, googleAccount());
+		const second = await signInWith(db, googleAccount());
 
 		expect(second.id).toBe(first.id);
 		expect(await client.$count(s.users)).toBe(1);
@@ -31,20 +38,30 @@ describe("signing in with a Provider", () => {
 
 	it("refuses another Provider for an email address that is already registered, in any letter case", async () => {
 		const { client, db } = createTestDatabase();
-		await signInWithProviderAccount(db, googleAccount());
+		await signInWith(db, googleAccount());
 
-		await expect(
-			signInWithProviderAccount(db, googleAccount({ providerId: "github", accountId: "github-sub-1", email: "ADA@example.com" })),
-		).rejects.toBeInstanceOf(EmailAlreadyRegisteredError);
+		expect(
+			await db.accounts.signIn(googleAccount({ providerId: "github", accountId: "github-sub-1", email: "ADA@example.com" })),
+		).toEqual({ status: "email-taken" });
 		expect(await client.$count(s.accounts)).toBe(1);
+	});
+
+	it("marks the email address verified once the Provider vouches for it", async () => {
+		const { db } = createTestDatabase();
+		await signInWith(db, googleAccount({ emailVerified: false }));
+
+		const user = await signInWith(db, googleAccount());
+
+		expect(user.emailVerified).toBe(true);
+		expect((await db.users.findByUsername(user.username))?.emailVerified).toBe(true);
 	});
 
 	it("gives a new User a valid Username that no one else has", async () => {
 		const { client, db } = createTestDatabase();
 		insertUser(client, "ada_2");
 
-		const { username } = await signInWithProviderAccount(db, googleAccount({ fullname: "Søren-Émile O'Brien" }));
-		const second = await signInWithProviderAccount(db, googleAccount({ accountId: "google-sub-2", email: "ada2@example.com" }));
+		const { username } = await signInWith(db, googleAccount({ fullname: "Søren-Émile O'Brien" }));
+		const second = await signInWith(db, googleAccount({ accountId: "google-sub-2", email: "ada2@example.com" }));
 
 		expect(usernameSchema.parse(username)).toBe(username);
 		expect(second.username).not.toBe("ada_2");
@@ -57,7 +74,7 @@ describe("Usernames", () => {
 		const ada = insertUser(client, "ada");
 		insertUser(client, "bob");
 
-		const result = await db.mutations.users.updateProfile(ada.id, "ada", { fullname: "Ada", username: "BOB", pronoun: null, bio: null });
+		const result = await db.users.updateProfile(ada.id, "ada", { fullname: "Ada", username: "BOB", pronoun: null, bio: null });
 
 		expect(result).toEqual({ problem: "username-taken" });
 	});
@@ -71,16 +88,16 @@ describe("a ban", () => {
 	it("keeps the User out, and signs them out everywhere for good", async () => {
 		const { client, db } = createTestDatabase();
 		const admin = insertUser(client, "admin", "admin");
-		const user = await signInWithProviderAccount(db, googleAccount());
+		const user = await signInWith(db, googleAccount());
 		const session = await createSession(user.id, db);
 
-		await db.mutations.users.ban(admin.id, user.username);
+		await db.users.ban(admin.id, user.username);
 
-		await expect(signInWithProviderAccount(db, googleAccount())).rejects.toBeInstanceOf(UserBannedError);
+		expect(await db.accounts.signIn(googleAccount())).toEqual({ status: "banned" });
 		// A session created in the moment between the ban and the refusal does not last either.
 		expect(await getSession((await createSession(user.id, db)).id, db)).toBeNull();
 
-		await db.mutations.users.unban(admin.id, user.username);
+		await db.users.unban(admin.id, user.username);
 
 		expect(await getSession(session.id, db)).toBeNull();
 	});
@@ -92,8 +109,8 @@ describe("the Admin role", () => {
 		const ada = insertUser(client, "ada", "admin");
 		const bob = insertUser(client, "bob", "admin");
 
-		expect(await db.mutations.users.setRole(ada.id, "bob", "user")).toMatchObject({ id: bob.id });
-		expect(await db.mutations.users.setRole(bob.id, "ada", "user")).toEqual({ problem: "forbidden", permission: "user:change-role" });
+		expect(await db.users.setRole(ada.id, "bob", "user")).toMatchObject({ id: bob.id });
+		expect(await db.users.setRole(bob.id, "ada", "user")).toEqual({ problem: "forbidden", permission: "user:change-role" });
 		expect(client.query.users.findMany({ columns: { username: true, role: true }, orderBy: { id: "asc" } }).sync()).toEqual([
 			{ username: "ada", role: "admin" },
 			{ username: "bob", role: "user" },
@@ -112,15 +129,15 @@ describe("deleting an account", () => {
 		const bobReview = await writeReview(db, bob.id, grill.id, 4);
 		await signIn(db, ada.id);
 		client.insert(s.accounts).values({ userId: ada.id, providerId: "google", accountId: "ada-google" }).run();
-		await db.mutations.reviews.like(ada.id, bobReview);
-		await db.mutations.follows.follow(ada.id, bob.username);
-		await db.mutations.follows.follow(bob.id, ada.username);
-		await db.mutations.restaurants.collect(ada.id, grill.id, "favorites");
-		await db.mutations.restaurants.collect(ada.id, grill.id, "bucketList");
+		await db.reviews.like(ada.id, bobReview);
+		await db.follows.follow(ada.id, bob.username);
+		await db.follows.follow(bob.id, ada.username);
+		await db.collections.add(ada.id, grill.id, "favorites");
+		await db.collections.add(ada.id, grill.id, "bucketList");
 
-		await db.mutations.users.delete(ada.id, ada.username);
+		await db.users.delete(ada.id, ada.username);
 
-		expect(await db.queries.users.findByUsername("ada")).toBeUndefined();
+		expect(await db.users.findByUsername("ada")).toBeUndefined();
 		for (const table of [s.sessions, s.accounts, s.likes, s.followers, s.favorites, s.bucketList, s.notifications]) {
 			expect(await client.$count(table)).toBe(0);
 		}
@@ -135,12 +152,12 @@ describe("the personal data export", () => {
 		const { client, db } = createTestDatabase();
 		const ada = insertUser(client, "ada");
 		const bob = insertUser(client, "bob");
-		await db.mutations.follows.follow(ada.id, bob.username);
-		await db.mutations.reviews.like(ada.id, insertReview(client, bob.id, insertRestaurant(client, "Hasir Kebab", { status: "approved" }).id, 6).id);
+		await db.follows.follow(ada.id, bob.username);
+		await db.reviews.like(ada.id, insertReview(client, bob.id, insertRestaurant(client, "Hasir Kebab", { status: "approved" }).id, 6).id);
 		const session = await createSession(ada.id, db);
 		client.update(s.users).set({ bio: "Döner fan" }).where(eq(s.users.id, ada.id)).run();
 
-		const exported = JSON.stringify(await db.queries.personalData.findByUser(ada.id));
+		const exported = JSON.stringify(await db.personalData.findByUser(ada.id));
 
 		expect(exported).toContain("Döner fan");
 		expect(exported).not.toContain(session.id);

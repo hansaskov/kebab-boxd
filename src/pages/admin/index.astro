@@ -13,18 +13,21 @@ if (!can(session.user, "admin-console:view")) {
   return Astro.rewrite("/403");
 }
 
-const counts = await Astro.locals.db.queries.admin.countOverview();
+const [users, restaurants] = await Promise.all([
+  Astro.locals.db.users.countByFilter(),
+  Astro.locals.db.restaurants.countByStatus(),
+]);
 
 const userGroups = [
-  { label: "Users", count: counts.all, href: "/admin/users" },
-  { label: "Admins", count: counts.admin, href: "/admin/users?filter=admin" },
-  { label: "Banned", count: counts.banned, href: "/admin/users?filter=banned" },
+  { label: "Users", count: users.all, href: "/admin/users" },
+  { label: "Admins", count: users.admin, href: "/admin/users?filter=admin" },
+  { label: "Banned", count: users.banned, href: "/admin/users?filter=banned" },
 ];
 
 const restaurantGroups = [
-  { label: "Waiting", count: counts.pending, href: "/admin/restaurants" },
-  { label: "Approved", count: counts.approved, href: "/admin/restaurants?status=approved" },
-  { label: "Rejected", count: counts.rejected, href: "/admin/restaurants?status=rejected" },
+  { label: "Waiting", count: restaurants.pending, href: "/admin/restaurants" },
+  { label: "Approved", count: restaurants.approved, href: "/admin/restaurants?status=approved" },
+  { label: "Rejected", count: restaurants.rejected, href: "/admin/restaurants?status=rejected" },
 ];
 ---
 

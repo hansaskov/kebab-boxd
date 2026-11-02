@@ -6,7 +6,7 @@ export const GET = (async ({ params, locals: { db, session }, redirect, rewrite 
 		return redirect("/login");
 	}
 
-	const user = params.username ? await db.queries.users.findByUsername(params.username) : undefined;
+	const user = params.username ? await db.users.findByUsername(params.username) : undefined;
 
 	if (!user) {
 		return rewrite("/404");
@@ -16,7 +16,7 @@ export const GET = (async ({ params, locals: { db, session }, redirect, rewrite 
 		return rewrite("/403");
 	}
 
-	const data = await db.queries.personalData.findByUser(user.id);
+	const data = await db.personalData.findByUser(user.id);
 
 	if (!data) {
 		return rewrite("/404");

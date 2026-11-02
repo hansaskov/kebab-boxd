@@ -1,5 +1,8 @@
-import { and, eq, exists, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
+import { authorizedWrite, findTargetRestaurant } from "@src/db/authorize";
 import type { Client } from "@src/db/client";
+import { isInCollectionOf } from "@src/db/collections";
+import { notify, withdrawDecision } from "@src/db/notifications";
 import { cursorList, type Filter, type Seek } from "@src/db/pagination";
 import * as s from "@src/db/schema";
 import type { RestaurantStatus } from "@src/db/schema";
@@ -8,11 +11,6 @@ import type { PageRequest } from "@src/pagination";
 
 export const restaurantSorts = ["top-rated", "popular", "newest"] as const;
 export type RestaurantSort = (typeof restaurantSorts)[number];
-
-export interface RestaurantListCriteria {
-	search: string;
-	sort: RestaurantSort;
-}
 
 const topRatedPages = cursorList("restaurants", ["ratingAvg", "id"], "desc");
 const popularPages = cursorList("restaurants", ["reviewCount", "id"], "desc");
@@ -34,16 +32,6 @@ function matching(search: string): Filter<"restaurants"> {
 	};
 }
 
-function isInCollection(client: Client, table: typeof s.favorites | typeof s.bucketList, viewerId: number) {
-	return (restaurant: typeof s.restaurants) =>
-		exists(
-			client
-				.select({ row: sql`1` })
-				.from(table)
-				.where(and(eq(table.restaurantId, restaurant.id), eq(table.userId, viewerId))),
-		).mapWith(Boolean);
-}
-
 // Orders by the squared distance in degrees, with longitude scaled to the latitude. Over the distances a map
 // shows, this is the order of the real distance, and SQLite computes it without trigonometric functions.
 function byDistanceFrom(center: Coordinates) {
@@ -53,13 +41,6 @@ function byDistanceFrom(center: Coordinates) {
 			+ (${location.longitude} - ${center.longitude}) * (${location.longitude} - ${center.longitude}) * ${scale}`;
 }
 
-const pinned = {
-	columns: { latitude: true, longitude: true, city: true },
-	with: { restaurant: { columns: { id: true, name: true, ratingAvg: true, reviewCount: true } } },
-} as const;
-
-type PinnedLocation = Omit<Pin, "restaurant"> & { restaurant: Pin["restaurant"] | null };
-
 export interface Pin {
 	latitude: number;
 	longitude: number;
@@ -67,13 +48,15 @@ export interface Pin {
 	restaurant: { id: number; name: string; ratingAvg: number; reviewCount: number };
 }
 
-function withRestaurant(locations: PinnedLocation[]): Pin[] {
-	return locations.flatMap(({ restaurant, ...location }) => (restaurant ? [{ ...location, restaurant }] : []));
-}
+const pinned = {
+	columns: { latitude: true, longitude: true, city: true },
+	with: { restaurant: { columns: { id: true, name: true, ratingAvg: true, reviewCount: true } } },
+} as const;
 
-export function createRestaurantQueries(client: Client) {
+export function createRestaurants(client: Client) {
 	return {
-		async list({ search, sort }: RestaurantListCriteria, page: PageRequest) {
+		// The approved restaurants whose name or city contains the search.
+		async list(search: string, sort: RestaurantSort, page: PageRequest) {
 			const read = (seek: Seek<"restaurants">) =>
 				client.query.restaurants.findMany({
 					...summary,
@@ -108,15 +91,15 @@ export function createRestaurantQueries(client: Client) {
 					suggester: { columns: { username: true, fullname: true } },
 				},
 				extras: {
-					isFavoriteOfViewer: isInCollection(client, s.favorites, viewerId),
-					isInBucketListOfViewer: isInCollection(client, s.bucketList, viewerId),
+					isFavoriteOfViewer: isInCollectionOf("favorites", viewerId),
+					isInBucketListOfViewer: isInCollectionOf("bucketList", viewerId),
 				},
 				where: { id },
 			});
 		},
 
-		// The restaurants nearest to the center, within the bounds when there are any.
-		async listNearest(center: Coordinates, limit: number, bounds?: Bounds) {
+		// The approved restaurants nearest to the center, within the bounds when there are any.
+		async listNearest(center: Coordinates, limit: number, bounds?: Bounds): Promise<Pin[]> {
 			const locations = await client.query.locations.findMany({
 				...pinned,
 				where: {
@@ -129,7 +112,8 @@ export function createRestaurantQueries(client: Client) {
 				orderBy: byDistanceFrom(center),
 				limit,
 			});
-			return withRestaurant(locations);
+			// The filter on the restaurant guarantees one, which the type of the relation cannot tell.
+			return locations.flatMap(({ restaurant, ...location }) => (restaurant ? [{ ...location, restaurant }] : []));
 		},
 
 		// The queue of suggestions is worked through oldest first; decided suggestions show the latest first.
@@ -152,7 +136,7 @@ export function createRestaurantQueries(client: Client) {
 			);
 		},
 
-		async countByStatus() {
+		async countByStatus(): Promise<Record<RestaurantStatus, number>> {
 			const counts = await client.query.restaurants.findFirst({
 				columns: {},
 				extras: {
@@ -164,6 +148,20 @@ export function createRestaurantQueries(client: Client) {
 			// Without a restaurant there is no row to read the counts from, and every count is 0.
 			return counts ?? { approved: 0, pending: 0, rejected: 0 };
 		},
+
+		// Approves or rejects a suggestion, and tells the suggester.
+		async decide(actorId: number, id: number, status: "approved" | "rejected") {
+			return authorizedWrite(client, actorId, "restaurant:moderate", (tx) => findTargetRestaurant(tx, id), (tx, restaurant) => {
+				if (restaurant.status === status) return "updated" as const;
+				tx.update(s.restaurants).set({ status }).where(eq(s.restaurants.id, id)).run();
+				// The decision replaces the earlier one with a new notification, which a "mark all as read" sent
+				// from a page that showed the earlier one does not mark.
+				withdrawDecision(tx, id);
+				if (restaurant.suggestedBy !== null && restaurant.suggestedBy !== actorId) {
+					notify(tx, { kind: `suggestion-${status}`, recipientId: restaurant.suggestedBy, restaurantId: id });
+				}
+				return "updated" as const;
+			});
+		},
 	};
 }
-

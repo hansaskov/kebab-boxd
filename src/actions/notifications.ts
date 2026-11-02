@@ -15,7 +15,7 @@ export const notificationActions = {
     handler: async ({ upToId }, context) => {
       const session = requireSession(context.locals);
 
-      await context.locals.db.mutations.notifications.markAllRead(session.user.id, upToId);
+      await context.locals.db.notifications.markAllRead(session.user.id, upToId);
     },
   }),
 };

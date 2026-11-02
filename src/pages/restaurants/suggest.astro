@@ -24,8 +24,8 @@ if (!can(session.user, "restaurant:suggest")) {
 
 const pageRequest = parsePageRequest(Astro.url);
 const [page, queued] = await Promise.all([
-  Astro.locals.db.queries.restaurants.listSuggestedBy(session.user.id, pageRequest),
-  pageRequest.cursor ? [] : Astro.locals.db.queries.suggestionQueue.listBy(session.user.id),
+  Astro.locals.db.restaurants.listSuggestedBy(session.user.id, pageRequest),
+  pageRequest.cursor ? [] : Astro.locals.db.suggestionQueue.listBy(session.user.id),
 ]);
 const navigation = pageNavigation(Astro.url, page);
 

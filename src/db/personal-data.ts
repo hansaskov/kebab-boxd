@@ -8,7 +8,7 @@ const collectedRestaurant = {
 	...oldestFirst,
 } as const;
 
-export function createPersonalDataQueries(client: Client) {
+export function createPersonalData(client: Client) {
 	return {
 		async findByUser(userId: number) {
 			return client.query.users.findFirst({

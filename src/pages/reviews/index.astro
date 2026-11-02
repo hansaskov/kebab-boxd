@@ -11,7 +11,7 @@ if (!session) {
   return Astro.redirect("/login");
 }
 
-const page = await Astro.locals.db.queries.reviews.listAllByAuthor(session.user.id, session.user.id, parsePageRequest(Astro.url));
+const page = await Astro.locals.db.reviews.listAllByAuthor(session.user.id, session.user.id, parsePageRequest(Astro.url));
 ---
 
 <BaseLayout

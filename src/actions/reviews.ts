@@ -8,7 +8,7 @@ function likeAction(write: "like" | "unlike") {
     accept: "form",
     input: reviewTargetSchema,
     handler: async ({ reviewId }, { locals }) => {
-      orThrow(await locals.db.mutations.reviews[write](requireSession(locals).user.id, reviewId));
+      orThrow(await locals.db.reviews[write](requireSession(locals).user.id, reviewId));
     },
   });
 }
@@ -19,7 +19,7 @@ export const reviewActions = {
     input: createReviewSchema,
     handler: async ({ restaurantId, rating, description, pictures }, { locals }) => {
       const { user } = requireSession(locals);
-      const review = orThrow(await locals.db.mutations.reviews.create(user.id, restaurantId, { rating, description: description || null }, pictures));
+      const review = orThrow(await locals.db.reviews.create(user.id, restaurantId, { rating, description: description || null }, pictures));
       return { redirect: reviewHref(review.id) };
     },
   }),
@@ -29,7 +29,7 @@ export const reviewActions = {
     handler: async ({ reviewId, rating, description, pictures, removePictureIds }, { locals }) => {
       const { user } = requireSession(locals);
       orThrow(
-        await locals.db.mutations.reviews.update(user.id, reviewId, {
+        await locals.db.reviews.update(user.id, reviewId, {
           rating,
           description: description || null,
           addPictures: pictures,
@@ -44,7 +44,7 @@ export const reviewActions = {
     input: reviewTargetSchema,
     handler: async ({ reviewId }, { locals }) => {
       const { user } = requireSession(locals);
-      const review = orThrow(await locals.db.mutations.reviews.delete(user.id, reviewId));
+      const review = orThrow(await locals.db.reviews.delete(user.id, reviewId));
       return { redirect: review.authorId === user.id ? "/reviews" : restaurantHref(review.restaurantId) };
     },
   }),

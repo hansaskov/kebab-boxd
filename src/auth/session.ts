@@ -49,7 +49,7 @@ export async function validateSessionToken(token: string, db: Database) {
 
 	if (now.getTime() - session.lastVerifiedAt.getTime() >= activityCheckIntervalSeconds * 1000) {
 		session.lastVerifiedAt = now;
-		await db.mutations.sessions.setLastVerifiedAt(sessionId, now);
+		await db.sessions.setLastVerifiedAt(sessionId, now);
 	}
 
 	return session;
@@ -72,7 +72,7 @@ export async function createSession(userId: number, db: Database): Promise<Sessi
 		token,
 	};
 
-	await db.mutations.sessions.create(session);
+	await db.sessions.create(session);
 
 	return session;
 }
@@ -80,14 +80,14 @@ export async function createSession(userId: number, db: Database): Promise<Sessi
 export async function getSession(sessionId: string, db: Database) {
 	const now = new Date();
 
-	const session = await db.queries.sessions.findWithUser(sessionId);
+	const session = await db.sessions.findWithUser(sessionId);
 
 	if (!session) {
 		return null;
 	}
 
 	if (session.user.bannedAt || now.getTime() - session.lastVerifiedAt.getTime() >= inactivityTimeoutSeconds * 1000) {
-		await db.mutations.sessions.delete(sessionId);
+		await db.sessions.delete(sessionId);
 		return null;
 	}
 

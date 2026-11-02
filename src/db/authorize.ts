@@ -1,25 +1,14 @@
-import { refusal, type Refusal, type Resource, type ResourcePermission, type UserPermission } from "@src/auth/permissions";
+import { refusal, type Resource, type ResourcePermission, type UserPermission } from "@src/auth/permissions";
 import type { Client, Transaction } from "@src/db/client";
-
-// Why a write did not happen. The actions turn each one into the message the user sees.
-export type Problem =
-	| { problem: Refusal; permission: ResourcePermission }
-	| { problem: "invalid-picture" | "too-many-pictures" | "username-taken" | "queue-full" | "account-gone" };
-
-export function problem<P extends Exclude<Problem["problem"], Refusal>>(name: P) {
-	return { problem: name };
-}
-
-export function isProblem(result: unknown): result is Problem {
-	return typeof result === "object" && result !== null && "problem" in result;
-}
+import type { Problem } from "@src/db/problem";
+import { isListedReview } from "@src/db/visibility";
 
 function findActor(tx: Transaction, id: number) {
 	return tx.query.users.findFirst({ columns: { id: true, role: true, bannedAt: true }, where: { id } }).sync();
 }
 
-// The only check of the permission: it reads the actor and the resource inside the write transaction, so a role
-// or a resource that changes while the request runs cannot slip through.
+// The only check of a permission on a resource: it reads the actor and the resource inside the write
+// transaction, so a role or a resource that changes while the request runs cannot slip through.
 export function authorizedWrite<P extends ResourcePermission, R extends Resource<P>, T>(
 	client: Client,
 	actorId: number,
@@ -41,7 +30,7 @@ export function authorizedWrite<P extends ResourcePermission, R extends Resource
 // The user a write is about, as the permissions need them and the action needs them to name the page it goes back to.
 export const targetUserColumns = { id: true, username: true, role: true, bannedAt: true } as const;
 
-export function findTargetUser(tx: Transaction, username: string) {
+function findTargetUser(tx: Transaction, username: string) {
 	return tx.query.users.findFirst({ columns: targetUserColumns, where: { username: username.toLowerCase() } }).sync();
 }
 
@@ -54,4 +43,20 @@ export function writeOnUser(
 	write: (tx: Transaction, user: NonNullable<ReturnType<typeof findTargetUser>>) => Problem | void,
 ) {
 	return authorizedWrite(client, actorId, permission, (tx) => findTargetUser(tx, username), (tx, user) => write(tx, user) ?? user);
+}
+
+export function findTargetRestaurant(tx: Transaction, id: number) {
+	return tx.query.restaurants.findFirst({ columns: { status: true, suggestedBy: true }, where: { id } }).sync();
+}
+
+// With its pictures, whose files go when the write removes them.
+export function findTargetReview(tx: Transaction, id: number) {
+	return tx.query.reviews
+		.findFirst({
+			columns: { id: true, authorId: true, restaurantId: true },
+			with: { pictures: { columns: { id: true, url: true } } },
+			extras: { isListed: (review) => isListedReview(review).mapWith(Boolean) },
+			where: { id },
+		})
+		.sync();
 }

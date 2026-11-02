@@ -12,7 +12,7 @@ import TabNav from "@src/components/TabNav.astro";
 import { can } from "@src/auth/permissions";
 import { profileHref, settingsHref } from "@src/hrefs";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
-import { parseProfileTab, profileTabs, type ProfileTab } from "@src/validation/profile-tab";
+import { parseOption } from "@src/validation/search-params";
 
 const { username } = Astro.params;
 
@@ -26,8 +26,8 @@ if (!session) {
   return Astro.redirect("/login");
 }
 
-const { profiles, reviews } = Astro.locals.db.queries;
-const user = await profiles.findByUsername(username, session.user.id);
+const { users, reviews, collections, follows } = Astro.locals.db;
+const user = await users.findProfile(username, session.user.id);
 
 if (!user) {
   return Astro.rewrite("/404");
@@ -42,7 +42,10 @@ const canFollow = can(session.user, "user:follow", user);
 const isFollowing = user.isFollowedByViewer && can(session.user, "user:unfollow", user);
 
 const canView = can(session.user, "user:view-profile", user);
-const tab = parseProfileTab(Astro.url.searchParams);
+const profileTabs = ["reviews", "favorites", "bucket-list", "followers", "following"] as const;
+type ProfileTab = (typeof profileTabs)[number];
+
+const tab = parseOption(Astro.url.searchParams, "tab", profileTabs, "reviews");
 const pageRequest = parsePageRequest(Astro.url);
 let reviewPage;
 let restaurantPage;
@@ -54,21 +57,17 @@ if (canView) {
       reviewPage = await reviews.listPublicByAuthor(user.id, session.user.id, pageRequest);
       break;
     case "favorites":
-      restaurantPage = await profiles.listFavorites(user.id, pageRequest);
+      restaurantPage = await collections.list(user.id, "favorites", pageRequest);
       break;
     case "bucket-list":
-      restaurantPage = await profiles.listBucketList(user.id, pageRequest);
+      restaurantPage = await collections.list(user.id, "bucketList", pageRequest);
       break;
-    case "followers": {
-      const page = await profiles.listFollowers(user.id, session.user.id, pageRequest);
-      personPage = { ...page, items: page.items.map((row) => row.follower) };
+    case "followers":
+      personPage = await follows.listFollowers(user.id, session.user.id, pageRequest);
       break;
-    }
-    case "following": {
-      const page = await profiles.listFollowing(user.id, session.user.id, pageRequest);
-      personPage = { ...page, items: page.items.map((row) => row.following) };
+    case "following":
+      personPage = await follows.listFollowing(user.id, session.user.id, pageRequest);
       break;
-    }
   }
 }
 const isOwnProfile = session.user.id === user.id;
@@ -150,7 +149,7 @@ const layout = canView
       {restaurantPage && (
         <PagedSection class="mt-4" aria-label={tabs[tab].label} page={restaurantPage} empty={tabs[tab].empty}>
           <RestaurantList
-            restaurants={restaurantPage.items.map(({ restaurant }) => ({ ...restaurant, details: [restaurant.location.city] }))}
+            restaurants={restaurantPage.items.map((restaurant) => ({ ...restaurant, details: [restaurant.location.city] }))}
             remove={isOwnProfile
               ? tab === "favorites"
                 ? { action: actions.restaurants.unfavorite, label: "Remove from favorites" }

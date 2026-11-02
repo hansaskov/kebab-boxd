@@ -1,5 +1,5 @@
 import type { Refusal } from "@src/auth/permissions";
-import type { Notification } from "@src/db/queries/notifications";
+import type { Notification } from "@src/db/notifications";
 
 function userPath(username: string) {
 	return `/${encodeURIComponent(username)}`;

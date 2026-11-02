@@ -13,7 +13,7 @@ if (!session) {
   return Astro.redirect("/login");
 }
 
-const page = await Astro.locals.db.queries.notifications.list(session.user.id, parsePageRequest(Astro.url));
+const page = await Astro.locals.db.notifications.list(session.user.id, parsePageRequest(Astro.url));
 const newestUnreadId = session.user.newestUnreadNotificationId;
 
 const unreadHrefs = page.items.filter((notification) => !notification.isRead).map(notificationHref);

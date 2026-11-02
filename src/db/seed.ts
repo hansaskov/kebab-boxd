@@ -4,9 +4,9 @@ import { createDatabase } from "@src/db";
 import type { Client } from "@src/db/client";
 import { pronouns } from "@src/data/pronouns";
 import { createSession } from "@src/auth/session";
-import { buildUsername } from "@src/db/mutations/accounts";
+import { buildUsername } from "@src/db/accounts";
 import { eq } from "drizzle-orm";
-import { refreshLikeCounts, refreshRestaurantStats } from "@src/db/mutations/cached-stats";
+import { refreshLikeCounts, refreshRestaurantStats } from "@src/db/cached-stats";
 import type { PictureStore } from "@src/pictures/store";
 
 const imageUrls = [
@@ -195,7 +195,7 @@ export async function seedDatabase(client: Client, pictures: PictureStore) {
   }
   const bannableUsers = await client.query.users.findMany({ columns: { username: true }, where: { role: "user" }, limit: 3 });
   for (const { username } of bannableUsers) {
-    await db.mutations.users.ban(admin.id, username);
+    await db.users.ban(admin.id, username);
   }
 
   const favoritesRows = uniquePairs(250, userIds, restaurantIds).map(([userId, restaurantId]) => ({

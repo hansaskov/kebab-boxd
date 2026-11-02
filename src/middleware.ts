@@ -42,14 +42,14 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 		// The handler reads the body, so a copy is kept to give the form back what the user typed if it fails.
 		const submitted = context.request.clone();
 		const { data, error } = await action.handler();
-		await db.mutations.sessions.setActionData(session.id, await toOutcome(action.name, error, submitted));
+		await db.sessions.setActionData(session.id, await toOutcome(action.name, error, submitted));
 
 		const location = !error && hasRedirect(data) ? data.redirect : undefined;
 		return redirectClearingSpeculations(location ?? sameOriginReferer(context.request, context.url.origin) ?? context.originPathname);
 	}
 
 	if (context.request.method === "GET" && session.actionData) {
-		await db.mutations.sessions.setActionData(session.id, null);
+		await db.sessions.setActionData(session.id, null);
 		context.locals.actionOutcome = session.actionData;
 	}
 
@@ -68,7 +68,7 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 		};
 
 		setImmediate(() => {
-			db.mutations.history.record(entry).catch((error: unknown) => {
+			db.history.record(entry).catch((error: unknown) => {
 				console.error("Could not record history entry", entry, error);
 			});
 		});

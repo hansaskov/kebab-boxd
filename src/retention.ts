@@ -4,7 +4,7 @@ const purgeIntervalMs = 60 * 60 * 1000;
 
 export function scheduleRetentionPurge(db: Database) {
 	const purge = () => {
-		db.mutations.retention.purge(new Date()).catch((error: unknown) => {
+		db.retention.purge(new Date()).catch((error: unknown) => {
 			console.error("Could not purge expired personal data", error);
 		});
 	};

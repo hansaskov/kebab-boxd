@@ -27,7 +27,7 @@ if (!session) {
     return Astro.redirect("/login");
 }
 
-const user = await Astro.locals.db.queries.users.findByUsername(username);
+const user = await Astro.locals.db.users.findByUsername(username);
 if (!user) {
     return Astro.rewrite("/404");
 }
@@ -45,7 +45,7 @@ const canExportData = can(session.user, "user:export-data", user);
 const canDeleteAccount = can(session.user, "user:delete-account", user);
 const isOwnAccount = session.user.id === user.id;
 
-const activeSessions = canManageSessions ? await Astro.locals.db.queries.sessions.listActive(user.id) : [];
+const activeSessions = canManageSessions ? await Astro.locals.db.sessions.listActive(user.id) : [];
 
 const accountForm = submittedForm(Astro.locals, actions.updateSettings);
 const pictureForm = submittedForm(Astro.locals, actions.updateProfilePicture);

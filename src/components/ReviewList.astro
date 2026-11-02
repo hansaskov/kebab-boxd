@@ -1,7 +1,7 @@
 ---
 import type { ComponentProps } from "astro/types";
 import ReviewCard from "@src/components/ReviewCard.astro";
-import type { ReviewCard as ReviewCardData } from "@src/db/queries/reviews";
+import type { ReviewCard as ReviewCardData } from "@src/db/reviews";
 
 interface Props extends Omit<ComponentProps<typeof ReviewCard>, "review" | "class"> {
   reviews: ReviewCardData[];

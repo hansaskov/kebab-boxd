@@ -36,11 +36,11 @@ describe("RatingAvg", () => {
 		const review = await writeReview(db, ada.id, grill.id, 2);
 		await writeReview(db, bob.id, grill.id, 10);
 
-		await db.mutations.reviews.update(ada.id, review, { rating: 8, description: null, addPictures: [], removePictureIds: [] });
+		await db.reviews.update(ada.id, review, { rating: 8, description: null, addPictures: [], removePictureIds: [] });
 
 		expect(restaurantRow(client, grill.id)).toMatchObject({ ratingAvg: 9, reviewCount: 2 });
 
-		await db.mutations.reviews.delete(ada.id, review);
+		await db.reviews.delete(ada.id, review);
 
 		expect(restaurantRow(client, grill.id)).toMatchObject({ ratingAvg: 10, reviewCount: 1 });
 	});
@@ -53,14 +53,14 @@ describe("RatingAvg", () => {
 		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
 		await writeReview(db, ada.id, grill.id, 10);
 		const spam = await writeReview(db, bob.id, grill.id, 2);
-		const listed = async () => (await db.queries.reviews.listByRestaurant(grill.id, ada.id, firstPage)).items.map((review) => review.id);
+		const listed = async () => (await db.reviews.listByRestaurant(grill.id, ada.id, firstPage)).items.map((review) => review.id);
 
-		await db.mutations.users.ban(admin.id, bob.username);
+		await db.users.ban(admin.id, bob.username);
 
 		expect(restaurantRow(client, grill.id)).toMatchObject({ ratingAvg: 10, reviewCount: 1 });
 		expect(await listed()).not.toContain(spam);
 
-		await db.mutations.users.unban(admin.id, bob.username);
+		await db.users.unban(admin.id, bob.username);
 
 		expect(restaurantRow(client, grill.id)).toMatchObject({ ratingAvg: 6, reviewCount: 2 });
 		expect(await listed()).toContain(spam);
@@ -77,18 +77,38 @@ describe("the Feed", () => {
 		const dan = insertUser(client, "dan");
 		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
 		const pending = insertRestaurant(client, "Mangal Express");
-		for (const user of [bob, cleo, dan]) await db.mutations.follows.follow(ada.id, user.username);
+		for (const user of [bob, cleo, dan]) await db.follows.follow(ada.id, user.username);
 		insertReview(client, bob.id, grill.id, 8, daysAgo(9));
 		const bobs = [6, 4, 2].map((age) => insertReview(client, bob.id, grill.id, 8, daysAgo(age)));
 		insertReview(client, bob.id, pending.id, 4, daysAgo(2));
 		insertReview(client, dan.id, grill.id, 2, daysAgo(2));
 		insertReview(client, ada.id, grill.id, 10, daysAgo(2));
 		const cleos = insertReview(client, cleo.id, grill.id, 9, daysAgo(3));
-		await db.mutations.users.ban(admin.id, dan.username);
+		await db.users.ban(admin.id, dan.username);
 
-		const feed = await db.queries.reviews.listFeed(ada.id, "following", firstPage);
+		const feed = await db.reviews.listFeed(ada.id, "following", firstPage);
 
 		expect(feed.items.map((review) => review.id)).toEqual([bobs[2]!.id, cleos.id, bobs[1]!.id, bobs[0]!.id]);
+	});
+});
+
+describe("the Profile", () => {
+	it("lists and counts the same Reviews: those in the ReviewWindow at approved restaurants, also while the author is banned", async () => {
+		const { client, db } = createTestDatabase();
+		const admin = insertUser(client, "root_admin", "admin");
+		const bob = insertUser(client, "bob");
+		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
+		const pending = insertRestaurant(client, "Mangal Express");
+		insertReview(client, bob.id, grill.id, 8, daysAgo(9));
+		const window = [6, 4, 2].map((age) => insertReview(client, bob.id, grill.id, 8, daysAgo(age)));
+		insertReview(client, bob.id, pending.id, 4, daysAgo(1));
+		await db.users.ban(admin.id, bob.username);
+
+		const profile = await db.users.findProfile(bob.username, admin.id);
+		const listed = await db.reviews.listPublicByAuthor(bob.id, admin.id, firstPage);
+
+		expect(listed.items.map((review) => review.id)).toEqual(window.toReversed().map((review) => review.id));
+		expect(profile?.reviewCount).toBe(listed.items.length);
 	});
 });
 
@@ -101,18 +121,18 @@ describe("Likes", () => {
 		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
 		const outsideWindow = insertReview(client, bob.id, grill.id, 8, daysAgo(4));
 		const review = [3, 2, 1].map((age) => insertReview(client, bob.id, grill.id, 8, daysAgo(age))).at(-1)!;
-		const seenBy = async (viewerId: number) => (await db.queries.reviews.findById(review.id, viewerId))!;
+		const seenBy = async (viewerId: number) => (await db.reviews.findById(review.id, viewerId))!;
 
-		await db.mutations.reviews.like(ada.id, review.id);
-		await db.mutations.reviews.like(ada.id, review.id);
-		await db.mutations.reviews.like(cleo.id, review.id);
+		await db.reviews.like(ada.id, review.id);
+		await db.reviews.like(ada.id, review.id);
+		await db.reviews.like(cleo.id, review.id);
 
 		expect(await seenBy(ada.id)).toMatchObject({ likeCount: 2, isLikedByViewer: true });
 
-		await db.mutations.reviews.unlike(ada.id, review.id);
+		await db.reviews.unlike(ada.id, review.id);
 
 		expect(await seenBy(ada.id)).toMatchObject({ likeCount: 1, isLikedByViewer: false });
-		expect(await db.mutations.reviews.like(ada.id, outsideWindow.id)).toEqual({ problem: "not-found", permission: "review:like" });
+		expect(await db.reviews.like(ada.id, outsideWindow.id)).toEqual({ problem: "not-found", permission: "review:like" });
 	});
 });
 
@@ -125,7 +145,7 @@ describe("restaurant lists", () => {
 			client.update(s.restaurants).set({ ratingAvg: i < 6 ? 7.5 : 8 + 1 / 3, reviewCount: 1 }).where(eq(s.restaurants.id, restaurant.id)).run();
 		}
 		const expected = [...restaurants.slice(6).toReversed(), ...restaurants.slice(0, 6).toReversed()].map((restaurant) => restaurant.id);
-		const list = async (cursor: (typeof firstPage)["cursor"]) => db.queries.restaurants.list({ search: "", sort: "top-rated" }, { limit: 10, cursor });
+		const list = async (cursor: (typeof firstPage)["cursor"]) => db.restaurants.list("", "top-rated", { limit: 10, cursor });
 
 		const first = await list(undefined);
 		const second = await list(first.next);

@@ -1,8 +1,8 @@
 import { ActionError } from "astro:actions";
 import { z } from "astro/zod";
 import { can, type ResourcePermission, type Subject } from "@src/auth/permissions";
-import { isProblem, type Problem } from "@src/db/mutations/authorize";
-import { maxQueuedPerUser } from "@src/db/mutations/suggestion-queue";
+import { isProblem, type Problem } from "@src/db/problem";
+import { maxQueuedPerUser } from "@src/db/suggestion-queue";
 import { maxPicturesPerReview } from "@src/validation/review";
 import { usernameSchema } from "@src/validation/username";
 

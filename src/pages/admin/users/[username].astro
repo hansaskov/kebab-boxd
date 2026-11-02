@@ -27,7 +27,7 @@ if (!can(session.user, "admin-console:view")) {
   return Astro.rewrite("/403");
 }
 
-const user = await Astro.locals.db.queries.users.findByUsername(username);
+const user = await Astro.locals.db.users.findByUsername(username);
 
 if (!user) {
   return Astro.rewrite("/404");
@@ -42,7 +42,7 @@ const canChangeRole = can(session.user, "user:change-role", user);
 const canManageSessions = can(session.user, "user:manage-sessions", user);
 const isOwnAccount = session.user.id === user.id;
 
-const devices = canManageSessions ? await Astro.locals.db.queries.sessions.listActive(user.id) : [];
+const devices = canManageSessions ? await Astro.locals.db.sessions.listActive(user.id) : [];
 const lastActiveAt = devices.at(0)?.history.at(0)?.requestedAt;
 
 const toast =

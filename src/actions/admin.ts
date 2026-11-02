@@ -14,7 +14,7 @@ function decideSuggestionAction(status: "approved" | "rejected") {
     accept: "form",
     input: restaurantTargetSchema,
     handler: async ({ restaurantId }, { locals }) => {
-      orThrow(await locals.db.mutations.restaurants.setStatus(requireSession(locals).user.id, restaurantId, status));
+      orThrow(await locals.db.restaurants.decide(requireSession(locals).user.id, restaurantId, status));
     },
   });
 }
@@ -24,7 +24,7 @@ function banAction(write: "ban" | "unban") {
     accept: "form",
     input: targetUserSchema,
     handler: async ({ username }, { locals }) => {
-      const user = orThrow(await locals.db.mutations.users[write](requireSession(locals).user.id, username));
+      const user = orThrow(await locals.db.users[write](requireSession(locals).user.id, username));
       return { redirect: adminUserHref(user.username) };
     },
   });
@@ -39,7 +39,7 @@ export const adminActions = {
     accept: "form",
     input: changeUserRoleSchema,
     handler: async ({ username, role }, { locals }) => {
-      const user = orThrow(await locals.db.mutations.users.setRole(requireSession(locals).user.id, username, role));
+      const user = orThrow(await locals.db.users.setRole(requireSession(locals).user.id, username, role));
       return { redirect: adminUserHref(user.username) };
     },
   }),

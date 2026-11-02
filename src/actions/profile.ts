@@ -6,7 +6,7 @@ function followAction(write: "follow" | "unfollow") {
     accept: "form",
     input: targetUserSchema,
     handler: async ({ username }, { locals }) => {
-      orThrow(await locals.db.mutations.follows[write](requireSession(locals).user.id, username));
+      orThrow(await locals.db.follows[write](requireSession(locals).user.id, username));
     },
   });
 }

@@ -1,57 +1,38 @@
+import { createAccounts } from "@src/db/accounts";
 import type { Client } from "@src/db/client";
-import { createAccountMutations } from "@src/db/mutations/accounts";
-import { createFollowMutations } from "@src/db/mutations/follows";
-import { createHistoryMutations } from "@src/db/mutations/history";
-import { createNotificationMutations } from "@src/db/mutations/notifications";
-import { createRestaurantMutations } from "@src/db/mutations/restaurants";
-import { createRetentionMutations } from "@src/db/mutations/retention";
-import { createReviewMutations } from "@src/db/mutations/reviews";
-import { createSessionMutations } from "@src/db/mutations/sessions";
-import { createSuggestionQueueMutations } from "@src/db/mutations/suggestion-queue";
-import { createUserMutations } from "@src/db/mutations/users";
-import { createAdminQueries } from "@src/db/queries/admin";
-import { createHistoryQueries } from "@src/db/queries/history";
-import { createNotificationQueries } from "@src/db/queries/notifications";
-import { createPeopleQueries } from "@src/db/queries/people";
-import { createPersonalDataQueries } from "@src/db/queries/personal-data";
-import { createProfileQueries } from "@src/db/queries/profiles";
-import { createRestaurantQueries } from "@src/db/queries/restaurants";
-import { createReviewQueries } from "@src/db/queries/reviews";
-import { createSessionQueries } from "@src/db/queries/sessions";
-import { createSuggestionQueueQueries } from "@src/db/queries/suggestion-queue";
-import { createUserQueries } from "@src/db/queries/users";
+import { createCollections } from "@src/db/collections";
+import { createFollows } from "@src/db/follows";
+import { createHistory } from "@src/db/history";
+import { createNotifications } from "@src/db/notifications";
+import { createPersonalData } from "@src/db/personal-data";
+import { createRestaurants } from "@src/db/restaurants";
+import { createRetention } from "@src/db/retention";
+import { createReviews } from "@src/db/reviews";
+import { createSessions } from "@src/db/sessions";
+import { createSuggestionQueue } from "@src/db/suggestion-queue";
+import { createUsers } from "@src/db/users";
 import type { PictureStore } from "@src/pictures/store";
 
+// One module for each concept of CONTEXT.md, which both reads and writes it. The rules that more than one of
+// them needs live in visibility.ts, authorize.ts and cached-stats.ts.
+//
 // The pictures belong here because the rows that point to them are written here: whatever removes a
 // picture from the database removes its file too.
 export function createDatabase(client: Client, pictures: PictureStore) {
 	return {
 		pictures,
-		queries: {
-			admin: createAdminQueries(client),
-			history: createHistoryQueries(client),
-			notifications: createNotificationQueries(client),
-			people: createPeopleQueries(client),
-			personalData: createPersonalDataQueries(client),
-			profiles: createProfileQueries(client),
-			restaurants: createRestaurantQueries(client),
-			reviews: createReviewQueries(client),
-			sessions: createSessionQueries(client),
-			suggestionQueue: createSuggestionQueueQueries(client),
-			users: createUserQueries(client),
-		},
-		mutations: {
-			accounts: createAccountMutations(client),
-			follows: createFollowMutations(client),
-			history: createHistoryMutations(client),
-			notifications: createNotificationMutations(client),
-			restaurants: createRestaurantMutations(client),
-			retention: createRetentionMutations(client),
-			reviews: createReviewMutations(client, pictures),
-			sessions: createSessionMutations(client),
-			suggestionQueue: createSuggestionQueueMutations(client),
-			users: createUserMutations(client, pictures),
-		},
+		accounts: createAccounts(client),
+		collections: createCollections(client),
+		follows: createFollows(client),
+		history: createHistory(client),
+		notifications: createNotifications(client),
+		personalData: createPersonalData(client),
+		restaurants: createRestaurants(client),
+		retention: createRetention(client),
+		reviews: createReviews(client, pictures),
+		sessions: createSessions(client),
+		suggestionQueue: createSuggestionQueue(client),
+		users: createUsers(client, pictures),
 	};
 }
 
