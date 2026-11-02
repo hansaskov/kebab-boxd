@@ -18,8 +18,8 @@
   },
   "dependencies": {
     "@astrojs/node": "^11.1.9",
-    "@lucide/astro": "^1.61.0",
-    "astro": "7.4.2",
+    "@lucide/astro": "^1.66.0",
+    "astro": "7.4.4",
     "drizzle-kit": "1.0.0-rc.5",
     "drizzle-orm": "1.0.0-rc.5",
     "drizzle-seed": "1.0.0-rc.5",
@@ -27,10 +27,10 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
-    "@oxlint/plugins": "1.89.0",
+    "@oxlint/plugins": "1.90.0",
     "@tailwindcss/vite": "^4.3.3",
-    "@types/node": "^26.6.5",
-    "oxlint": "^1.89.0",
+    "@types/node": "^26.6.6",
+    "oxlint": "^1.90.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
     "vitest": "^5.0.5"
@@ -38,7 +38,7 @@
   "devEngines": {
     "runtime": {
       "name": "node",
-      "version": "^26.12.1",
+      "version": "^26.13.0",
       "onFail": "download"
     }
   }

@@ -5,3 +5,6 @@ minimumReleaseAgeExclude:
   - drizzle-kit@1.0.0-rc.5
   - drizzle-orm@1.0.0-rc.5
   - drizzle-seed@1.0.0-rc.5
+permissions:
+  drizzle-kit:
+    skills: true
