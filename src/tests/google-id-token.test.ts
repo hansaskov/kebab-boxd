@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { InvalidIdTokenError, parseGoogleIdToken } from "@src/auth/providers/google";
 import { base64UrlEncode } from "@src/auth/hash";
+import { InvalidIdTokenError, parseGoogleIdToken } from "@src/auth/providers/google";
 
 const clientId = "test-client-id";
 
@@ -21,8 +21,8 @@ function idToken(overrides: Record<string, unknown> = {}): string {
 	return `${encodePart({ alg: "RS256", typ: "JWT" })}.${encodePart(claims)}.signature`;
 }
 
-describe("parseGoogleIdToken", () => {
-	it("returns a provider account from valid claims", () => {
+describe("a Google ID token", () => {
+	it("gives the Account it vouches for", () => {
 		expect(parseGoogleIdToken(idToken(), clientId)).toEqual({
 			providerId: "google",
 			accountId: "google-sub-1",
@@ -36,7 +36,7 @@ describe("parseGoogleIdToken", () => {
 		["another client", { aud: "someone-else" }],
 		["another issuer", { iss: "https://example.com" }],
 		["an unverified email address", { email_verified: false }],
-	])("rejects a token for %s", (_, overrides) => {
+	])("is refused when it is for %s", (_, overrides) => {
 		expect(() => parseGoogleIdToken(idToken(overrides), clientId)).toThrow(InvalidIdTokenError);
 	});
 });

@@ -1,0 +1,76 @@
+import sharp from "sharp";
+import { describe, expect, it } from "vitest";
+import * as PictureEndpoint from "@src/pages/pictures/[name]";
+import type { Database } from "@src/db";
+import { requestEndpoint } from "@src/tests/container";
+import { createTestDatabase, insertRestaurant, insertUser, writeReview } from "@src/tests/database";
+import { nameOf, pictureFile, storedPictureNames, textFile } from "@src/tests/pictures";
+
+function requestPicture(db: Database, url: string) {
+	return requestEndpoint(PictureEndpoint, { db, session: null }, url, { name: nameOf(url) });
+}
+
+async function picturesOf(db: Database, reviewId: number, viewerId: number) {
+	return (await db.queries.reviews.findById(reviewId, viewerId))?.pictures ?? [];
+}
+
+function setUp() {
+	const test = createTestDatabase();
+	const ada = insertUser(test.client, "ada");
+	const grill = insertRestaurant(test.client, "Bosporus Grill", { status: "approved" });
+	return { ...test, ada, grill };
+}
+
+describe("Pictures", () => {
+	it("are stored upright, without the metadata of the camera, and served only to the browser that asks", async () => {
+		const { db, ada, grill } = setUp();
+		const rotated = await pictureFile("rotated.jpg", { width: 40, height: 20, orientation: 6, description: "Our address" });
+		const review = await writeReview(db, ada.id, grill.id, 8, [rotated]);
+		const [picture] = await picturesOf(db, review, ada.id);
+
+		const response = await requestPicture(db, picture!.url);
+		const metadata = await sharp(Buffer.from(await response.arrayBuffer())).metadata();
+
+		expect(response.headers.get("Content-Type")).toBe("image/webp");
+		expect(response.headers.get("Cache-Control")).toBe("private, max-age=31536000, immutable");
+		expect(metadata).toMatchObject({ format: "webp", width: 20, height: 40 });
+		expect(metadata.exif).toBeUndefined();
+		expect(metadata.orientation).toBeUndefined();
+	});
+
+	it("are refused together with the review when one file is not a picture, and leave no files behind", async () => {
+		const { client, db, picturesDirectory, ada, grill } = setUp();
+
+		const result = await db.mutations.reviews.create(ada.id, grill.id, { rating: 8, description: null }, [await pictureFile(), textFile()]);
+
+		expect(result).toEqual({ problem: "invalid-picture" });
+		expect(client.query.reviews.findMany().sync()).toEqual([]);
+		expect(storedPictureNames(picturesDirectory)).toEqual([]);
+	});
+
+	it("are removed from storage when taken off the review, with the review, and with the account of the author", async () => {
+		const { db, picturesDirectory, ada, grill } = setUp();
+		const kept = await writeReview(db, ada.id, grill.id, 8, [await pictureFile(), await pictureFile()]);
+		const deleted = await writeReview(db, ada.id, grill.id, 8, [await pictureFile()]);
+		await db.mutations.users.setProfilePicture(ada.id, ada.username, await pictureFile());
+		const [, removed] = await picturesOf(db, kept, ada.id);
+
+		await db.mutations.reviews.update(ada.id, kept, { rating: 8, description: null, addPictures: [], removePictureIds: [removed!.id] });
+		await db.mutations.reviews.delete(ada.id, deleted);
+
+		expect(storedPictureNames(picturesDirectory)).toHaveLength(2);
+		expect((await requestPicture(db, removed!.url)).status).toBe(404);
+
+		await db.mutations.users.delete(ada.id, ada.username);
+
+		expect(storedPictureNames(picturesDirectory)).toEqual([]);
+	});
+
+	it("are never read from outside the picture folder", async () => {
+		const { db } = createTestDatabase();
+
+		for (const url of ["/pictures/aaaaaaaaaaaaaaaaaaaaaaaa.webp", "/pictures/..%2F..%2Fdb.sqlite"]) {
+			expect((await requestPicture(db, url)).status, url).toBe(404);
+		}
+	});
+});

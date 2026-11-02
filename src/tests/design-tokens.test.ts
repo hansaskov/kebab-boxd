@@ -10,8 +10,8 @@ function colorTokens(selector: string): string[] {
 	return [...body.matchAll(/(--ds-color-[\w-]+)\s*:/g)].map((match) => match[1] ?? "").toSorted();
 }
 
-describe("design tokens", () => {
-	it("gives every colour token a value in both themes", () => {
+describe("the design tokens", () => {
+	it("give every colour a value in both themes", () => {
 		expect(colorTokens('[data-theme="dark"]')).toEqual(colorTokens('[data-theme="light"]'));
 	});
 });

@@ -19,11 +19,6 @@ export function textFile(name = "menu.jpg") {
 	return new File(["This is not a picture."], name, { type: "image/jpeg" });
 }
 
-// What the browser sends for a file input that the user left empty.
-export function emptyFileInput() {
-	return new File([], "", { type: "application/octet-stream" });
-}
-
 export function storedPictureNames(directory: string) {
 	return readdirSync(directory).toSorted();
 }

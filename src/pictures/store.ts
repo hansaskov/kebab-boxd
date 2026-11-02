@@ -1,4 +1,5 @@
-import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { mkdirSync } from "node:fs";
+import { readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import sharp, { type ResizeOptions } from "sharp";
 import { generateSecureRandomString } from "@src/auth/hash";
@@ -48,13 +49,13 @@ function isMissingFile(error: unknown) {
 	return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
+// Creates the folder at once, so a folder that cannot be created stops the server as it starts.
 export function createPictureStore(directory: string) {
-	const ready = mkdir(directory, { recursive: true });
+	mkdirSync(directory, { recursive: true });
 
 	async function save(file: File, kind: PictureKind): Promise<string> {
 		const bytes = await encode(file, kind);
 		const name = `${generateSecureRandomString()}.webp`;
-		await ready;
 		await writeFile(join(directory, name), bytes, { flag: "wx" });
 		return `${picturePathPrefix}${name}`;
 	}
