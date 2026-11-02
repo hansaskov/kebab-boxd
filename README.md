@@ -4,15 +4,37 @@ Review your favorite kebab restaurants.
 
 ## Installation
 
-Copy `.env.example` to `.env`. and add the google credentials before you begin. Uploaded pictures are stored in the folder `PICTURES_DIR`.
+The app runs on Cloudflare and is deployed with [SST](https://sst.dev). Copy `.env.example` to `.env` and add the Google credentials before you begin. You also need a Cloudflare API token in `CLOUDFLARE_API_TOKEN` and your account ID in `CLOUDFLARE_DEFAULT_ACCOUNT_ID`.
 
 ```bash
 pnpm install
-pnpm db:migrate
-pnpm astro check
-pnpm run dev
+pnpm sst:dev
 ```
 
+`sst dev` deploys the database and the picture bucket to your own stage, then runs `astro dev` against them.
+
+## Deployment
+
+Set the secrets once for the stage, then deploy:
+
+```bash
+pnpm sst secret set GoogleClientId <id> --stage production
+pnpm sst secret set GoogleClientSecret <secret> --stage production
+pnpm sst secret set GoogleRedirectUri https://<domain>/api/google/callback --stage production
+pnpm sst secret set DataControllerName <name> --stage production
+pnpm sst secret set DataControllerEmail <email> --stage production
+pnpm sst secret set BootstrapAdminEmail <your Google email> --stage production
+pnpm sst:deploy
+```
+
+| Part | Cloudflare service |
+| --- | --- |
+| Website | Worker made by `sst.cloudflare.Astro` |
+| Database | SQLite in a Durable Object, in the `Backend` Worker |
+| Pictures | R2 bucket, made into WebP by Cloudflare Images |
+| Suggestion queue and data purge | Alarms of the Durable Object |
+
+After a change to `src/db/schema.ts`, run `pnpm db:generate`. The Durable Object applies new migrations when it starts.
 
 ## Tech Stack
 
@@ -20,6 +42,7 @@ pnpm run dev
 - [Tailwind](https://tailwindcss.com)
 - [Drizzle](https://orm.drizzle.team)
 - [Sqlite](https://sqlite.org/docs.html)
+- [Cloudflare](https://developers.cloudflare.com) and [SST](https://sst.dev)
 
 ## Functionality
 

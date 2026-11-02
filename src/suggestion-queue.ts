@@ -1,11 +1,10 @@
-import { setTimeout as delay } from "node:timers/promises";
 import type { Database } from "@src/db";
 import { findPlace } from "@src/map/google-maps";
 
 // Nominatim allows one request a second, and each link needs at most one.
 const tickIntervalMs = 1500;
-// After an error in the worker itself, such as a database that cannot be opened.
-const errorDelayMs = 60_000;
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Turns the oldest waiting link into a suggested restaurant. When no link is due, tells when the next one is.
 export async function processNextSuggestion(
@@ -28,49 +27,11 @@ export async function processNextSuggestion(
 	return { processed: true };
 }
 
-// Works through the waiting links one at a time, then sleeps until a link is due or a new one is queued.
-export function scheduleSuggestionQueue(db: Database) {
-	const stopped = new AbortController();
-	let queuedMeanwhile = false;
-	let wake: (() => void) | undefined;
-
-	// Without a delay it sleeps until a link is queued.
-	const sleep = (delayMs: number | undefined) =>
-		new Promise<void>((resolve) => {
-			if (stopped.signal.aborted || queuedMeanwhile) return resolve();
-			const timer = delayMs === undefined ? undefined : setTimeout(resolve, delayMs).unref();
-			wake = () => {
-				clearTimeout(timer);
-				resolve();
-			};
-		});
-
-	async function run() {
-		while (!stopped.signal.aborted) {
-			queuedMeanwhile = false;
-			try {
-				const result = await processNextSuggestion(db);
-				if (result.processed) {
-					await delay(tickIntervalMs, undefined, { ref: false });
-					continue;
-				}
-				await sleep(result.dueAt && result.dueAt.getTime() - Date.now());
-			} catch (error) {
-				console.error("Could not process the suggestion queue", error);
-				await sleep(errorDelayMs);
-			}
-		}
+// Works through the links that are due, one at a time. Tells when the next link is due, if one is waiting.
+export async function processDueSuggestions(db: Database): Promise<Date | undefined> {
+	for (;;) {
+		const result = await processNextSuggestion(db);
+		if (!result.processed) return result.dueAt;
+		await delay(tickIntervalMs);
 	}
-
-	const stopListening = db.suggestionQueue.onQueued(() => {
-		queuedMeanwhile = true;
-		wake?.();
-	});
-	void run();
-
-	return () => {
-		stopped.abort();
-		stopListening();
-		wake?.();
-	};
 }

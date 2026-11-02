@@ -7,6 +7,9 @@ type Component = Parameters<AstroContainer["renderToResponse"]>[0];
 
 type Endpoint = { GET: APIRoute };
 
+// The Cloudflare adapter adds cfContext to the locals of a request in the Worker. The pages do not use it.
+type TestLocals = Omit<App.Locals, "cfContext">;
+
 async function createContainer() {
 	const container = await AstroContainer.create();
 	container.insertPageRoute("/403", ForbiddenPage);
@@ -14,18 +17,18 @@ async function createContainer() {
 	return container;
 }
 
-export async function renderPage(page: Component, locals: App.Locals, path: string, params: Record<string, string> = {}) {
+export async function renderPage(page: Component, locals: TestLocals, path: string, params: Record<string, string> = {}) {
 	const response = await (await createContainer()).renderToResponse(page, {
-		locals,
+		locals: locals as App.Locals,
 		params,
 		request: new Request(`http://localhost${path}`),
 	});
 	return { response, html: await response.text() };
 }
 
-export async function requestEndpoint(endpoint: Endpoint, locals: App.Locals, path: string, params: Record<string, string> = {}, headers: HeadersInit = {}) {
+export async function requestEndpoint(endpoint: Endpoint, locals: TestLocals, path: string, params: Record<string, string> = {}, headers: HeadersInit = {}) {
 	return (await createContainer()).renderToResponse(endpoint as unknown as Component, {
-		locals,
+		locals: locals as App.Locals,
 		params,
 		request: new Request(`http://localhost${path}`, { headers }),
 		routeType: "endpoint",

@@ -139,9 +139,9 @@ export function createReviews(client: Client, pictures: PictureStore) {
 
 		async like(userId: number, reviewId: number) {
 			return authorizedWrite(client, userId, "review:like", (tx) => findTargetReview(tx, reviewId), (tx, review) => {
-				const { changes } = tx.insert(s.likes).values({ userId, reviewId }).onConflictDoNothing().run();
+				const inserted = tx.insert(s.likes).values({ userId, reviewId }).onConflictDoNothing().returning({ userId: s.likes.userId }).all();
 				refreshLikeCounts(tx, [reviewId]);
-				if (changes > 0) notify(tx, { kind: "like", recipientId: review.authorId, actorId: userId, reviewId });
+				if (inserted.length > 0) notify(tx, { kind: "like", recipientId: review.authorId, actorId: userId, reviewId });
 				return "updated" as const;
 			});
 		},

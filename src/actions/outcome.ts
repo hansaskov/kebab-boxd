@@ -22,7 +22,7 @@ const maxFields = 100;
 
 // Files are left out: they cannot be kept in the session, and a browser does not let a page fill in a file input.
 // The fields Astro adds to a form are left out too. A body that is no form keeps nothing.
-async function readSubmittedInput(request: Request): Promise<SubmittedInput> {
+async function readSubmittedInput(request: Pick<Request, "formData">): Promise<SubmittedInput> {
 	let formData: FormData;
 	try {
 		formData = await request.formData();
@@ -35,7 +35,7 @@ async function readSubmittedInput(request: Request): Promise<SubmittedInput> {
 }
 
 // The request is read only when the action failed, since only then is what the user typed shown again.
-export async function toOutcome(name: string, error: ActionError | undefined, request: Request): Promise<ActionOutcome> {
+export async function toOutcome(name: string, error: ActionError | undefined, request: Pick<Request, "formData">): Promise<ActionOutcome> {
 	if (!error) return { name };
 	const fields = isInputError(error) ? error.fields : {};
 	return { name, failure: { code: error.code, message: error.message, fields, input: await readSubmittedInput(request) } };

@@ -92,7 +92,6 @@ export function createSuggestionQueue(client: Client) {
 					if (user.queued >= maxQueuedPerUser) return problem("queue-full");
 					return tx.insert(s.suggestionQueue).values({ userId, link }).returning({ id: s.suggestionQueue.id }).get();
 				},
-				{ behavior: "immediate" },
 			);
 			if (!isProblem(result)) for (const listener of queuedListeners) listener();
 			return result;
@@ -123,7 +122,6 @@ export function createSuggestionQueue(client: Client) {
 					tx.delete(s.suggestionQueue).where(eq(s.suggestionQueue.id, id)).run();
 					return { status: "suggested", id: restaurant.id };
 				},
-				{ behavior: "immediate" },
 			);
 		},
 

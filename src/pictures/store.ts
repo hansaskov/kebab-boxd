@@ -1,7 +1,3 @@
-import { mkdirSync } from "node:fs";
-import { readFile, unlink, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import sharp, { type ResizeOptions } from "sharp";
 import { generateSecureRandomString } from "@src/auth/hash";
 
 export const picturePathPrefix = "/pictures/";
@@ -9,13 +5,13 @@ export const pictureContentType = "image/webp";
 
 const namePattern = /^[a-z0-9]{24}\.webp$/;
 
-// Every format the browser offers in a file picker that sharp can decode.
+// Every format the browser offers in a file picker that Cloudflare Images can decode.
 export const acceptedPictureTypes = ["image/jpeg", "image/png", "image/webp", "image/avif", "image/gif"] as const;
 
 const sizes = {
 	profile: { width: 512, height: 512, fit: "cover" },
-	review: { width: 1600, height: 1600, fit: "inside", withoutEnlargement: true },
-} as const satisfies Record<string, ResizeOptions>;
+	review: { width: 1600, height: 1600, fit: "scale-down" },
+} as const satisfies Record<string, ImageTransform>;
 
 export type PictureKind = keyof typeof sizes;
 
@@ -26,54 +22,42 @@ export class InvalidPictureError extends Error {
 	}
 }
 
-// Re-encoding drops all metadata, such as the GPS position a phone camera stores in a photo.
-async function encode(file: File, kind: PictureKind) {
-	try {
-		return await sharp(await file.arrayBuffer(), { failOn: "error", limitInputPixels: 50_000_000 })
-			.autoOrient()
-			.resize(sizes[kind])
-			.webp({ quality: 80 })
-			.toBuffer();
-	} catch (error) {
-		throw new InvalidPictureError(file.name, { cause: error });
-	}
-}
-
 function nameOf(url: string) {
 	if (!url.startsWith(picturePathPrefix)) return undefined;
 	const name = url.slice(picturePathPrefix.length);
 	return namePattern.test(name) ? name : undefined;
 }
 
-function isMissingFile(error: unknown) {
-	return error instanceof Error && "code" in error && error.code === "ENOENT";
-}
-
-// Creates the folder at once, so a folder that cannot be created stops the server as it starts.
-export function createPictureStore(directory: string) {
-	mkdirSync(directory, { recursive: true });
+// The pictures are kept in an R2 bucket under their names.
+export function createPictureStore(bucket: R2Bucket, images: ImagesBinding) {
+	// Re-encoding drops all metadata, such as the GPS position a phone camera stores in a photo.
+	// Cloudflare Images turns the picture upright first.
+	async function encode(file: File, kind: PictureKind) {
+		try {
+			const result = await images.input(file.stream()).transform(sizes[kind]).output({ format: pictureContentType, quality: 80 });
+			return await result.response().arrayBuffer();
+		} catch (error) {
+			throw new InvalidPictureError(file.name, { cause: error });
+		}
+	}
 
 	async function save(file: File, kind: PictureKind): Promise<string> {
 		const bytes = await encode(file, kind);
 		const name = `${generateSecureRandomString()}.webp`;
-		await writeFile(join(directory, name), bytes, { flag: "wx" });
+		await bucket.put(name, bytes, { httpMetadata: { contentType: pictureContentType } });
 		return `${picturePathPrefix}${name}`;
 	}
 
-	// Runs after the database no longer refers to the pictures, so a file that cannot be removed
+	// Runs after the database no longer refers to the pictures, so a picture that cannot be removed
 	// is only logged: the write it belongs to has already succeeded.
 	async function remove(urls: string[]): Promise<void> {
-		await Promise.all(
-			urls.map(async (url) => {
-				const name = nameOf(url);
-				if (!name) return;
-				try {
-					await unlink(join(directory, name));
-				} catch (error) {
-					if (!isMissingFile(error)) console.error("Could not remove picture", url, error);
-				}
-			}),
-		);
+		const names = urls.flatMap((url) => nameOf(url) ?? []);
+		if (names.length === 0) return;
+		try {
+			await bucket.delete(names);
+		} catch (error) {
+			console.error("Could not remove pictures", urls, error);
+		}
 	}
 
 	// Saves all of the files or, when one of them is not a picture, none of them.
@@ -88,14 +72,10 @@ export function createPictureStore(directory: string) {
 		return urls;
 	}
 
-	async function read(name: string): Promise<Buffer | undefined> {
+	async function read(name: string): Promise<Uint8Array | undefined> {
 		if (!namePattern.test(name)) return undefined;
-		try {
-			return await readFile(join(directory, name));
-		} catch (error) {
-			if (isMissingFile(error)) return undefined;
-			throw error;
-		}
+		const object = await bucket.get(name);
+		return object ? new Uint8Array(await object.arrayBuffer()) : undefined;
 	}
 
 	return { save, saveAll, read, remove };

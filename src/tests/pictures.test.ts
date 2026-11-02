@@ -4,7 +4,8 @@ import * as PictureEndpoint from "@src/pages/pictures/[name]";
 import type { Database } from "@src/db";
 import { requestEndpoint } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertUser, writeReview } from "@src/tests/database";
-import { nameOf, pictureFile, storedPictureNames, textFile } from "@src/tests/pictures";
+import { storedPictureNames } from "@src/tests/cloudflare";
+import { nameOf, pictureFile, textFile } from "@src/tests/pictures";
 
 function requestPicture(db: Database, url: string) {
 	return requestEndpoint(PictureEndpoint, { db, session: null }, url, { name: nameOf(url) });
@@ -39,17 +40,17 @@ describe("Pictures", () => {
 	});
 
 	it("are refused together with the review when one file is not a picture, and leave no files behind", async () => {
-		const { client, db, picturesDirectory, ada, grill } = setUp();
+		const { client, db, ada, grill } = setUp();
 
 		const result = await db.reviews.create(ada.id, grill.id, { rating: 8, description: null }, [await pictureFile(), textFile()]);
 
 		expect(result).toEqual({ problem: "invalid-picture" });
 		expect(client.query.reviews.findMany().sync()).toEqual([]);
-		expect(storedPictureNames(picturesDirectory)).toEqual([]);
+		expect(await storedPictureNames()).toEqual([]);
 	});
 
 	it("are removed from storage when taken off the review, with the review, and with the account of the author", async () => {
-		const { db, picturesDirectory, ada, grill } = setUp();
+		const { db, ada, grill } = setUp();
 		const kept = await writeReview(db, ada.id, grill.id, 8, [await pictureFile(), await pictureFile()]);
 		const deleted = await writeReview(db, ada.id, grill.id, 8, [await pictureFile()]);
 		await db.users.setProfilePicture(ada.id, ada.username, await pictureFile());
@@ -58,18 +59,18 @@ describe("Pictures", () => {
 		await db.reviews.update(ada.id, kept, { rating: 8, description: null, addPictures: [], removePictureIds: [removed!.id] });
 		await db.reviews.delete(ada.id, deleted);
 
-		expect(storedPictureNames(picturesDirectory)).toHaveLength(2);
+		expect(await storedPictureNames()).toHaveLength(2);
 		expect((await requestPicture(db, removed!.url)).status).toBe(404);
 
 		await db.users.delete(ada.id, ada.username);
 
-		expect(storedPictureNames(picturesDirectory)).toEqual([]);
+		expect(await storedPictureNames()).toEqual([]);
 	});
 
 	it("stay as they were when a change to the review is refused", async () => {
-		const { db, picturesDirectory, ada, grill } = setUp();
+		const { db, ada, grill } = setUp();
 		const review = await writeReview(db, ada.id, grill.id, 8, [await pictureFile(), await pictureFile(), await pictureFile()]);
-		const before = storedPictureNames(picturesDirectory);
+		const before = await storedPictureNames();
 		const [first] = await picturesOf(db, review, ada.id);
 
 		const result = await db.reviews.update(ada.id, review, {
@@ -80,11 +81,11 @@ describe("Pictures", () => {
 		});
 
 		expect(result).toEqual({ problem: "too-many-pictures" });
-		expect(storedPictureNames(picturesDirectory)).toEqual(before);
+		expect(await storedPictureNames()).toEqual(before);
 		expect(await picturesOf(db, review, ada.id)).toHaveLength(3);
 	});
 
-	it("are never read from outside the picture folder", async () => {
+	it("are never read from outside the picture bucket", async () => {
 		const { db } = createTestDatabase();
 
 		for (const url of ["/pictures/aaaaaaaaaaaaaaaaaaaaaaaa.webp", "/pictures/..%2F..%2Fdb.sqlite"]) {

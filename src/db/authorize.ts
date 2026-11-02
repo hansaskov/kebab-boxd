@@ -24,7 +24,7 @@ export function authorizedWrite<P extends ResourcePermission, R extends Resource
 	};
 	// The transaction type refuses a generic result because it cannot prove that the result is no promise.
 	// The writes are synchronous, so it is not.
-	return client.transaction(run as (tx: Transaction) => Problem, { behavior: "immediate" }) as T | Problem;
+	return client.transaction(run as (tx: Transaction) => Problem) as T | Problem;
 }
 
 // The user a write is about, as the permissions need them and the action needs them to name the page it goes back to.

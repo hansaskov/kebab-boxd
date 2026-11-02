@@ -18,7 +18,7 @@ interface NominatimAddress {
 const reverseUrl = "https://nominatim.openstreetmap.org/reverse";
 const searchUrl = "https://nominatim.openstreetmap.org/search";
 // Nominatim refuses requests that do not name the app sending them.
-const userAgent = "Kebab Boxd (https://hans.askov.dk)";
+const userAgent = "Kebab Boxd (https://kebab.hjemmet.net)";
 const lookupTimeoutMs = 10_000;
 
 const countryNames = new Intl.DisplayNames("en", { type: "region", fallback: "none" });

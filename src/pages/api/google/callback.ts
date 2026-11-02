@@ -1,4 +1,5 @@
 import type { APIContext } from "astro";
+import { BOOTSTRAP_ADMIN_EMAIL } from "astro:env/server";
 import { finishGoogleSignIn } from "@src/auth/providers/google";
 import { startSession } from "@src/auth/session";
 
@@ -9,7 +10,7 @@ export async function GET(context: APIContext): Promise<Response> {
 	if (typeof account === "string") return context.redirect(`/login?error=${account}`);
 
 	const { db } = context.locals;
-	const signIn = await db.accounts.signIn(account);
+	const signIn = await db.accounts.signIn(account, BOOTSTRAP_ADMIN_EMAIL);
 	switch (signIn.status) {
 		case "banned":
 			return context.redirect("/login?error=banned");

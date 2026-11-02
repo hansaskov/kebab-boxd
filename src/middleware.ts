@@ -1,22 +1,13 @@
-import { DB_FILE_NAME, PICTURES_DIR } from "astro:env/server";
-import { createDatabase } from "@src/db";
-import { createClient } from "@src/db/client";
+import { waitUntil } from "cloudflare:workers";
+import { Resource } from "sst/resource";
 import { readSession } from "@src/auth/session";
-import { defineMiddleware, sequence } from "astro:middleware";
+import { defineMiddleware } from "astro:middleware";
 import { getActionContext } from "astro:actions";
-import { compressMiddleware } from "@src/middleware/compress";
 import { sameOriginReferer } from "@src/middleware/referer";
 import { redirectClearingSpeculations } from "@src/middleware/speculations";
-import { scheduleRetentionPurge } from "@src/retention";
-import { scheduleSuggestionQueue } from "@src/suggestion-queue";
-import { createPictureStore, picturePathPrefix } from "@src/pictures/store";
+import { connectDatabase, type DatabaseRpc } from "@src/db/remote";
+import { picturePathPrefix } from "@src/pictures/store";
 import { toOutcome } from "@src/actions/outcome";
-
-const db = createDatabase(createClient(DB_FILE_NAME), createPictureStore(PICTURES_DIR));
-const stopRetentionPurge = scheduleRetentionPurge(db);
-import.meta.hot?.dispose(stopRetentionPurge);
-const stopSuggestionQueue = scheduleSuggestionQueue(db);
-import.meta.hot?.dispose(stopSuggestionQueue);
 
 // The history holds the pages a device opened, not the pictures on them.
 function isPage(routePattern: string) {
@@ -31,6 +22,7 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 	if (context.isPrerendered) return next();
 
 	const requestedAt = new Date();
+	const db = connectDatabase(Resource.Backend as unknown as DatabaseRpc);
 	context.locals.db = db;
 	const session = await readSession(context.cookies, db);
 	context.locals.session = session;
@@ -67,14 +59,14 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 			prefetched: context.request.headers.get("Sec-Purpose")?.startsWith("prefetch") ?? false,
 		};
 
-		setImmediate(() => {
+		waitUntil(
 			db.history.record(entry).catch((error: unknown) => {
 				console.error("Could not record history entry", entry, error);
-			});
-		});
+			}),
+		);
 	}
 
 	return response;
 });
 
-export const onRequest = sequence(compressMiddleware, sessionMiddleware);
+export const onRequest = sessionMiddleware;

@@ -77,7 +77,7 @@ The unique handle identifying a User. 3–30 characters from `A–Z`, `a–z`, `
 _Avoid_: Handle, DisplayName, Nickname
 
 **Admin**:
-A role on a User. Admins can approve or reject suggested Restaurants. Not a separate entity type. An Admin is able to manage all users and content, this entails banning users, suspending reviews, and restaurants. An Admin can give the role to another User or take it away, but cannot change their own role, so there is always at least one Admin. A banned User cannot be given the role or have it taken away until the ban is lifted, and an Admin cannot be banned, so a banned Admin cannot exist.
+A role on a User. Admins can approve or reject suggested Restaurants. Not a separate entity type. An Admin is able to manage all users and content, this entails banning users, suspending reviews, and restaurants. An Admin can give the role to another User or take it away, but cannot change their own role, so there is always at least one Admin. A banned User cannot be given the role or have it taken away until the ban is lifted, and an Admin cannot be banned, so a banned Admin cannot exist. While a stage has no Admin, the User who signs in with its bootstrap email address, verified by the Provider, becomes the first one.
 _Avoid_: Moderator, Staff, Manager
 
 **Permission**:

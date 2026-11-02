@@ -4,7 +4,6 @@ export default defineConfig({
   out: "./.drizzle",
   schema: "./src/db/schema.ts",
   dialect: "sqlite",
-  dbCredentials: {
-    url: process.env.DB_FILE_NAME!,
-  },
+  // Also writes migrations.js, which bundles the migrations into the Backend Worker.
+  driver: "durable-sqlite",
 });

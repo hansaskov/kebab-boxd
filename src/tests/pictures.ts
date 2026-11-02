@@ -1,4 +1,3 @@
-import { readdirSync } from "node:fs";
 import sharp from "sharp";
 
 interface PictureOptions {
@@ -17,10 +16,6 @@ export async function pictureFile(name = "kebab.jpg", { width = 40, height = 20,
 
 export function textFile(name = "menu.jpg") {
 	return new File(["This is not a picture."], name, { type: "image/jpeg" });
-}
-
-export function storedPictureNames(directory: string) {
-	return readdirSync(directory).toSorted();
 }
 
 export function nameOf(url: string) {

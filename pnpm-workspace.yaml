@@ -1,6 +1,7 @@
 allowBuilds:
   esbuild: true
   sharp: true
+  workerd: true
 minimumReleaseAgeExclude:
   - drizzle-kit@1.0.0-rc.5
   - drizzle-orm@1.0.0-rc.5

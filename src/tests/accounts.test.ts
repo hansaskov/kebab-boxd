@@ -19,8 +19,8 @@ function googleAccount(overrides: Partial<ProviderAccount> = {}): ProviderAccoun
 }
 
 // Signs in as a User who may sign in, as the Google callback does.
-async function signInWith(db: Database, account: ProviderAccount) {
-	const result = await db.accounts.signIn(account);
+async function signInWith(db: Database, account: ProviderAccount, bootstrapAdminEmail?: string) {
+	const result = await db.accounts.signIn(account, bootstrapAdminEmail);
 	if (result.status !== "signed-in") throw new Error(`The sign-in was refused: ${result.status}.`);
 	return result.user;
 }
@@ -115,6 +115,43 @@ describe("the Admin role", () => {
 			{ username: "ada", role: "admin" },
 			{ username: "bob", role: "user" },
 		]);
+	});
+});
+
+describe("the first Admin of a stage", () => {
+	it("is the User who signs in with the bootstrap email address, in any letter case", async () => {
+		const { db } = createTestDatabase();
+
+		const user = await signInWith(db, googleAccount(), " ADA@example.com ");
+
+		expect(user.role).toBe("admin");
+		expect((await db.users.findByUsername(user.username))?.role).toBe("admin");
+	});
+
+	it("can be a User who signed up before the bootstrap email address was set", async () => {
+		const { db } = createTestDatabase();
+		await signInWith(db, googleAccount());
+
+		expect((await signInWith(db, googleAccount(), "ada@example.com")).role).toBe("admin");
+	});
+
+	it("needs an email address the Provider has verified", async () => {
+		const { db } = createTestDatabase();
+
+		expect((await signInWith(db, googleAccount({ emailVerified: false }), "ada@example.com")).role).toBe("user");
+	});
+
+	it("is not made once the stage has an Admin, so Admins alone decide the role from then on", async () => {
+		const { client, db } = createTestDatabase();
+		insertUser(client, "boss", "admin");
+
+		expect((await signInWith(db, googleAccount(), "ada@example.com")).role).toBe("user");
+	});
+
+	it("is not made from another email address", async () => {
+		const { db } = createTestDatabase();
+
+		expect((await signInWith(db, googleAccount(), "bob@example.com")).role).toBe("user");
 	});
 });
 

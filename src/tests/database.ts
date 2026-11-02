@@ -1,26 +1,25 @@
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { drizzle } from "drizzle-orm/node-sqlite";
+import { migrate } from "drizzle-orm/node-sqlite/migrator";
 import { onTestFinished } from "vitest";
 import { createSession, findSession } from "@src/auth/session";
 import { createDatabase } from "@src/db";
 import type { Database } from "@src/db";
-import { createClient, migrateClient } from "@src/db/client";
 import type { Client } from "@src/db/client";
+import { relations } from "@src/db/relations";
 import { isProblem } from "@src/db/problem";
 import * as s from "@src/db/schema";
 import type { PageRequest } from "@src/pagination";
 import { createPictureStore } from "@src/pictures/store";
+import { images, picturesBucket, removeAllPictures } from "@src/tests/cloudflare";
 
 export const firstPage: PageRequest = { limit: 10, cursor: undefined };
 
-// A new, empty database for one test. Its picture folder is removed when the test ends.
+// A new, empty database for one test, in memory. The pictures it stores are removed when the test ends.
 export function createTestDatabase() {
-	const client = createClient(":memory:");
-	migrateClient(client);
-	const picturesDirectory = mkdtempSync(join(tmpdir(), "kebab-boxd-pictures-"));
-	onTestFinished(() => rmSync(picturesDirectory, { recursive: true, force: true }));
-	return { client, db: createDatabase(client, createPictureStore(picturesDirectory)), picturesDirectory };
+	const client = drizzle(":memory:", { relations });
+	migrate(client, { migrationsFolder: ".drizzle" });
+	onTestFinished(removeAllPictures);
+	return { client, db: createDatabase(client, createPictureStore(picturesBucket, images)) };
 }
 
 export function insertUser(client: Client, username: string, role: "user" | "admin" = "user") {

@@ -15,11 +15,13 @@ export function createRetention(client: Client) {
 					sessions: tx
 						.delete(s.sessions)
 						.where(lte(s.sessions.lastVerifiedAt, secondsBefore(now, inactivityTimeoutSeconds)))
-						.run().changes,
+						.returning({ id: s.sessions.id })
+						.all().length,
 					history: tx
 						.delete(s.history)
 						.where(lt(s.history.requestedAt, secondsBefore(now, historyRetentionSeconds)))
-						.run().changes,
+						.returning({ id: s.history.id })
+						.all().length,
 					suggestionQueue: tx
 						.delete(s.suggestionQueue)
 						.where(
@@ -28,9 +30,9 @@ export function createRetention(client: Client) {
 								lt(s.suggestionQueue.updatedAt, secondsBefore(now, finishedSuggestionRetentionSeconds)),
 							),
 						)
-						.run().changes,
+						.returning({ id: s.suggestionQueue.id })
+						.all().length,
 				}),
-				{ behavior: "immediate" },
 			);
 		},
 	};

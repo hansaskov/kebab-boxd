@@ -16,3 +16,7 @@ pnpm-debug.log*
 .astro/
 db.sqlite
 /pictures/
+
+# sst
+.sst
+.wrangler/

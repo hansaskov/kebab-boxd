@@ -57,41 +57,49 @@ function createUser(tx: Transaction, account: ProviderAccount): User {
 
 export function createAccounts(client: Client) {
 	return {
-		// Signs in the User of the Account, and creates both on the first sign-in.
-		async signIn(providerAccount: ProviderAccount): Promise<SignIn> {
+		// Signs in the User of the Account, and creates both on the first sign-in. While no Admin exists, the
+		// User with the verified bootstrap email address becomes one, so each stage gets its first Admin.
+		async signIn(providerAccount: ProviderAccount, bootstrapAdminEmail?: string): Promise<SignIn> {
 			const account = {
 				...providerAccount,
 				email: providerAccount.email.trim().toLowerCase(),
 				fullname: providerAccount.fullname.trim(),
 			};
-			return client.transaction(
-				(tx): SignIn => {
-					const existing = tx.query.accounts
-						.findFirst({
-							columns: {},
-							with: { user: true },
-							where: { providerId: account.providerId, accountId: account.accountId },
-						})
-						.sync();
-					if (existing) {
-						const { user } = existing;
-						if (user.bannedAt) return { status: "banned" };
-						if (account.emailVerified && !user.emailVerified) {
-							tx.update(s.users).set({ emailVerified: true }).where(eq(s.users.id, user.id)).run();
-							return { status: "signed-in", user: { ...user, emailVerified: true } };
-						}
-						return { status: "signed-in", user };
-					}
+			const isBootstrapAdmin = account.emailVerified && !!bootstrapAdminEmail && account.email === bootstrapAdminEmail.trim().toLowerCase();
+			return client.transaction((tx): SignIn => {
+				const signIn = signInUser(tx, account);
+				if (signIn.status !== "signed-in" || !isBootstrapAdmin || signIn.user.role === "admin") return signIn;
+				if (tx.query.users.findFirst({ columns: { id: true }, where: { role: "admin" } }).sync()) return signIn;
 
-					const emailOwner = tx.query.users
-						.findFirst({ columns: { bannedAt: true }, where: { RAW: (user) => sql`lower(${user.email}) = ${account.email}` } })
-						.sync();
-					if (emailOwner) return { status: emailOwner.bannedAt ? "banned" : "email-taken" };
-
-					return { status: "signed-in", user: createUser(tx, account) };
-				},
-				{ behavior: "immediate" },
-			);
+				tx.update(s.users).set({ role: "admin" }).where(eq(s.users.id, signIn.user.id)).run();
+				return { status: "signed-in", user: { ...signIn.user, role: "admin" } };
+			});
 		},
 	};
+}
+
+function signInUser(tx: Transaction, account: ProviderAccount): SignIn {
+	const existing = tx.query.accounts
+		.findFirst({
+			columns: {},
+			with: { user: true },
+			where: { providerId: account.providerId, accountId: account.accountId },
+		})
+		.sync();
+	if (existing) {
+		const { user } = existing;
+		if (user.bannedAt) return { status: "banned" };
+		if (account.emailVerified && !user.emailVerified) {
+			tx.update(s.users).set({ emailVerified: true }).where(eq(s.users.id, user.id)).run();
+			return { status: "signed-in", user: { ...user, emailVerified: true } };
+		}
+		return { status: "signed-in", user };
+	}
+
+	const emailOwner = tx.query.users
+		.findFirst({ columns: { bannedAt: true }, where: { RAW: (user) => sql`lower(${user.email}) = ${account.email}` } })
+		.sync();
+	if (emailOwner) return { status: emailOwner.bannedAt ? "banned" : "email-taken" };
+
+	return { status: "signed-in", user: createUser(tx, account) };
 }

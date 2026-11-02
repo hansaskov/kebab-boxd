@@ -36,6 +36,10 @@
     {
       "files": ["src/db/**"],
       "rules": { "no-restricted-imports": "off" }
+    },
+    {
+      "files": ["sst.config.ts"],
+      "rules": { "typescript/triple-slash-reference": "off" }
     }
   ],
   "env": {
