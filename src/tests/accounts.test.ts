@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { createSession, getSession } from "@src/auth/session";
-import type { ProviderAccount } from "@src/auth/provider-account";
+import { createSession, findSession } from "@src/auth/session";
+import type { ProviderAccount } from "@src/auth/oauth";
 import type { Database } from "@src/db";
 import * as s from "@src/db/schema";
 import { usernameSchema } from "@src/validation/username";
@@ -89,17 +89,17 @@ describe("a ban", () => {
 		const { client, db } = createTestDatabase();
 		const admin = insertUser(client, "admin", "admin");
 		const user = await signInWith(db, googleAccount());
-		const session = await createSession(user.id, db);
+		const { token } = await createSession(db, user.id);
 
 		await db.users.ban(admin.id, user.username);
 
 		expect(await db.accounts.signIn(googleAccount())).toEqual({ status: "banned" });
 		// A session created in the moment between the ban and the refusal does not last either.
-		expect(await getSession((await createSession(user.id, db)).id, db)).toBeNull();
+		expect(await findSession(db, (await createSession(db, user.id)).token)).toBeNull();
 
 		await db.users.unban(admin.id, user.username);
 
-		expect(await getSession(session.id, db)).toBeNull();
+		expect(await findSession(db, token)).toBeNull();
 	});
 });
 
@@ -154,14 +154,15 @@ describe("the personal data export", () => {
 		const bob = insertUser(client, "bob");
 		await db.follows.follow(ada.id, bob.username);
 		await db.reviews.like(ada.id, insertReview(client, bob.id, insertRestaurant(client, "Hasir Kebab", { status: "approved" }).id, 6).id);
-		const session = await createSession(ada.id, db);
+		const session = await createSession(db, ada.id);
+		const { secretHash } = client.query.sessions.findFirst({ columns: { secretHash: true }, where: { id: session.id } }).sync()!;
 		client.update(s.users).set({ bio: "Döner fan" }).where(eq(s.users.id, ada.id)).run();
 
 		const exported = JSON.stringify(await db.personalData.findByUser(ada.id));
 
 		expect(exported).toContain("Döner fan");
 		expect(exported).not.toContain(session.id);
-		expect(exported).not.toContain(session.secretHash.toString("hex"));
+		expect(exported).not.toContain(secretHash.toString("hex"));
 		expect(exported).not.toContain(bob.email);
 	});
 });

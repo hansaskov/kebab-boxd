@@ -62,12 +62,12 @@ const emptyMessages: Record<RestaurantStatus, string> = {
               {[restaurant.location.addressLine1, restaurant.location.city, restaurant.location.country].filter(Boolean).join(", ")}
             </p>
             <p class="t-body-sm text-fg-muted">
-              {restaurant.suggester ? (
-                <a class="link-hover" href={profileHref(restaurant.suggester.username)}>{restaurant.suggester.fullname}</a>
-              ) : (
-                "Added by an admin"
+              {restaurant.suggester && (
+                <>
+                  <a class="link-hover" href={profileHref(restaurant.suggester.username)}>{restaurant.suggester.fullname}</a>
+                  {" · "}
+                </>
               )}
-              {" · "}
               <RelativeTime date={restaurant.createdAt} />
             </p>
           </div>

@@ -186,7 +186,7 @@ export async function seedDatabase(client: Client, pictures: PictureStore) {
 
   const db = createDatabase(client, pictures);
   for (const id of userIds.slice(10)) {
-    await createSession(id, db);
+    await createSession(db, id);
   }
 
   const admin = await client.query.users.findFirst({ columns: { id: true }, where: { role: "admin" } });

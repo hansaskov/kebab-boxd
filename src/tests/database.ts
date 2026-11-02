@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { onTestFinished } from "vitest";
-import { createSession, getSession } from "@src/auth/session";
+import { createSession, findSession } from "@src/auth/session";
 import { createDatabase } from "@src/db";
 import type { Database } from "@src/db";
 import { createClient, migrateClient } from "@src/db/client";
@@ -32,7 +32,7 @@ export function insertUser(client: Client, username: string, role: "user" | "adm
 }
 
 export async function signIn(db: Database, userId: number) {
-	const session = await getSession((await createSession(userId, db)).id, db);
+	const session = await findSession(db, (await createSession(db, userId)).token);
 	if (!session) throw new Error(`User ${userId} could not sign in.`);
 	return session;
 }

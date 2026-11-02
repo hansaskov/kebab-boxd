@@ -66,7 +66,7 @@ describe("pages", () => {
 		const admin = insertUser(client, "root_admin", "admin");
 		const ada = insertUser(client, "ada");
 		const bob = insertUser(client, "bob");
-		const bobSession = await createSession(bob.id, db);
+		const bobSession = await createSession(db, bob.id);
 		client.insert(s.history)
 			.values({ sessionId: bobSession.id, requestedAt: new Date(), method: "GET", route: "/secret", path: "/secret", status: 200 })
 			.run();

@@ -23,11 +23,11 @@ export async function renderPage(page: Component, locals: App.Locals, path: stri
 	return { response, html: await response.text() };
 }
 
-export async function requestEndpoint(endpoint: Endpoint, locals: App.Locals, path: string, params: Record<string, string> = {}) {
+export async function requestEndpoint(endpoint: Endpoint, locals: App.Locals, path: string, params: Record<string, string> = {}, headers: HeadersInit = {}) {
 	return (await createContainer()).renderToResponse(endpoint as unknown as Component, {
 		locals,
 		params,
-		request: new Request(`http://localhost${path}`),
+		request: new Request(`http://localhost${path}`, { headers }),
 		routeType: "endpoint",
 	});
 }

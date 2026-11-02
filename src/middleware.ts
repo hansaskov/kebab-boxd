@@ -1,7 +1,7 @@
 import { DB_FILE_NAME, PICTURES_DIR } from "astro:env/server";
 import { createDatabase } from "@src/db";
 import { createClient } from "@src/db/client";
-import { getSessionAndUserFromCookie } from "@src/auth/session";
+import { readSession } from "@src/auth/session";
 import { defineMiddleware, sequence } from "astro:middleware";
 import { getActionContext } from "astro:actions";
 import { compressMiddleware } from "@src/middleware/compress";
@@ -32,7 +32,7 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 
 	const requestedAt = new Date();
 	context.locals.db = db;
-	const session = await getSessionAndUserFromCookie(context.cookies, db);
+	const session = await readSession(context.cookies, db);
 	context.locals.session = session;
 
 	if (!session) return next();

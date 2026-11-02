@@ -66,6 +66,24 @@ describe("Pictures", () => {
 		expect(storedPictureNames(picturesDirectory)).toEqual([]);
 	});
 
+	it("stay as they were when a change to the review is refused", async () => {
+		const { db, picturesDirectory, ada, grill } = setUp();
+		const review = await writeReview(db, ada.id, grill.id, 8, [await pictureFile(), await pictureFile(), await pictureFile()]);
+		const before = storedPictureNames(picturesDirectory);
+		const [first] = await picturesOf(db, review, ada.id);
+
+		const result = await db.reviews.update(ada.id, review, {
+			rating: 8,
+			description: null,
+			addPictures: [await pictureFile(), await pictureFile(), await pictureFile()],
+			removePictureIds: [first!.id],
+		});
+
+		expect(result).toEqual({ problem: "too-many-pictures" });
+		expect(storedPictureNames(picturesDirectory)).toEqual(before);
+		expect(await picturesOf(db, review, ada.id)).toHaveLength(3);
+	});
+
 	it("are never read from outside the picture folder", async () => {
 		const { db } = createTestDatabase();
 

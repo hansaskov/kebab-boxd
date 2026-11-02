@@ -1,6 +1,6 @@
 import { inArray } from "drizzle-orm";
 import type { Transaction } from "@src/db/client";
-import { isProblem, problem, type Problem } from "@src/db/problem";
+import { problem, type Problem } from "@src/db/problem";
 import * as s from "@src/db/schema";
 import { InvalidPictureError, type PictureKind, type PictureStore } from "@src/pictures/store";
 
@@ -9,66 +9,62 @@ export interface StoredPicture {
 	url: string;
 }
 
-// What a write returns to the caller, and the pictures it took out of the database.
-export interface PictureWrite<T> {
-	value: T;
-	removed: StoredPicture[];
+// How a write changes the picture rows. The write decides which rows change; the files follow on their own.
+export interface PictureChanges {
+	// Inserts a row for each file the write adds, in the order of the files, and returns their ids.
+	insertAdded(tx: Transaction): number[];
+	// Deletes the rows of the pictures. Their files go once the write is done.
+	remove(tx: Transaction, pictures: StoredPicture[]): void;
 }
 
-// Runs a write that adds the files as pictures, removes pictures, or both, and keeps the files in step with the
-// rows. Encoding cannot happen inside a transaction, so the files are saved before the write and removed again
-// when it fails. A file that is not a picture stops the write before it starts. The files of the removed
-// pictures go once the write has succeeded; a file that cannot be removed then is only logged.
+// Runs a write that adds files as pictures, removes pictures, or both, and keeps the files in step with the rows.
+//
+// Encoding cannot happen inside a transaction, so the added files are saved before the write starts. A file that
+// is not a picture stops the write before it starts. When the write throws, its transaction is undone and the added
+// files go again. When it returns, the files of the removed rows go, and so do the added files it did not insert.
+// A file that cannot be removed then is only logged: the rows no longer point to it.
 export async function writeWithPictures<T>(
 	store: PictureStore,
-	files: File[],
-	kind: PictureKind,
-	write: (urls: string[]) => PictureWrite<T> | Problem,
+	write: (changes: PictureChanges) => T | Problem,
+	added?: { files: File[]; kind: PictureKind },
 ): Promise<T | Problem> {
-	let urls: string[];
+	let addedUrls: string[];
 	try {
-		urls = await store.saveAll(files, kind);
+		addedUrls = added ? await store.saveAll(added.files, added.kind) : [];
 	} catch (error) {
 		if (error instanceof InvalidPictureError) return problem("invalid-picture");
 		throw error;
 	}
 
-	let result: PictureWrite<T> | Problem;
+	let isInserted = false;
+	const removedUrls: string[] = [];
+	const changes: PictureChanges = {
+		insertAdded(tx) {
+			isInserted = true;
+			if (addedUrls.length === 0) return [];
+			return tx
+				.insert(s.pictures)
+				.values(addedUrls.map((url) => ({ url })))
+				.returning({ id: s.pictures.id })
+				.all()
+				.map((picture) => picture.id);
+		},
+		remove(tx, pictures) {
+			if (pictures.length === 0) return;
+			tx.delete(s.pictures)
+				.where(inArray(s.pictures.id, pictures.map((picture) => picture.id)))
+				.run();
+			removedUrls.push(...pictures.map((picture) => picture.url));
+		},
+	};
+
+	let result: T | Problem;
 	try {
-		result = write(urls);
+		result = write(changes);
 	} catch (error) {
-		await store.remove(urls);
+		await store.remove(addedUrls);
 		throw error;
 	}
-	if (isProblem(result)) {
-		await store.remove(urls);
-		return result;
-	}
-	await store.remove(result.removed.map((picture) => picture.url));
-	return result.value;
-}
-
-export function insertPictures(tx: Transaction, urls: string[]) {
-	if (urls.length === 0) return [];
-	return tx
-		.insert(s.pictures)
-		.values(urls.map((url) => ({ url })))
-		.returning({ id: s.pictures.id })
-		.all()
-		.map((picture) => picture.id);
-}
-
-export function attachReviewPictures(tx: Transaction, reviewId: number, urls: string[]) {
-	const pictureIds = insertPictures(tx, urls);
-	if (pictureIds.length === 0) return;
-	tx.insert(s.reviewPictures)
-		.values(pictureIds.map((pictureId) => ({ reviewId, pictureId })))
-		.run();
-}
-
-export function deletePictures(tx: Transaction, pictures: StoredPicture[]) {
-	if (pictures.length === 0) return;
-	tx.delete(s.pictures)
-		.where(inArray(s.pictures.id, pictures.map((picture) => picture.id)))
-		.run();
+	await store.remove(isInserted ? removedUrls : [...removedUrls, ...addedUrls]);
+	return result;
 }

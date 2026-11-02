@@ -46,99 +46,36 @@ type ResourceArgs<P extends Permission> = Permissions[P] extends undefined ? [] 
 
 type Policy<P extends Permission> = (subject: Subject, ...resource: ResourceArgs<P>) => boolean;
 
-function isAdmin(subject: Subject) {
-	return subject.role === "admin";
-}
-
-function anyone() {
-	return true;
+function isAdmin(user: Pick<User, "role">) {
+	return user.role === "admin";
 }
 
 function isSelf(subject: Subject, user: TargetUser) {
 	return subject.id === user.id;
 }
 
-function isSelfOrAdmin(subject: Subject, user: TargetUser) {
-	return isSelf(subject, user) || isAdmin(subject);
-}
-
-function isSelfWithoutAdminRole(subject: Subject, user: TargetUser) {
-	return isSelf(subject, user) && !isAdmin(user);
-}
-
-function isAdminOrUnbanned(subject: Subject, user: TargetUser) {
-	return isAdmin(subject) || !user.bannedAt;
-}
-
-function isOther(subject: Subject, user: TargetUser) {
-	return !isSelf(subject, user);
-}
-
-function isOtherUnbanned(subject: Subject, user: TargetUser) {
-	return isOther(subject, user) && !user.bannedAt;
-}
-
-function isAdminActingOnOther(subject: Subject, user: TargetUser) {
-	return isAdmin(subject) && !isSelf(subject, user);
-}
-
-function isAdminActingOnNonAdmin(subject: Subject, user: TargetUser) {
-	return isAdmin(subject) && !isAdmin(user);
-}
-
-function isAdminActingOnOtherUnbanned(subject: Subject, user: TargetUser) {
-	return isAdminActingOnOther(subject, user) && !user.bannedAt;
-}
-
-function isAuthor(subject: Subject, review: TargetReview) {
-	return subject.id === review.authorId;
-}
-
-function isAuthorOrAdmin(subject: Subject, review: TargetReview) {
-	return isAuthor(subject, review) || isAdmin(subject);
-}
-
-function isListedOrByAuthorOrAdmin(subject: Subject, review: TargetReview) {
-	return review.isListed || isAuthorOrAdmin(subject, review);
-}
-
-function isListedByOther(subject: Subject, review: TargetReview) {
-	return review.isListed && !isAuthor(subject, review);
-}
-
-function isNotAuthor(subject: Subject, review: TargetReview) {
-	return !isAuthor(subject, review);
-}
-
-function isApproved(_subject: Subject, restaurant: TargetRestaurant) {
-	return restaurant.status === "approved";
-}
-
-function isApprovedOrBySuggesterOrAdmin(subject: Subject, restaurant: TargetRestaurant) {
-	return isApproved(subject, restaurant) || restaurant.suggestedBy === subject.id || isAdmin(subject);
-}
-
+// CONTEXT.md explains each rule. The rules on roles keep at least one Admin, and never a banned one.
 const policies: { [P in Permission]: Policy<P> } = {
-	"user:view-profile": isAdminOrUnbanned,
-	"user:follow": isOtherUnbanned,
-	"user:unfollow": isOther,
-	"user:edit-settings": isSelfOrAdmin,
-	"user:manage-sessions": isSelfOrAdmin,
-	"user:export-data": isSelf,
-	"user:delete-account": isSelfWithoutAdminRole,
-	"user:ban": isAdminActingOnNonAdmin,
-	"user:change-role": isAdminActingOnOtherUnbanned,
-	"review:view": isListedOrByAuthorOrAdmin,
-	"review:edit": isAuthor,
-	"review:delete": isAuthorOrAdmin,
-	"review:like": isListedByOther,
-	"review:unlike": isNotAuthor,
-	"restaurant:view": isApprovedOrBySuggesterOrAdmin,
-	"restaurant:review": isApproved,
-	"restaurant:collect": isApproved,
-	"restaurant:moderate": isAdmin,
-	"restaurant:suggest": anyone,
-	"admin-console:view": isAdmin,
+	"user:view-profile": (subject, user) => isAdmin(subject) || !user.bannedAt,
+	"user:follow": (subject, user) => !isSelf(subject, user) && !user.bannedAt,
+	"user:unfollow": (subject, user) => !isSelf(subject, user),
+	"user:edit-settings": (subject, user) => isSelf(subject, user) || isAdmin(subject),
+	"user:manage-sessions": (subject, user) => isSelf(subject, user) || isAdmin(subject),
+	"user:export-data": (subject, user) => isSelf(subject, user),
+	"user:delete-account": (subject, user) => isSelf(subject, user) && !isAdmin(user),
+	"user:ban": (subject, user) => isAdmin(subject) && !isAdmin(user),
+	"user:change-role": (subject, user) => isAdmin(subject) && !isSelf(subject, user) && !user.bannedAt,
+	"review:view": (subject, review) => review.isListed || subject.id === review.authorId || isAdmin(subject),
+	"review:edit": (subject, review) => subject.id === review.authorId,
+	"review:delete": (subject, review) => subject.id === review.authorId || isAdmin(subject),
+	"review:like": (subject, review) => review.isListed && subject.id !== review.authorId,
+	"review:unlike": (subject, review) => subject.id !== review.authorId,
+	"restaurant:view": (subject, restaurant) => restaurant.status === "approved" || restaurant.suggestedBy === subject.id || isAdmin(subject),
+	"restaurant:review": (_subject, restaurant) => restaurant.status === "approved",
+	"restaurant:collect": (_subject, restaurant) => restaurant.status === "approved",
+	"restaurant:moderate": (subject) => isAdmin(subject),
+	"restaurant:suggest": () => true,
+	"admin-console:view": (subject) => isAdmin(subject),
 };
 
 export function can<P extends Permission>(subject: Subject, permission: P, ...resource: ResourceArgs<P>): boolean {
@@ -151,8 +88,16 @@ export function canOn<P extends ResourcePermission>(subject: Subject, permission
 
 export type Refusal = "not-found" | "forbidden";
 
+type NameOf<P> = P extends `${infer Name}:${string}` ? Name : never;
+
+export type ResourceName = NameOf<ResourcePermission>;
+
+export function resourceOf(permission: ResourcePermission): ResourceName {
+	return permission.slice(0, permission.indexOf(":")) as ResourceName;
+}
+
 // A user who may not see a review or a restaurant is told that it does not exist, whatever they ask to do with it.
-const viewPermissions: Partial<Record<string, ReviewPermission | RestaurantPermission>> = {
+const viewPermissions: Partial<Record<ResourceName, ReviewPermission | RestaurantPermission>> = {
 	review: "review:view",
 	restaurant: "restaurant:view",
 };
@@ -160,7 +105,7 @@ const viewPermissions: Partial<Record<string, ReviewPermission | RestaurantPermi
 // Why the subject may not have the permission on the resource, or undefined when they may.
 export function refusal<P extends ResourcePermission>(subject: Subject, permission: P, resource: Resource<P> | undefined): Refusal | undefined {
 	if (!resource) return "not-found";
-	const view = viewPermissions[permission.slice(0, permission.indexOf(":"))];
+	const view = viewPermissions[resourceOf(permission)];
 	if (view && !canOn(subject, view, resource as never)) return "not-found";
 	return canOn(subject, permission, resource) ? undefined : "forbidden";
 }

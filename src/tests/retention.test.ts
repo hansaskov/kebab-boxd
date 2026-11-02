@@ -14,8 +14,8 @@ describe("the retention purge", () => {
 	it("deletes the sessions that timed out with their history, and the history older than the retention period", async () => {
 		const { client, db } = createTestDatabase();
 		const ada = insertUser(client, "ada");
-		const expired = await createSession(ada.id, db);
-		const active = await createSession(ada.id, db);
+		const expired = await createSession(db, ada.id);
+		const active = await createSession(db, ada.id);
 		await db.sessions.setLastVerifiedAt(expired.id, secondsBeforeNow(inactivityTimeoutSeconds));
 		await db.sessions.setLastVerifiedAt(active.id, secondsBeforeNow(inactivityTimeoutSeconds - 1));
 		const request = { method: "GET", route: "/", path: "/", status: 200 };

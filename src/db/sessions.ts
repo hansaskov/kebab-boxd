@@ -30,7 +30,8 @@ export function createSessions(client: Client) {
 		});
 
 	return {
-		async findWithUser(id: string) {
+		// Leaves out a session that has timed out, or whose user is banned.
+		async findActiveWithUser(id: string) {
 			return client.query.sessions.findFirst({
 				with: {
 					user: {
@@ -44,7 +45,7 @@ export function createSessions(client: Client) {
 						},
 					},
 				},
-				where: { id },
+				where: { id, lastVerifiedAt: { gt: activeSince() }, user: { bannedAt: { isNull: true } } },
 			});
 		},
 

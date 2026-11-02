@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { generateSecureRandomString } from "@src/auth/hash";
-import type { ProviderAccount } from "@src/auth/provider-account";
+import type { ProviderAccount } from "@src/auth/oauth";
 import type { Client, Transaction } from "@src/db/client";
 import * as s from "@src/db/schema";
 import type { User } from "@src/db/schema";

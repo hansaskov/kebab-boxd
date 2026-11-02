@@ -1,7 +1,6 @@
 import { defineAction } from "astro:actions";
 import { z } from "astro/zod";
 import { pronouns } from "@src/data/pronouns";
-import { deleteSessionTokenCookie } from "@src/auth/session";
 import { orThrow, requireSession } from "@src/actions/authorize";
 import { settingsHref } from "@src/hrefs";
 import { usernameSchema } from "@src/validation/username";
@@ -44,17 +43,12 @@ export const deleteAccountSchema = currentUserSchema
     path: ["confirmation"],
   });
 
-function account(locals: App.Locals) {
-  return { actor: requireSession(locals).user, users: locals.db.users };
-}
-
 export const settingsActions = {
   updateSettings: defineAction({
     accept: "form",
     input: updateAccountSchema,
     handler: async ({ currentUsername, bio, ...profile }, { locals }) => {
-      const { actor, users } = account(locals);
-      orThrow(await users.updateProfile(actor.id, currentUsername, { ...profile, bio: bio || null }));
+      orThrow(await locals.db.users.updateProfile(requireSession(locals).user.id, currentUsername, { ...profile, bio: bio || null }));
       return { redirect: settingsHref(profile.username) };
     },
   }),
@@ -62,8 +56,7 @@ export const settingsActions = {
     accept: "form",
     input: updateProfilePictureSchema,
     handler: async ({ currentUsername, picture }, { locals }) => {
-      const { actor, users } = account(locals);
-      const user = orThrow(await users.setProfilePicture(actor.id, currentUsername, picture));
+      const user = orThrow(await locals.db.users.setProfilePicture(requireSession(locals).user.id, currentUsername, picture));
       return { redirect: settingsHref(user.username) };
     },
   }),
@@ -71,8 +64,7 @@ export const settingsActions = {
     accept: "form",
     input: currentUserSchema,
     handler: async ({ currentUsername }, { locals }) => {
-      const { actor, users } = account(locals);
-      const user = orThrow(await users.removeProfilePicture(actor.id, currentUsername));
+      const user = orThrow(await locals.db.users.removeProfilePicture(requireSession(locals).user.id, currentUsername));
       return { redirect: settingsHref(user.username) };
     },
   }),
@@ -80,8 +72,7 @@ export const settingsActions = {
     accept: "form",
     input: updateLocationSchema,
     handler: async ({ currentUsername, location }, { locals }) => {
-      const { actor, users } = account(locals);
-      const user = orThrow(await users.setLocation(actor.id, currentUsername, location));
+      const user = orThrow(await locals.db.users.setLocation(requireSession(locals).user.id, currentUsername, location));
       return { redirect: settingsHref(user.username) };
     },
   }),
@@ -89,29 +80,25 @@ export const settingsActions = {
     accept: "form",
     input: updateNotificationsSchema,
     handler: async ({ currentUsername, ...preferences }, { locals }) => {
-      const { actor, users } = account(locals);
-      const user = orThrow(await users.setNotificationPreferences(actor.id, currentUsername, preferences));
+      const user = orThrow(await locals.db.users.setNotificationPreferences(requireSession(locals).user.id, currentUsername, preferences));
       return { redirect: settingsHref(user.username) };
     },
   }),
+  // The sessions are gone, so the next page finds none for the cookie and removes it.
   signOutEverywhere: defineAction({
     accept: "form",
     input: currentUserSchema,
-    handler: async ({ currentUsername }, { locals, cookies }) => {
-      const { actor, users } = account(locals);
-      const user = orThrow(await users.signOutEverywhere(actor.id, currentUsername));
-      if (actor.id !== user.id) return { redirect: settingsHref(user.username) };
-      deleteSessionTokenCookie(cookies);
-      return { redirect: "/login" };
+    handler: async ({ currentUsername }, { locals }) => {
+      const actorId = requireSession(locals).user.id;
+      const user = orThrow(await locals.db.users.signOutEverywhere(actorId, currentUsername));
+      return { redirect: user.id === actorId ? "/login" : settingsHref(user.username) };
     },
   }),
   deleteAccount: defineAction({
     accept: "form",
     input: deleteAccountSchema,
-    handler: async ({ currentUsername }, { locals, cookies }) => {
-      const { actor, users } = account(locals);
-      orThrow(await users.delete(actor.id, currentUsername));
-      deleteSessionTokenCookie(cookies);
+    handler: async ({ currentUsername }, { locals }) => {
+      orThrow(await locals.db.users.delete(requireSession(locals).user.id, currentUsername));
       return { redirect: "/login?notice=account-deleted" };
     },
   }),

@@ -6,7 +6,7 @@ import { collectionCount } from "@src/db/collections";
 import { isFollowedBy, personCard } from "@src/db/follows";
 import type { NotificationPreferences } from "@src/db/notifications";
 import { cursorList } from "@src/db/pagination";
-import { deletePictures, insertPictures, writeWithPictures, type StoredPicture } from "@src/db/pictures";
+import { writeWithPictures } from "@src/db/pictures";
 import { problem } from "@src/db/problem";
 import * as s from "@src/db/schema";
 import type { Role, User } from "@src/db/schema";
@@ -88,12 +88,6 @@ function findWithProfilePicture(tx: Transaction, username: string) {
 			where: byUsername(username),
 		})
 		.sync();
-}
-
-// The user a picture write returns, and the picture whose file goes after it.
-function replacingPicture({ profilePicture, ...user }: NonNullable<ReturnType<typeof findWithProfilePicture>>) {
-	const removed: StoredPicture[] = profilePicture ? [profilePicture] : [];
-	return { value: user, removed };
 }
 
 function setBannedAt(tx: Transaction, id: number, bannedAt: Date | null) {
@@ -208,23 +202,24 @@ export function createUsers(client: Client, pictures: PictureStore) {
 		},
 
 		async setProfilePicture(actorId: number, username: string, file: File) {
-			return writeWithPictures(pictures, [file], "profile", (urls) =>
-				authorizedWrite(client, actorId, "user:edit-settings", (tx) => findWithProfilePicture(tx, username), (tx, user) => {
-					const [pictureId] = insertPictures(tx, urls);
-					tx.update(s.users).set({ profilePictureId: pictureId }).where(eq(s.users.id, user.id)).run();
-					const replaced = replacingPicture(user);
-					deletePictures(tx, replaced.removed);
-					return replaced;
-				}),
+			return writeWithPictures(
+				pictures,
+				(changes) =>
+					authorizedWrite(client, actorId, "user:edit-settings", (tx) => findWithProfilePicture(tx, username), (tx, { profilePicture, ...user }) => {
+						const [pictureId] = changes.insertAdded(tx);
+						tx.update(s.users).set({ profilePictureId: pictureId }).where(eq(s.users.id, user.id)).run();
+						changes.remove(tx, profilePicture ? [profilePicture] : []);
+						return user;
+					}),
+				{ files: [file], kind: "profile" },
 			);
 		},
 
 		async removeProfilePicture(actorId: number, username: string) {
-			return writeWithPictures(pictures, [], "profile", () =>
-				authorizedWrite(client, actorId, "user:edit-settings", (tx) => findWithProfilePicture(tx, username), (tx, user) => {
-					const replaced = replacingPicture(user);
-					deletePictures(tx, replaced.removed);
-					return replaced;
+			return writeWithPictures(pictures, (changes) =>
+				authorizedWrite(client, actorId, "user:edit-settings", (tx) => findWithProfilePicture(tx, username), (tx, { profilePicture, ...user }) => {
+					changes.remove(tx, profilePicture ? [profilePicture] : []);
+					return user;
 				}),
 			);
 		},
@@ -257,14 +252,14 @@ export function createUsers(client: Client, pictures: PictureStore) {
 
 		// The restaurants the user suggested stay, without a suggester.
 		async delete(actorId: number, username: string) {
-			return writeWithPictures(pictures, [], "profile", () =>
+			return writeWithPictures(pictures, (changes) =>
 				authorizedWrite(client, actorId, "user:delete-account", (tx) => findWithDependents(tx, username), (tx, user) => {
 					tx.update(s.restaurants).set({ suggestedBy: null }).where(eq(s.restaurants.suggestedBy, user.id)).run();
 					tx.delete(s.users).where(eq(s.users.id, user.id)).run();
-					deletePictures(tx, user.pictures);
+					changes.remove(tx, user.pictures);
 					refreshLikeCounts(tx, user.likedReviewIds);
 					refreshRestaurantStats(tx, user.restaurantIds);
-					return { value: { id: user.id, username: user.username }, removed: user.pictures };
+					return { id: user.id, username: user.username };
 				}),
 			);
 		},

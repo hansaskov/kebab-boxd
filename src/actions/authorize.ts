@@ -1,6 +1,6 @@
 import { ActionError } from "astro:actions";
 import { z } from "astro/zod";
-import { can, type ResourcePermission, type Subject } from "@src/auth/permissions";
+import { can, resourceOf, type ResourceName, type ResourcePermission, type Subject } from "@src/auth/permissions";
 import { isProblem, type Problem } from "@src/db/problem";
 import { maxQueuedPerUser } from "@src/db/suggestion-queue";
 import { maxPicturesPerReview } from "@src/validation/review";
@@ -34,7 +34,7 @@ const forbidden: Record<ResourcePermission | "restaurant:suggest", string> = {
   "restaurant:suggest": "You cannot suggest restaurants.",
 };
 
-const notFound: Record<string, string> = {
+const notFound: Record<ResourceName, string> = {
   user: "The user does not exist.",
   review: "The review does not exist.",
   restaurant: "The restaurant does not exist.",
@@ -50,9 +50,8 @@ const problems: Record<Exclude<Problem["problem"], "not-found" | "forbidden">, [
 
 function toActionError(result: Problem) {
   if ("permission" in result) {
-    const resource = result.permission.slice(0, result.permission.indexOf(":"));
     return result.problem === "not-found"
-      ? new ActionError({ code: "NOT_FOUND", message: notFound[resource]! })
+      ? new ActionError({ code: "NOT_FOUND", message: notFound[resourceOf(result.permission)] })
       : new ActionError({ code: "FORBIDDEN", message: forbidden[result.permission] });
   }
   const [code, message] = problems[result.problem];

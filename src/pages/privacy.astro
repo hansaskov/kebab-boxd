@@ -1,7 +1,7 @@
 ---
 import { DATA_CONTROLLER_EMAIL, DATA_CONTROLLER_NAME } from "astro:env/server";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
-import { oauthCookieOptions } from "@src/auth/oauth";
+import { authorizationCookieMaxAgeSeconds } from "@src/auth/oauth";
 import { googleCookieNames } from "@src/auth/providers/google";
 import { sessionCookieName } from "@src/auth/session";
 import { settingsHref } from "@src/hrefs";
@@ -15,8 +15,8 @@ const minutes = (seconds: number) => `${seconds / 60} minutes`;
 
 const cookies = [
   { name: sessionCookieName, purpose: "Keeps you signed in.", lifetime: `${days(inactivityTimeoutSeconds)} after your last visit` },
-  { name: googleCookieNames.state, purpose: "Protects sign-in with Google.", lifetime: `after ${minutes(oauthCookieOptions.maxAge)}` },
-  { name: googleCookieNames.codeVerifier, purpose: "Protects sign-in with Google.", lifetime: `after ${minutes(oauthCookieOptions.maxAge)}` },
+  { name: googleCookieNames.state, purpose: "Protects sign-in with Google.", lifetime: `after ${minutes(authorizationCookieMaxAgeSeconds)}` },
+  { name: googleCookieNames.codeVerifier, purpose: "Protects sign-in with Google.", lifetime: `after ${minutes(authorizationCookieMaxAgeSeconds)}` },
 ];
 
 const rights = [

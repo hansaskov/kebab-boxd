@@ -1,6 +1,5 @@
 import { defineAction } from "astro:actions";
 import { requireSession } from "@src/actions/authorize";
-import { deleteSessionTokenCookie } from "@src/auth/session";
 
 export const sessionActions = {
   toggleTheme: defineAction({
@@ -12,9 +11,8 @@ export const sessionActions = {
   }),
   signOut: defineAction({
     accept: "form",
-    handler: async (_, { locals, cookies }) => {
+    handler: async (_, { locals }) => {
       await locals.db.sessions.delete(requireSession(locals).id);
-      deleteSessionTokenCookie(cookies);
       return { redirect: "/login" };
     },
   }),
