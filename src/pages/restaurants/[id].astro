@@ -10,7 +10,7 @@ import ReviewList from "@src/components/ReviewList.astro";
 import SuggestionDecision from "@src/components/SuggestionDecision.astro";
 import { canOn, refusal } from "@src/auth/permissions";
 import { restaurantMapSize, restaurantMapZoom } from "@src/data/map";
-import { exploreHref, newReviewHref, profileHref, refusalPage } from "@src/hrefs";
+import { exploreHref, newReviewHref, profileHref, refusalPage, searchHref } from "@src/hrefs";
 import { viewport } from "@src/map/viewport";
 import { parsePageRequest } from "@src/pagination";
 import { parseId } from "@src/validation/id";
@@ -44,7 +44,7 @@ const canModerate = canOn(session.user, "restaurant:moderate", restaurant);
 <BaseLayout
   title={restaurant.name}
   description={`Reviews of ${restaurant.name}${location.city ? ` in ${location.city}` : ""}`}
-  prefetchUrls={canReview ? [newReviewHref(restaurant.id), "/restaurants"] : ["/restaurants"]}
+  prefetchUrls={canReview ? [newReviewHref(restaurant.id), searchHref("restaurants")] : [searchHref("restaurants")]}
 >
   <header class="flex flex-wrap items-start gap-4">
     <div class="min-w-0 flex-1">

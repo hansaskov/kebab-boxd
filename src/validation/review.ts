@@ -12,11 +12,11 @@ export const descriptionSchema = z.string().trim().max(2000).nullable();
 
 const pictureSchema = z.instanceof(File).refine((file) => file.size <= maxPictureBytes, "A picture can be at most 10 MB.");
 
-// A file input that the user left empty still sends a file, without a name or bytes.
+// A file input that the user left empty still sends an entry: a file without bytes, or on Cloudflare an empty string.
 export function picturesSchema(max: number) {
 	return z
-		.array(z.instanceof(File))
-		.transform((files) => files.filter((file) => file.size > 0))
+		.array(z.union([z.instanceof(File), z.literal("")]))
+		.transform((entries) => entries.filter((entry): entry is File => entry instanceof File && entry.size > 0))
 		.pipe(z.array(pictureSchema).max(max, `Add at most ${max} pictures.`));
 }
 

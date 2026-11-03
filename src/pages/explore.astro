@@ -4,7 +4,7 @@ import MapView from "@src/components/MapView.astro";
 import RestaurantList from "@src/components/RestaurantList.astro";
 import { defaultMapCenter, defaultMapZoom, exploreMapSize, mapMarkerLimit, nearbyRestaurantCount } from "@src/data/map";
 import { formatDistance } from "@src/format/distance";
-import { exploreHref, restaurantHref, settingsHref } from "@src/hrefs";
+import { exploreHref, restaurantHref, searchHref, settingsHref } from "@src/hrefs";
 import { distanceInMeters, type Coordinates } from "@src/map/coordinates";
 import { maxZoom, minZoom, viewport } from "@src/map/viewport";
 import { parseMapView } from "@src/validation/map-view";
@@ -50,7 +50,7 @@ const isAtHome = home !== undefined && distanceInMeters(home, map.center) < 1;
 <BaseLayout
 	title="Explore"
 	description="Kebab restaurants on a map"
-	prefetchUrls={[controls.zoomIn, controls.zoomOut, "/restaurants"].filter((href) => href !== undefined)}
+	prefetchUrls={[controls.zoomIn, controls.zoomOut, searchHref("restaurants")].filter((href) => href !== undefined)}
 >
 	<div class="flex flex-wrap items-baseline justify-between gap-2">
 		<h1>Explore</h1>

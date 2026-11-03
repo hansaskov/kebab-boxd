@@ -9,7 +9,7 @@ import { can } from "@src/auth/permissions";
 import type { QueuedSuggestionStatus } from "@src/db/schema";
 import { successToast } from "@src/format/action-toast";
 import { submittedForm } from "@src/actions/outcome";
-import { restaurantHref } from "@src/hrefs";
+import { restaurantHref, searchHref } from "@src/hrefs";
 import { pageNavigation, parsePageRequest } from "@src/pagination";
 import { suggestionSchema } from "@src/validation/restaurant";
 
@@ -45,7 +45,7 @@ const queuedLabels: Record<QueuedSuggestionStatus, string> = {
 <BaseLayout
   title="Suggest a restaurant"
   description="Suggest a kebab restaurant that is missing from Kebab Boxd"
-  prefetchUrls={["/restaurants"]}
+  prefetchUrls={[searchHref("restaurants")]}
   toast={toast}
 >
   <h1>Suggest a restaurant</h1>

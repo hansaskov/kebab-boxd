@@ -1,6 +1,6 @@
 ---
 import "@src/styles.css";
-import { Bell, ChevronUp, CircleUser, DoorOpen, Menu, Moon, Settings, Shield, Sun } from "@lucide/astro";
+import { Bell, ChevronUp, CircleUser, DoorOpen, Menu, Moon, Search, Settings, Shield, Sun } from "@lucide/astro";
 import { actions } from "astro:actions";
 import type { ComponentProps } from "astro/types";
 import Avatar from "@src/components/Avatar.astro";
@@ -9,7 +9,7 @@ import SpeculationsAPI from "@src/components/SpeculationsAPI.astro";
 import { can } from "@src/auth/permissions";
 import { defaultSidebarMenuSections, type SidebarMenuSection } from "@src/data/sidebar-menu-sections";
 import { failureToast } from "@src/format/action-toast";
-import { profileHref, settingsHref } from "@src/hrefs";
+import { profileHref, searchHref, settingsHref } from "@src/hrefs";
 
 interface Props extends ComponentProps<typeof SpeculationsAPI> {
   title: string;
@@ -166,20 +166,33 @@ const activeHref = sidebarMenuSections
         <header
           class="sticky top-0 z-30 h-16 w-full border-b border-line bg-page/90 backdrop-blur-sm lg:border-b-0 lg:bg-transparent lg:backdrop-blur-none"
         >
-          <div class="flex h-full items-center gap-2 pl-gutter pr-2.5">
+          <div class:list={["flex h-full items-center gap-2", includeSidebar ? "px-2.5" : "pl-gutter pr-2.5"]}>
             {
               includeSidebar && (
-                <label for="site-nav" class="icon-btn lg:hidden" title="Open menu">
-                  <Menu size={20} aria-hidden="true" />
-                </label>
+                <div class="flex flex-1">
+                  <label for="site-nav" class="icon-btn lg:hidden" title="Open menu">
+                    <Menu size={20} aria-hidden="true" />
+                  </label>
+                </div>
               )
             }
 
-            <div class:list={["flex flex-1 justify-center lg:hidden", { "justify-start": !includeSidebar }]}>
-              <a href="/" class="text-fg text-lg font-bold tracking-tight">Kebab Boxd</a>
-            </div>
+            <a href="/" class:list={["text-fg text-lg font-bold tracking-tight", { "lg:hidden": includeSidebar }]}>
+              Kebab Boxd
+            </a>
 
-            <div class="ml-auto flex items-center justify-end">
+            <div class="flex flex-1 items-center justify-end">
+              {user && (
+                <a
+                  href={searchHref()}
+                  class="icon-btn"
+                  title="Search"
+                  aria-current={pathname === searchHref() ? "page" : undefined}
+                >
+                  <Search size={20} aria-hidden="true" />
+                  <span class="sr-only">Search</span>
+                </a>
+              )}
               {user && (
                 <a
                   href="/notifications"

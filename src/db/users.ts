@@ -1,11 +1,12 @@
-import { and, eq, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
+import { and, count, eq, isNotNull, isNull, max, or, sql, type SQL } from "drizzle-orm";
+import { QueryBuilder } from "drizzle-orm/sqlite-core";
 import { authorizedWrite, targetUserColumns, writeOnUser } from "@src/db/authorize";
 import { refreshLikeCounts, refreshRestaurantStats, restaurantsReviewedBy } from "@src/db/cached-stats";
 import type { Client, Transaction } from "@src/db/client";
 import { collectionCount } from "@src/db/collections";
 import { isFollowedBy, personCard } from "@src/db/follows";
 import type { NotificationPreferences } from "@src/db/notifications";
-import { cursorList } from "@src/db/pagination";
+import { cursorList, type Seek } from "@src/db/pagination";
 import { writeWithPictures } from "@src/db/pictures";
 import { problem } from "@src/db/problem";
 import * as s from "@src/db/schema";
@@ -18,6 +19,9 @@ import type { PageRequest } from "@src/pagination";
 import type { PictureStore } from "@src/pictures/store";
 
 export type Profile = Pick<User, "fullname" | "username" | "pronoun" | "bio">;
+
+export const personSorts = ["most-reviews", "latest-review"] as const;
+export type PersonSort = (typeof personSorts)[number];
 
 export const userFilters = ["all", "admin", "banned"] as const;
 export type UserFilter = (typeof userFilters)[number];
@@ -44,8 +48,28 @@ function matching(search: string, filter: UserFilter, user: Users) {
 	);
 }
 
+const qb = new QueryBuilder();
+
+// The reviews of the user that others see on their Profile.
+function publicReviewsOf(user: Users) {
+	return and(eq(s.reviews.authorId, user.id), isPublicReview(s.reviews));
+}
+
+const reviewCount = {
+	name: "reviewCount",
+	value: (user: Users) => sql<number>`(${qb.select({ count: count() }).from(s.reviews).where(publicReviewsOf(user))})`,
+} as const;
+
+// When the user last wrote a public review, in seconds since 1970, or 0 when they have none.
+const latestReviewAt = {
+	name: "latestReviewAt",
+	value: (user: Users) =>
+		sql<number>`coalesce((${qb.select({ at: max(s.reviews.createdAt) }).from(s.reviews).where(publicReviewsOf(user))}), 0)`,
+} as const;
+
 const newestPages = cursorList("users", ["id"], "desc");
-const byUsernamePages = cursorList("users", ["username"], "asc");
+const mostReviewsPages = cursorList("users", [reviewCount, "id"], "desc");
+const latestReviewPages = cursorList("users", [latestReviewAt, "id"], "desc");
 
 // Usernames are stored in lowercase, so a link with any letter case finds the user.
 function byUsername(username: string) {
@@ -126,7 +150,7 @@ export function createUsers(client: Client, pictures: PictureStore) {
 				extras: {
 					followerCount: followCount(client, "followers"),
 					followingCount: followCount(client, "following"),
-					reviewCount: (user) => client.$count(s.reviews, and(eq(s.reviews.authorId, user.id), isPublicReview(s.reviews))),
+					reviewCount: reviewCount.value,
 					favoriteCount: collectionCount(client, "favorites"),
 					bucketListCount: collectionCount(client, "bucketList"),
 					isFollowedByViewer: isFollowedBy(viewerId),
@@ -136,10 +160,12 @@ export function createUsers(client: Client, pictures: PictureStore) {
 		},
 
 		// Matches names and usernames, never email addresses: those are private. Leaves out banned users.
-		async search(text: string, viewerId: number, page: PageRequest) {
-			return byUsernamePages(page, (seek) =>
+		async search(text: string, sort: PersonSort, viewerId: number, page: PageRequest) {
+			const card = personCard(viewerId);
+			const read = (seek: Seek<"users">) =>
 				client.query.users.findMany({
-					...personCard(viewerId),
+					...card,
+					extras: { ...card.extras, reviewCount: reviewCount.value, latestReviewAt: latestReviewAt.value },
 					...seek({
 						bannedAt: { isNull: true },
 						OR: [
@@ -147,8 +173,13 @@ export function createUsers(client: Client, pictures: PictureStore) {
 							{ RAW: (user) => sql`instr(lower(${user.fullname}), lower(${text})) > 0` },
 						],
 					}),
-				}),
-			);
+				});
+			switch (sort) {
+				case "most-reviews":
+					return mostReviewsPages(page, read);
+				case "latest-review":
+					return latestReviewPages(page, read);
+			}
 		},
 
 		// For admins. Each row carries the number of users that match, which SQLite counts once for the whole statement.

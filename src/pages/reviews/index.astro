@@ -4,6 +4,7 @@ import BaseLayout from "@src/layouts/BaseLayout.astro";
 import PagedSection from "@src/components/PagedSection.astro";
 import ReviewList from "@src/components/ReviewList.astro";
 import { successToast } from "@src/format/action-toast";
+import { searchHref } from "@src/hrefs";
 import { parsePageRequest } from "@src/pagination";
 
 const session = Astro.locals.session;
@@ -17,13 +18,13 @@ const page = await Astro.locals.db.reviews.listAllByAuthor(session.user.id, sess
 <BaseLayout
   title="Your reviews"
   description="The reviews you have written"
-  prefetchUrls={["/", "/restaurants"]}
+  prefetchUrls={["/", searchHref("restaurants")]}
   toast={successToast(Astro.locals, actions.reviews.delete, { title: "Review deleted", text: "The review and its pictures are deleted." })}
 >
   <h1>Your reviews</h1>
 
   <PagedSection class="mt-4" aria-label="Reviews" page={page}>
-    <Fragment slot="empty">You have not written a review yet. <a class="link" href="/restaurants">Find a restaurant to review</a>.</Fragment>
+    <Fragment slot="empty">You have not written a review yet. <a class="link" href={searchHref("restaurants")}>Find a restaurant to review</a>.</Fragment>
     <ReviewList reviews={page.items} viewer={session.user} showAuthor={false} />
   </PagedSection>
 </BaseLayout>

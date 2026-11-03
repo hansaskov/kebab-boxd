@@ -352,7 +352,7 @@
   .input {
     display: block;
     width: 100%;
-    height: 2.5rem;
+    height: 2.75rem;
     padding-inline: 0.875rem;
     font-size: var(--pr-fs-400);
     color: var(--ds-color-fg-default);

@@ -45,7 +45,7 @@ const { shape } = createReviewSchema;
         submitted={submitted}
         zodField={shape.description}
       />
-      <FieldFile label="Pictures" name="pictures" description={`Up to ${maxPicturesPerReview}.`} multiple submitted={submitted} />
+      <FieldFile label="Pictures (optional)" name="pictures" description={`Up to ${maxPicturesPerReview}.`} multiple submitted={submitted} />
       <div class="settings-card-footer">
         <button class="btn btn-primary btn-md" type="submit">Publish review</button>
       </div>

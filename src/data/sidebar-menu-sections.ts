@@ -1,4 +1,4 @@
-import { Rss, Compass, SquarePen, UserRoundCog, Shield, Bell, MonitorSmartphone, TriangleAlert, LayoutDashboard, Users, Download, Store, UserRoundSearch, Lightbulb, Image, MapPin } from "@lucide/astro";
+import { Rss, Compass, SquarePen, UserRoundCog, Shield, Bell, MonitorSmartphone, TriangleAlert, LayoutDashboard, Users, Download, Store, Lightbulb, Image, MapPin } from "@lucide/astro";
 import { settingsHref } from "@src/hrefs";
 
 export type SidebarMenuItem = {
@@ -24,16 +24,6 @@ export const defaultSidebarMenuSections: SidebarMenuSection[] = [
           name: "Explore",
           href: "/explore",
           icon: Compass,
-        },
-        {
-          name: "Restaurants",
-          href: "/restaurants",
-          icon: Store,
-        },
-        {
-          name: "People",
-          href: "/people",
-          icon: UserRoundSearch,
         },
       ],
     },

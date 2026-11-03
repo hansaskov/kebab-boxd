@@ -1,5 +1,6 @@
 import type { Refusal } from "@src/auth/permissions";
 import type { Notification } from "@src/db/notifications";
+import type { SearchType } from "@src/validation/search-params";
 
 function userPath(username: string) {
 	return `/${encodeURIComponent(username)}`;
@@ -64,3 +65,7 @@ export function notificationHref(notification: Notification) {
 
 // The page that answers a request the user may not make, as `refusal` in the permissions decides.
 export const refusalPage = { "not-found": "/404", forbidden: "/403" } as const satisfies Record<Refusal, string>;
+
+export function searchHref(type: Exclude<SearchType, "all"> | undefined = undefined) {
+	return type ? `/search?type=${type}` : "/search";
+}

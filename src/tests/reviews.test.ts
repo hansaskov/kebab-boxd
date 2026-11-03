@@ -157,3 +157,44 @@ describe("restaurant lists", () => {
 		expect(back.items.map((restaurant) => restaurant.id)).toEqual(expected.slice(0, 10));
 	});
 });
+
+describe("people search", () => {
+	it("orders people by their public Reviews, most first or newest first", async () => {
+		const { client, db } = createTestDatabase();
+		const ada = insertUser(client, "ada");
+		const bob = insertUser(client, "bob");
+		const cyd = insertUser(client, "cyd");
+		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
+		const pending = insertRestaurant(client, "Pending Kebab");
+		insertReview(client, ada.id, grill.id, 8, daysAgo(5));
+		insertReview(client, ada.id, grill.id, 8, daysAgo(3));
+		insertReview(client, bob.id, grill.id, 8, daysAgo(2));
+		// Not public, so it neither counts for Cyd nor makes them the latest reviewer.
+		insertReview(client, cyd.id, pending.id, 8, daysAgo(0));
+		const usernames = async (sort: "most-reviews" | "latest-review") =>
+			(await db.users.search("", sort, ada.id, firstPage)).items.map((person) => person.username);
+
+		expect({ mostReviews: await usernames("most-reviews"), latestReview: await usernames("latest-review") }).toEqual({
+			mostReviews: ["ada", "bob", "cyd"],
+			latestReview: ["bob", "ada", "cyd"],
+		});
+	});
+
+	it("page forward and back through equal review counts without skipping or repeating a person", async () => {
+		const { client, db } = createTestDatabase();
+		const people = Array.from({ length: 12 }, (_, i) => insertUser(client, `kebab_${i}`));
+		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
+		for (const person of people.slice(0, 6)) insertReview(client, person.id, grill.id, 8);
+		const expected = [...people.slice(0, 6).toReversed(), ...people.slice(6).toReversed()].map((person) => person.id);
+		const search = async (cursor: (typeof firstPage)["cursor"]) => db.users.search("kebab", "most-reviews", people[0]!.id, { limit: 10, cursor });
+
+		const first = await search(undefined);
+		const second = await search(first.next);
+		const back = await search(second.previous);
+
+		expect(first.items.map((person) => person.id)).toEqual(expected.slice(0, 10));
+		expect(second.items.map((person) => person.id)).toEqual(expected.slice(10));
+		expect(second.next).toBeUndefined();
+		expect(back.items.map((person) => person.id)).toEqual(expected.slice(0, 10));
+	});
+});

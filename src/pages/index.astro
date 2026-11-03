@@ -4,6 +4,7 @@ import PagedSection from "@src/components/PagedSection.astro";
 import ReviewList from "@src/components/ReviewList.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { feeds, type Feed } from "@src/db/reviews";
+import { searchHref } from "@src/hrefs";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
 import { parseOption } from "@src/validation/search-params";
 
@@ -25,7 +26,7 @@ const tabs = [
 <BaseLayout
   title="Feed"
   description="Reviews from the people you follow"
-  prefetchUrls={[feedHref(feed === "following" ? "everyone" : "following"), "/explore", "/restaurants"]}
+  prefetchUrls={[feedHref(feed === "following" ? "everyone" : "following"), "/explore", searchHref()]}
 >
   <h1>Feed</h1>
 
@@ -34,7 +35,7 @@ const tabs = [
   <PagedSection class="mt-4" aria-label="Reviews" page={page}>
     <Fragment slot="empty">
       {feed === "following"
-        ? <>Reviews of the people you follow show up here. <a class="link" href="/people">Find people to follow</a>.</>
+        ? <>Reviews of the people you follow show up here. <a class="link" href={searchHref("people")}>Find people to follow</a>.</>
         : "No one has written a review yet."}
     </Fragment>
     <ReviewList reviews={page.items} viewer={session.user} />

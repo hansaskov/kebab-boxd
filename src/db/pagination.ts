@@ -21,8 +21,18 @@ type Direction = "first" | "after" | "before";
 
 type ColumnName<Table extends SQLiteTable> = keyof Table["_"]["columns"] & string;
 
-type KeyValues<Table extends SQLiteTable, Keys extends readonly ColumnName<Table>[]> = {
-	[Key in Keys[number]]: GetColumnData<Table["_"]["columns"][Key]>;
+// A key the query computes, such as a count. Its value is an integer, and each row carries it as an extra of the same name.
+export interface ComputedKey<Table extends SQLiteTable> {
+	name: string;
+	value: (table: Table) => SQL;
+}
+
+type Key<Table extends SQLiteTable> = ColumnName<Table> | ComputedKey<Table>;
+
+type KeyValues<Table extends SQLiteTable, Keys extends readonly Key<Table>[]> = {
+	[Name in Extract<Keys[number], string>]: GetColumnData<Table["_"]["columns"][Name]>;
+} & {
+	[Computed in Extract<Keys[number], ComputedKey<Table>> as Computed["name"]]: number;
 };
 
 // Decimal points and minus signs can appear in the values, so the separator must be neither.
@@ -64,13 +74,14 @@ function parserFor(column: Column): (text: string) => unknown {
 
 export function cursorList<
 	Name extends TableName,
-	const Keys extends readonly [ColumnName<SchemaTable<Name>>, ...ColumnName<SchemaTable<Name>>[]],
+	const Keys extends readonly [Key<SchemaTable<Name>>, ...Key<SchemaTable<Name>>[]],
 >(name: Name, keys: Keys, order: "asc" | "desc") {
 	type Table = SchemaTable<Name>;
 	// The generic table type is too deep to check column by column, so the columns are read as plain columns.
 	const columnsOf = (table: Table) => getColumns(table as SQLiteTable) as Record<string, Column>;
 	const tableColumns = columnsOf(relations[name].table as Table);
 	const columns = keys.map((key) => {
+		if (typeof key !== "string") return undefined;
 		const column = tableColumns[key];
 		if (!column) throw new Error(`The table has no column ${key}.`);
 		const sqlType = column.getSQLType();
@@ -80,10 +91,11 @@ export function cursorList<
 		return column;
 	});
 	const isComposite = columns.length > 1;
-	if (isComposite && !columns.every(isNumberColumn)) {
+	if (isComposite && !columns.every((column) => column === undefined || isNumberColumn(column))) {
 		throw new Error("A cursor list ordered by several columns can only use number columns.");
 	}
-	const parsers = columns.map(parserFor);
+	const parsers = columns.map((column) => (column ? parserFor(column) : parseSafeInteger));
+	const nameOf = (key: Keys[number]) => (typeof key === "string" ? key : key.name);
 
 	const decode = (cursor: string): unknown[] | undefined => {
 		const parts = isComposite ? cursor.split(compositeSeparator) : [cursor];
@@ -92,9 +104,12 @@ export function cursorList<
 		return values.includes(undefined) ? undefined : values;
 	};
 	const keyOf = (row: KeyValues<Table, Keys>): unknown[] =>
-		columns.map((column, i) => column.mapToDriverValue(row[keys[i]!]));
+		keys.map((key, i) => {
+			const value = (row as Record<string, unknown>)[nameOf(key)];
+			return columns[i] ? columns[i].mapToDriverValue(value) : value;
+		});
 
-	const keyColumns = (aliased: Table) => keys.map((key) => columnsOf(aliased)[key]!);
+	const keyColumns = (aliased: Table) => keys.map((key) => (typeof key === "string" ? columnsOf(aliased)[key]! : key.value(aliased)));
 	const compare = (operator: "<" | ">" | "<=" | ">=", at: unknown[]) => ({
 		RAW: (aliased: Table) =>
 			sql`(${sql.join(keyColumns(aliased), sql`, `)}) ${sql.raw(operator)} (${sql.join(

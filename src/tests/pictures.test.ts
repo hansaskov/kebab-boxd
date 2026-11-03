@@ -6,6 +6,7 @@ import { requestEndpoint } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertUser, writeReview } from "@src/tests/database";
 import { storedPictureNames } from "@src/tests/cloudflare";
 import { nameOf, pictureFile, textFile } from "@src/tests/pictures";
+import { createReviewSchema } from "@src/validation/review";
 
 function requestPicture(db: Database, url: string) {
 	return requestEndpoint(PictureEndpoint, { db, session: null }, url, { name: nameOf(url) });
@@ -83,6 +84,13 @@ describe("Pictures", () => {
 		expect(result).toEqual({ problem: "too-many-pictures" });
 		expect(await storedPictureNames()).toEqual(before);
 		expect(await picturesOf(db, review, ada.id)).toHaveLength(3);
+	});
+
+	it("are optional, whether the empty file input sends an empty file or an empty string", () => {
+		for (const empty of [new File([], ""), ""]) {
+			const input = { restaurantId: 1, rating: 8, description: null, pictures: [empty] };
+			expect(createReviewSchema.parse(input).pictures).toEqual([]);
+		}
 	});
 
 	it("are never read from outside the picture bucket", async () => {
