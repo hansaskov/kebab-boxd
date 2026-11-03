@@ -3,6 +3,7 @@ import { z } from "astro/zod";
 import { can, resourceOf, type ResourceName, type ResourcePermission, type Subject } from "@src/auth/permissions";
 import { isProblem, type Problem } from "@src/db/problem";
 import { maxQueuedPerUser } from "@src/db/suggestion-queue";
+import { pictureFormatNames } from "@src/validation/picture";
 import { maxPicturesPerReview } from "@src/validation/review";
 import { usernameSchema } from "@src/validation/username";
 
@@ -42,7 +43,7 @@ const notFound: Record<ResourceName, string> = {
 };
 
 const problems: Record<Exclude<Problem["problem"], "not-found" | "forbidden">, [ErrorCode, string]> = {
-  "invalid-picture": ["BAD_REQUEST", "A file is not a picture. Use JPEG, PNG, WebP, AVIF or GIF."],
+  "invalid-picture": ["BAD_REQUEST", `A file is not a picture. Use ${pictureFormatNames}.`],
   "too-many-pictures": ["BAD_REQUEST", `A review can have at most ${maxPicturesPerReview} pictures.`],
   "username-taken": ["CONFLICT", "Username is already taken."],
   "queue-full": ["TOO_MANY_REQUESTS", `You have ${maxQueuedPerUser} links waiting. Suggest more when they are done.`],

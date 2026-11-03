@@ -5,9 +5,6 @@ export const pictureContentType = "image/webp";
 
 const namePattern = /^[a-z0-9]{24}\.webp$/;
 
-// Every format the browser offers in a file picker that Cloudflare Images can decode.
-export const acceptedPictureTypes = ["image/jpeg", "image/png", "image/webp", "image/avif", "image/gif"] as const;
-
 const sizes = {
 	profile: { width: 512, height: 512, fit: "cover" },
 	review: { width: 1600, height: 1600, fit: "scale-down" },

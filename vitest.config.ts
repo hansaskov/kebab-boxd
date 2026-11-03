@@ -10,8 +10,10 @@ export default defineConfig(async (env) => {
 			environment: "node",
 			testTimeout: 60000,
 			isolate: false,
-			pool: "threads",
-			fileParallelism: true, 
+			// Each worker starts Miniflare, which stops its workerd process when the process of the worker exits.
+			// A worker thread ends without that exit, so with threads every run would leave workerd processes behind.
+			pool: "forks",
+			fileParallelism: true,
 		},
 	};
 });

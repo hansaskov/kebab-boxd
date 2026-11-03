@@ -5,7 +5,7 @@ import { orThrow, requireSession } from "@src/actions/authorize";
 import { settingsHref } from "@src/hrefs";
 import { usernameSchema } from "@src/validation/username";
 import { coordinatesSchema } from "@src/validation/coordinates";
-import { maxPictureBytes } from "@src/validation/review";
+import { requiredPictureSchema } from "@src/validation/picture";
 
 // The account whose settings the form changes, which an admin may change for someone else.
 export const currentUserSchema = z.object({
@@ -20,10 +20,7 @@ export const updateAccountSchema = currentUserSchema.extend({
 });
 
 export const updateProfilePictureSchema = currentUserSchema.extend({
-  picture: z
-    .instanceof(File)
-    .refine((file) => file.size > 0, "Choose a picture.")
-    .refine((file) => file.size <= maxPictureBytes, "A picture can be at most 10 MB."),
+  picture: requiredPictureSchema,
 });
 
 export const updateLocationSchema = currentUserSchema.extend({

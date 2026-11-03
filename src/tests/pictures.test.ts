@@ -6,6 +6,8 @@ import { requestEndpoint } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertUser, writeReview } from "@src/tests/database";
 import { storedPictureNames } from "@src/tests/cloudflare";
 import { nameOf, pictureFile, textFile } from "@src/tests/pictures";
+import { updateProfilePictureSchema } from "@src/actions/settings";
+import { maxPictureBytes } from "@src/validation/picture";
 import { createReviewSchema } from "@src/validation/review";
 
 function requestPicture(db: Database, url: string) {
@@ -91,6 +93,23 @@ describe("Pictures", () => {
 			const input = { restaurantId: 1, rating: 8, description: null, pictures: [empty] };
 			expect(createReviewSchema.parse(input).pictures).toEqual([]);
 		}
+	});
+
+	it("are required for a profile, whether the empty file input sends an empty file or an empty string", () => {
+		for (const empty of [new File([], ""), ""]) {
+			const result = updateProfilePictureSchema.safeParse({ currentUsername: "ada", picture: empty });
+			expect(result.error?.issues.map((issue) => [issue.path, issue.message])).toEqual([[["picture"], "Choose a picture."]]);
+		}
+	});
+
+	it("are refused when larger than the limit, both for a profile and for a review", () => {
+		const large = new File([new Uint8Array(maxPictureBytes + 1)], "large.jpg", { type: "image/jpeg" });
+
+		const profile = updateProfilePictureSchema.safeParse({ currentUsername: "ada", picture: large });
+		const review = createReviewSchema.safeParse({ restaurantId: 1, rating: 8, description: null, pictures: [large] });
+
+		expect(profile.error?.issues.map((issue) => issue.message)).toEqual(["A picture can be at most 10 MB."]);
+		expect(review.error?.issues.map((issue) => issue.message)).toEqual(["A picture can be at most 10 MB."]);
 	});
 
 	it("are never read from outside the picture bucket", async () => {

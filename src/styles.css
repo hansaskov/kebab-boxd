@@ -412,20 +412,132 @@
     outline-color: var(--ds-color-danger-default);
   }
 
-  input[type="file"].input {
-    padding-block: 0.3125rem;
-    padding-inline: 0.3125rem;
+  /* A file input that takes the files dropped anywhere on it, so the input lies over the whole box.
+     A browser draws the button of the input and the names of the chosen files at the start of its
+     content box and lets no style move them. So the padding of the input shrinks its content box to the
+     field at the bottom of the box: the frame around the input is a size container, and the padding
+     is measured in its units. */
+  .dropzone {
+    --dropzone-padding: 1.5rem;
+    --dropzone-field-inset: 0.3125rem;
+    --dropzone-button-height: 2.25rem;
+    --dropzone-field-height: calc(var(--dropzone-button-height) + 2 * var(--dropzone-field-inset));
+    --dropzone-field-max-width: 18rem;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: var(--dropzone-padding);
+    padding-bottom: calc(2 * var(--dropzone-padding) + var(--dropzone-field-height));
+    border: 1px dashed var(--ds-color-border-strong);
+    border-radius: var(--ds-radius-box);
+    text-align: center;
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease;
   }
-  input[type="file"].input::file-selector-button {
+  .dropzone:hover {
+    border-color: var(--ds-color-fg-subtle);
+    background: var(--ds-color-bg-subtle);
+  }
+  .dropzone:has(.dropzone-input:focus-visible) {
+    outline: 2px solid var(--ds-color-focus);
+    outline-offset: 2px;
+    border-color: var(--ds-color-focus);
+  }
+  .dropzone:has(.dropzone-input[aria-invalid="true"]) {
+    border-color: var(--ds-color-danger-default);
+  }
+  .dropzone:has(.dropzone-input[aria-invalid="true"]:focus-visible) {
+    outline-color: var(--ds-color-danger-default);
+  }
+
+  /* The field that the button and the names of the chosen files sit in. */
+  .dropzone::before {
+    content: "";
+    position: absolute;
+    bottom: var(--dropzone-padding);
+    left: 50%;
+    translate: -50% 0;
+    width: min(var(--dropzone-field-max-width), 100% - 2 * var(--dropzone-padding));
+    height: var(--dropzone-field-height);
+    border: 1px solid var(--ds-color-border-strong);
+    border-radius: var(--ds-radius-field);
+    background: var(--ds-color-bg-field);
+    box-shadow: var(--ds-shadow-card);
+    transition: border-color 140ms ease;
+  }
+  .dropzone:hover::before {
+    border-color: var(--ds-color-fg-subtle);
+  }
+  .dropzone:has(.dropzone-input[aria-invalid="true"])::before {
+    border-color: var(--ds-color-danger-default);
+  }
+
+  .dropzone-frame {
+    position: absolute;
+    inset: 0;
+    container-type: size;
+    border-radius: inherit;
+  }
+
+  .dropzone-input {
+    --dropzone-field-width: min(var(--dropzone-field-max-width), 100cqw - 2 * var(--dropzone-padding));
+    display: block;
+    width: 100%;
     height: 100%;
+    padding-top: calc(100cqh - var(--dropzone-padding) - var(--dropzone-field-height) + var(--dropzone-field-inset));
+    padding-bottom: calc(var(--dropzone-padding) + var(--dropzone-field-inset));
+    padding-inline: calc((100cqw - var(--dropzone-field-width)) / 2 + var(--dropzone-field-inset));
+    border-radius: inherit;
+    font-size: var(--pr-fs-400);
+    line-height: var(--dropzone-button-height);
+    color: var(--ds-color-fg-muted);
+    text-align: start;
+    cursor: pointer;
+  }
+  .dropzone-input:focus-visible {
+    outline: none;
+  }
+  .dropzone-input::file-selector-button {
+    height: var(--dropzone-button-height);
     margin-right: 0.75rem;
     padding-inline: 0.75rem;
     border: 0;
     border-radius: 0.5rem;
     background: var(--ds-color-bg-active);
     color: var(--ds-color-fg-default);
+    font: inherit;
     font-weight: 550;
+    line-height: 1;
     cursor: pointer;
+  }
+
+  .dropzone-icon {
+    display: grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    border: 1px dashed var(--ds-color-border-strong);
+    border-radius: 9999px;
+    color: var(--ds-color-fg-muted);
+  }
+  .dropzone > :first-child + .dropzone-label {
+    margin-top: 0.75rem;
+  }
+
+  .dropzone-label {
+    text-wrap: balance;
+    font-size: var(--pr-fs-500);
+    font-weight: 550;
+    color: var(--ds-color-fg-default);
+  }
+
+  .dropzone-description {
+    font-size: var(--pr-fs-300);
+    line-height: 1.5;
+    color: var(--ds-color-fg-muted);
   }
 
   textarea.input {

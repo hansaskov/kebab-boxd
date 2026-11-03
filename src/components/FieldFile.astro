@@ -1,21 +1,43 @@
 ---
-import type { ComponentProps } from "astro/types";
-import Field from "@src/components/Field.astro";
+import { Upload } from "@lucide/astro";
 import type { SubmittedForm } from "@src/actions/outcome";
 import { describeField } from "@src/format/field";
-import { acceptedPictureTypes } from "@src/pictures/store";
+import { acceptedPictureTypes, maxPictureMegabytes, pictureFormatNames } from "@src/validation/picture";
 
-interface Props extends Omit<ComponentProps<typeof Field>, "field" | "layout">, astroHTML.JSX.InputHTMLAttributes {
+interface Props extends astroHTML.JSX.InputHTMLAttributes {
     name: string;
+    // Tells the user to choose files or drop them on the field. It is also the name of the field.
     label: string;
+    description?: string | undefined;
     // The form as the user sent it when it failed. A browser cannot fill in a file input, so only its errors show.
     submitted?: SubmittedForm | undefined;
 }
 
 const { label, description, submitted, class: className, ...props } = Astro.props;
-const field = describeField({ ...props, description, submitted });
+const limits = `${pictureFormatNames}, up to ${maxPictureMegabytes} MB${props.multiple ? " each" : ""}.`;
+const fullDescription = [description, limits].filter(Boolean).join(" ");
+const field = describeField({ ...props, description: fullDescription, submitted });
 ---
 
-<Field field={field} label={label} description={description}>
-    <input class:list={["input", className]} type="file" accept={acceptedPictureTypes.join(",")} {...props} {...field.control} />
-</Field>
+<div class="settings-row">
+    <div class="min-w-0 flex-1 space-y-2">
+        <div class="dropzone">
+            <!-- The default slot shows what the new pictures replace. -->
+            <slot><span class="dropzone-icon"><Upload size={18} aria-hidden="true" /></span></slot>
+            <label class="dropzone-label" for={field.id}>{label}</label>
+            <p id={field.descriptionId} class="dropzone-description">{fullDescription}</p>
+            <div class="dropzone-frame">
+                <input
+                    class:list={["dropzone-input", className]}
+                    type="file"
+                    accept={acceptedPictureTypes.join(",")}
+                    {...props}
+                    {...field.control}
+                />
+            </div>
+        </div>
+        {field.errors.length > 0 && (
+            <p id={field.errorId} class="t-caption text-danger" role="alert">{field.errors.join(" ")}</p>
+        )}
+    </div>
+</div>
