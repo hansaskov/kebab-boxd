@@ -10,6 +10,7 @@ export type TargetRestaurant = Pick<Restaurant, "status" | "suggestedBy">;
 
 interface Permissions {
 	"user:view-profile": TargetUser;
+	"user:view-hidden-reviews": TargetUser;
 	"user:follow": TargetUser;
 	"user:unfollow": TargetUser;
 	"user:edit-settings": TargetUser;
@@ -57,6 +58,7 @@ function isSelf(subject: Subject, user: TargetUser) {
 // CONTEXT.md explains each rule. The rules on roles keep at least one Admin, and never a banned one.
 const policies: { [P in Permission]: Policy<P> } = {
 	"user:view-profile": (subject, user) => isAdmin(subject) || !user.bannedAt,
+	"user:view-hidden-reviews": (subject, user) => isSelf(subject, user),
 	"user:follow": (subject, user) => !isSelf(subject, user) && !user.bannedAt,
 	"user:unfollow": (subject, user) => !isSelf(subject, user),
 	"user:edit-settings": (subject, user) => isSelf(subject, user) || isAdmin(subject),

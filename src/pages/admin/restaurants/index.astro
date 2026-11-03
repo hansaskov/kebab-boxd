@@ -1,11 +1,11 @@
 ---
-import { adminSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import PagedSection from "@src/components/PagedSection.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
 import SuggestionDecision from "@src/components/SuggestionDecision.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { can } from "@src/auth/permissions";
+import { adminTabs } from "@src/data/admin-tabs";
 import { restaurantStatuses, type RestaurantStatus } from "@src/db/schema";
 import { profileHref, restaurantHref } from "@src/hrefs";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
@@ -46,9 +46,10 @@ const emptyMessages: Record<RestaurantStatus, string> = {
   title="Restaurants"
   description="Approve or reject the restaurants that users suggest"
   prefetchUrls={["/admin", "/admin/users"]}
-  sidebarMenuSections={adminSidebarMenuSections()}
 >
-  <h1>Restaurants</h1>
+  <TabNav aria-label="Admin console" tabs={adminTabs(Astro.url.pathname)} />
+
+  <h1 class="mt-6">Restaurants</h1>
 
   <TabNav class="mt-4" aria-label="Filter restaurants" tabs={statusTabs} />
 

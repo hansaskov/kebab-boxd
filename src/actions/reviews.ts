@@ -1,6 +1,6 @@
 import { defineAction } from "astro:actions";
 import { orThrow, requireSession } from "@src/actions/authorize";
-import { restaurantHref, reviewHref } from "@src/hrefs";
+import { profileHref, restaurantHref, reviewHref } from "@src/hrefs";
 import { createReviewSchema, reviewTargetSchema, updateReviewSchema } from "@src/validation/review";
 
 function likeAction(write: "like" | "unlike") {
@@ -45,7 +45,8 @@ export const reviewActions = {
     handler: async ({ reviewId }, { locals }) => {
       const { user } = requireSession(locals);
       const review = orThrow(await locals.db.reviews.delete(user.id, reviewId));
-      return { redirect: review.authorId === user.id ? "/reviews" : restaurantHref(review.restaurantId) };
+      // The author goes back to their reviews on their Profile. An admin goes back to the restaurant.
+      return { redirect: review.authorId === user.id ? profileHref(user.username) : restaurantHref(review.restaurantId) };
     },
   }),
   like: likeAction("like"),

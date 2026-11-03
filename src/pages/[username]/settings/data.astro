@@ -1,0 +1,88 @@
+---
+import { actions } from "astro:actions";
+import SettingsLayout from "@src/layouts/SettingsLayout.astro";
+import DialogDrawer from "@src/components/DialogDrawer.astro";
+import FieldInput from "@src/components/FieldInput.astro";
+import { deleteAccountSchema } from "@src/actions/settings";
+import { submittedForm } from "@src/actions/outcome";
+import { can } from "@src/auth/permissions";
+import { personalDataExportHref } from "@src/hrefs";
+import { openSettings, otherSectionHrefs } from "@src/settings";
+
+const settings = await openSettings(Astro, "data");
+if (settings instanceof Response) {
+  return settings;
+}
+const { session, user } = settings;
+
+const canDeleteAccount = can(session.user, "user:delete-account", user);
+const deleteForm = submittedForm(Astro.locals, actions.deleteAccount);
+---
+
+<SettingsLayout
+  settings={settings}
+  section="data"
+  title="Your data"
+  description={`Download or delete the data of ${user.fullname}`}
+  prefetchUrls={["/privacy", ...otherSectionHrefs(settings, "data")]}
+  toast={deleteForm?.hasFieldErrors ? null : undefined}
+>
+  <h1>Your data</h1>
+
+  <div class="settings-card mt-6">
+    <div class="settings-row">
+      <div class="settings-row-text">
+        <p class="field-label">Download data</p>
+        <p class="t-body-sm text-fg-muted">Everything we store about you.</p>
+      </div>
+      <a class="btn btn-secondary btn-md settings-row-action" href={personalDataExportHref(user.username)} download>Download</a>
+    </div>
+  </div>
+
+  <section class="mt-8" aria-labelledby="danger-zone-heading">
+    <h2 id="danger-zone-heading" class="text-danger">Danger zone</h2>
+    <div class="settings-card settings-card-danger mt-3">
+      {canDeleteAccount ? (
+        <div class="settings-row">
+          <div class="settings-row-text">
+            <p class="field-label">Close account</p>
+            <p class="t-body-sm text-fg-muted">Permanently deletes your account.</p>
+          </div>
+          <button class="btn btn-danger btn-md settings-row-action" type="button" commandfor="delete-account" command="show-modal">
+            Delete account
+          </button>
+        </div>
+      ) : (
+        <p class="settings-row t-body-sm text-fg-muted">Ask another admin to remove your Admin role before you delete your account.</p>
+      )}
+    </div>
+    {canDeleteAccount && (
+      <DialogDrawer
+        id="delete-account"
+        title="Are you sure?"
+        description="Deleting your account cannot be undone."
+        open={deleteForm?.errors("confirmation") !== undefined}
+      >
+        <form class="space-y-5" method="post" action={actions.deleteAccount}>
+          <input type="hidden" name="currentUsername" value={user.username} />
+          <FieldInput
+            layout="stack"
+            name="confirmation"
+            type="text"
+            autocomplete="off"
+            autofocus
+            pattern={user.username}
+            title="Type your username exactly as shown."
+            submitted={deleteForm}
+            zodField={deleteAccountSchema.shape.confirmation}
+          >
+            <Fragment slot="label">
+              Type <strong>{user.username}</strong> to confirm
+            </Fragment>
+          </FieldInput>
+          <button class="btn btn-danger btn-md w-full" type="submit">Delete account</button>
+        </form>
+      </DialogDrawer>
+    )}
+  </section>
+</SettingsLayout>

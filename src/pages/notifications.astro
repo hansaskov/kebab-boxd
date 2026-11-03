@@ -26,16 +26,16 @@ const prefetchUrls = [...new Set(unreadHrefs)].slice(0, 3);
   prefetchUrls={prefetchUrls.length > 0 ? prefetchUrls : ["/"]}
 >
   <div class="flex items-center justify-between gap-3">
-    <h1>Notifications</h1>
+    <h1 class="sm:sr-only">Notifications</h1>
     {newestUnreadId !== null && (
-      <form method="post" action={actions.notifications.markAllRead}>
+      <form class="ms-auto" method="post" action={actions.notifications.markAllRead}>
         <input type="hidden" name="upToId" value={newestUnreadId} />
         <button class="btn btn-secondary btn-sm" type="submit">Mark all as read</button>
       </form>
     )}
   </div>
 
-  <PagedSection class="mt-4" aria-label="Notifications" page={page} empty="You have no notifications.">
+  <PagedSection class:list={["mt-4", { "sm:mt-0": newestUnreadId === null }]} aria-label="Notifications" page={page} empty="You have no notifications.">
     <ol class="list">
       {page.items.map((notification) => (
       <li class="list-row">

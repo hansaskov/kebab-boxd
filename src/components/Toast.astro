@@ -18,7 +18,7 @@ const isError = toast?.variant === "error";
 {
 	toast && (
 		<div
-			class="animate-[toast-life_5.35s_forwards] fixed bottom-4 left-8 right-8 z-100 flex justify-center pointer-events-none has-checked:hidden motion-reduce:animate-[toast-life-static_5s_forwards] sm:right-4 sm:left-auto sm:justify-end"
+			class="animate-[toast-life_5.35s_forwards] fixed bottom-4 mb-dock left-8 right-8 z-100 flex justify-center pointer-events-none has-checked:hidden motion-reduce:animate-[toast-life-static_5s_forwards] sm:right-4 sm:left-auto sm:justify-end"
 			role={isError ? "alert" : "status"}
 			aria-live={isError ? "assertive" : "polite"}
 		>

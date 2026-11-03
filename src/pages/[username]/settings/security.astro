@@ -1,0 +1,67 @@
+---
+import { actions } from "astro:actions";
+import SettingsLayout from "@src/layouts/SettingsLayout.astro";
+import RelativeTime from "@src/components/RelativeTime.astro";
+import { successToast } from "@src/format/action-toast";
+import { deviceName } from "@src/format/device-name";
+import { sessionHistoryHref } from "@src/hrefs";
+import { openSettings, otherSectionHrefs } from "@src/settings";
+
+const settings = await openSettings(Astro, "security");
+if (settings instanceof Response) {
+  return settings;
+}
+const { session, user } = settings;
+const isOwnAccount = session.user.id === user.id;
+
+const devices = await Astro.locals.db.sessions.listActive(user.id);
+---
+
+<SettingsLayout
+  settings={settings}
+  section="security"
+  title="Security settings"
+  description={`The devices ${user.fullname} is signed in on`}
+  prefetchUrls={otherSectionHrefs(settings, "security")}
+  toast={successToast(Astro.locals, actions.signOutEverywhere, { title: "Signed out everywhere", text: `${user.fullname} must sign in again on every device.` })}
+>
+  <h1>Security</h1>
+
+  <section class="mt-6" aria-labelledby="devices-heading">
+    <h2 id="devices-heading">Devices</h2>
+    <div class="settings-card mt-3">
+      {devices.length === 0 ? (
+        <p class="settings-row t-body-sm text-fg-muted">There are no signed-in devices.</p>
+      ) : (
+        <ul>
+          {devices.map(({ history: [lastRequest], ...device }) => (
+            <li>
+              <a class="settings-link" href={sessionHistoryHref(user.username, device.id)}>
+                <span class="field-label">{deviceName(device, session.id)}</span>
+                <span class="t-body-sm text-fg-muted">
+                  Last used {lastRequest ? <RelativeTime date={lastRequest.requestedAt} /> : "never"}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  </section>
+
+  <section class="mt-8" aria-labelledby="danger-zone-heading">
+    <h2 id="danger-zone-heading" class="text-danger">Danger zone</h2>
+    <div class="settings-card settings-card-danger mt-3">
+      <form class="settings-row" method="post" action={actions.signOutEverywhere}>
+        <input type="hidden" name="currentUsername" value={user.username} />
+        <div class="settings-row-text">
+          <p class="field-label">Sign out everywhere</p>
+          <p class="t-body-sm text-fg-muted">
+            {isOwnAccount ? "Sign out on all devices, including this one." : `Sign ${user.fullname} out on all devices.`}
+          </p>
+        </div>
+        <button class="btn btn-danger btn-md settings-row-action" type="submit">Sign out everywhere</button>
+      </form>
+    </div>
+  </section>
+</SettingsLayout>

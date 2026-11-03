@@ -1,0 +1,53 @@
+---
+import { ArrowRight, ChevronLeft } from "@lucide/astro";
+import type { ComponentProps } from "astro/types";
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+import type { SettingsSection } from "@src/data/settings-sections";
+import { adminUserHref, settingsHref } from "@src/hrefs";
+import type { Settings } from "@src/settings";
+
+interface Props extends ComponentProps<typeof BaseLayout> {
+  settings: Settings;
+  // The section the page belongs to, which the menu marks.
+  section: SettingsSection;
+}
+
+const { settings, section, ...props } = Astro.props;
+const { session, user, sections } = settings;
+const isOwnAccount = session.user.id === user.id;
+---
+
+<BaseLayout {...props}>
+  <div class="md:grid md:grid-cols-[11rem_minmax(0,1fr)] md:gap-10">
+    <nav class="settings-nav" aria-label="Settings">
+      <ul>
+        {sections.map(({ section: option, label, icon: Icon, href }) => (
+          <li>
+            <a
+              class="nav-link"
+              href={href}
+              aria-current={option === section ? (Astro.url.pathname === href ? "page" : "true") : undefined}
+            >
+              <Icon size={18} aria-hidden="true" />
+              {label}
+            </a>
+          </li>
+        ))}
+        {!isOwnAccount && (
+          <li class="mt-2 border-t border-line pt-2">
+            <a class="nav-link" href={adminUserHref(user.username)}>
+              {user.fullname}
+              <ArrowRight size={16} aria-hidden="true" />
+            </a>
+          </li>
+        )}
+      </ul>
+    </nav>
+    <div class="min-w-0">
+      <a class="t-body-sm link link-hover mb-3 inline-flex items-center gap-1 text-fg-muted md:hidden" href={settingsHref(user.username)}>
+        <ChevronLeft size={16} aria-hidden="true" />Settings
+      </a>
+      <slot />
+    </div>
+  </div>
+</BaseLayout>

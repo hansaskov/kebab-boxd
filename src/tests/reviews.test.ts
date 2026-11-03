@@ -110,6 +110,22 @@ describe("the Profile", () => {
 		expect(listed.items.map((review) => review.id)).toEqual(window.toReversed().map((review) => review.id));
 		expect(profile?.reviewCount).toBe(listed.items.length);
 	});
+
+	it("lists and counts all Reviews of its own User, also the hidden ones", async () => {
+		const { client, db } = createTestDatabase();
+		const bob = insertUser(client, "bob");
+		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
+		const pending = insertRestaurant(client, "Mangal Express");
+		const written = [9, 6, 4, 2].map((age) => insertReview(client, bob.id, grill.id, 8, daysAgo(age)));
+		written.push(insertReview(client, bob.id, pending.id, 4, daysAgo(1)));
+
+		const profile = await db.users.findProfile(bob.username, bob.id);
+		const listed = await db.reviews.listAllByAuthor(bob.id, bob.id, firstPage);
+
+		expect(listed.items.map((review) => review.id)).toEqual(written.toReversed().map((review) => review.id));
+		expect(listed.items.filter((review) => !review.isListed)).toHaveLength(2);
+		expect(profile?.allReviewCount).toBe(listed.items.length);
+	});
 });
 
 describe("Likes", () => {

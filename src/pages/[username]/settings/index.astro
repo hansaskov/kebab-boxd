@@ -1,0 +1,40 @@
+---
+import { ChevronRight } from "@lucide/astro";
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+import { adminUserHref } from "@src/hrefs";
+import { openSettings } from "@src/settings";
+
+const settings = await openSettings(Astro, undefined);
+if (settings instanceof Response) {
+  return settings;
+}
+const { session, user, sections } = settings;
+const isOwnAccount = session.user.id === user.id;
+---
+
+<BaseLayout
+  title="Settings"
+  description={`The settings of ${user.fullname}`}
+  prefetchUrls={sections.map(({ href }) => href)}
+>
+  <h1>Settings</h1>
+
+  <ul class="list mt-4">
+    {sections.map(({ label, icon: Icon, href }) => (
+      <li class="list-row">
+        <Icon class="shrink-0 text-fg-muted" size={20} aria-hidden="true" />
+        <a class="list-row-link field-label flex-1" href={href}>{label}</a>
+        <ChevronRight class="shrink-0 text-fg-subtle" size={18} aria-hidden="true" />
+      </li>
+    ))}
+  </ul>
+
+  {!isOwnAccount && (
+    <ul class="list mt-4">
+      <li class="list-row">
+        <a class="list-row-link field-label flex-1" href={adminUserHref(user.username)}>{user.fullname}</a>
+        <ChevronRight class="shrink-0 text-fg-subtle" size={18} aria-hidden="true" />
+      </li>
+    </ul>
+  )}
+</BaseLayout>

@@ -77,6 +77,23 @@ describe("pages", () => {
 		});
 	});
 
+	it("show unbanned Users when the search is empty", async () => {
+		const { client, db } = createTestDatabase();
+		const ada = insertUser(client, "ada");
+		insertUser(client, "kebab_kim");
+		const banned = insertUser(client, "kebab_banned");
+		client.update(s.users).set({ bannedAt: new Date() }).where(eq(s.users.id, banned.id)).run();
+		const session = await signIn(db, ada.id);
+
+		const all = (await renderPage(SearchPage, { db, session }, "/search?q=")).html;
+		const people = (await renderPage(SearchPage, { db, session }, "/search?type=people")).html;
+
+		expect({
+			all: [all.includes("@kebab_kim"), all.includes("@kebab_banned")],
+			people: [people.includes("@kebab_kim"), people.includes("@kebab_banned")],
+		}).toEqual({ all: [true, false], people: [true, false] });
+	});
+
 	it("show a pending Restaurant only to the User who suggested it and to Admins", async () => {
 		const { client, db } = createTestDatabase();
 		const admin = insertUser(client, "root_admin", "admin");
@@ -108,6 +125,35 @@ describe("pages", () => {
 
 		for (const data of [bob.fullname, "Secret sauce", "Bosporus Grill"]) expect(asUser).not.toContain(data);
 		expect(await profileFor(admin.id)).toContain("Secret sauce");
+	});
+
+	it("show a User their hidden Reviews on their own Profile, and no one else", async () => {
+		const { client, db } = createTestDatabase();
+		const admin = insertUser(client, "root_admin", "admin");
+		const ada = insertUser(client, "ada");
+		const bob = insertUser(client, "bob");
+		insertReview(client, bob.id, insertRestaurant(client, "Bosporus Grill", { status: "approved" }).id, 9);
+		insertReview(client, bob.id, insertRestaurant(client, "Mangal Express").id, 4);
+		const profileFor = async (userId: number) =>
+			(await renderPage(ProfilePage, { db, session: await signIn(db, userId) }, "/bob/profile", { username: "bob" })).html;
+		const shown = (html: string) => ["Bosporus Grill", "Mangal Express"].filter((name) => html.includes(name));
+
+		expect({ author: shown(await profileFor(bob.id)), user: shown(await profileFor(ada.id)), admin: shown(await profileFor(admin.id)) }).toEqual({
+			author: ["Bosporus Grill", "Mangal Express"],
+			user: ["Bosporus Grill"],
+			admin: ["Bosporus Grill"],
+		});
+	});
+
+	it("invite a User with no Reviews to find a restaurant to review from their own Profile", async () => {
+		const { client, db } = createTestDatabase();
+		const ada = insertUser(client, "ada");
+		const bob = insertUser(client, "bob");
+		const profileFor = async (userId: number) =>
+			(await renderPage(ProfilePage, { db, session: await signIn(db, userId) }, "/bob/profile", { username: "bob" })).html;
+
+		expect(await profileFor(bob.id)).toContain('href="/search?type=restaurants"');
+		expect(await profileFor(ada.id)).not.toContain('href="/search?type=restaurants"');
 	});
 
 	it("never show the devices or the data of another User", async () => {

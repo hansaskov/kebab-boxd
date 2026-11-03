@@ -1,7 +1,7 @@
 ---
 import { actions } from "astro:actions";
-import { adminSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
+import TabNav from "@src/components/TabNav.astro";
 import FieldSelect from "@src/components/FieldSelect.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
 import Stat from "@src/components/Stat.astro";
@@ -9,6 +9,7 @@ import { changeUserRoleSchema } from "@src/actions/admin";
 import { submittedForm } from "@src/actions/outcome";
 import { can } from "@src/auth/permissions";
 import { successToast } from "@src/format/action-toast";
+import { adminTabs } from "@src/data/admin-tabs";
 import { adminUserHref, settingsHref } from "@src/hrefs";
 
 const { username } = Astro.params;
@@ -56,17 +57,17 @@ const toast =
     text: `${user.fullname} is now ${user.role === "admin" ? "an admin" : "a user"}.`,
   });
 
-const userSettingsHref = settingsHref(user.username);
 ---
 
 <BaseLayout
   title={user.fullname}
   description={`Manage the account of ${user.fullname}`}
-  prefetchUrls={["/admin/users", userSettingsHref, "/admin"]}
-  sidebarMenuSections={adminSidebarMenuSections()}
+  prefetchUrls={["/admin/users", settingsHref(user.username, "profile"), "/admin"]}
   toast={toast}
 >
-  <div class="flex flex-wrap items-center gap-2">
+  <TabNav aria-label="Admin console" tabs={adminTabs(Astro.url.pathname)} />
+
+  <div class="mt-6 flex flex-wrap items-center gap-2">
     <h1>{user.fullname}</h1>
     {user.role === "admin" && <span class="tag">Admin</span>}
     {user.bannedAt && <span class="tag text-danger">Banned</span>}
@@ -84,14 +85,14 @@ const userSettingsHref = settingsHref(user.username);
     <div class="settings-card mt-3">
       <ul>
         <li>
-          <a class="settings-link" href={`${userSettingsHref}#account`}>
+          <a class="settings-link" href={settingsHref(user.username, "profile")}>
             <span class="field-label">Profile</span>
             <span class="t-body-sm text-fg-muted">Name, username, pronouns and bio</span>
           </a>
         </li>
         {canManageSessions && (
           <li>
-            <a class="settings-link" href={`${userSettingsHref}#devices`}>
+            <a class="settings-link" href={settingsHref(user.username, "security")}>
               <span class="field-label">Devices</span>
               <span class="t-body-sm text-fg-muted">History and sign out</span>
             </a>

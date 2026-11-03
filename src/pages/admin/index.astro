@@ -1,7 +1,8 @@
 ---
-import { adminSidebarMenuSections } from "@src/data/sidebar-menu-sections";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
+import TabNav from "@src/components/TabNav.astro";
 import { can } from "@src/auth/permissions";
+import { adminTabs } from "@src/data/admin-tabs";
 
 const session = Astro.locals.session;
 
@@ -35,9 +36,10 @@ const restaurantGroups = [
   title="Admin console"
   description="Manage the users and restaurants of Kebab Boxd"
   prefetchUrls={["/admin/users", "/admin/restaurants"]}
-  sidebarMenuSections={adminSidebarMenuSections()}
 >
-  <h1>Admin console</h1>
+  <TabNav aria-label="Admin console" tabs={adminTabs(Astro.url.pathname)} />
+
+  <h1 class="mt-6">Admin console</h1>
 
   {[
     { title: "Users", groups: userGroups },

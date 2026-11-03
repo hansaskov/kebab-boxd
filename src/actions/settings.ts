@@ -49,7 +49,8 @@ export const settingsActions = {
     input: updateAccountSchema,
     handler: async ({ currentUsername, bio, ...profile }, { locals }) => {
       orThrow(await locals.db.users.updateProfile(requireSession(locals).user.id, currentUsername, { ...profile, bio: bio || null }));
-      return { redirect: settingsHref(profile.username) };
+      // The address of the settings holds the username, which may have changed.
+      return { redirect: settingsHref(profile.username, "profile") };
     },
   }),
   updateProfilePicture: defineAction({
@@ -57,7 +58,7 @@ export const settingsActions = {
     input: updateProfilePictureSchema,
     handler: async ({ currentUsername, picture }, { locals }) => {
       const user = orThrow(await locals.db.users.setProfilePicture(requireSession(locals).user.id, currentUsername, picture));
-      return { redirect: settingsHref(user.username) };
+      return { redirect: settingsHref(user.username, "profile") };
     },
   }),
   removeProfilePicture: defineAction({
@@ -65,7 +66,7 @@ export const settingsActions = {
     input: currentUserSchema,
     handler: async ({ currentUsername }, { locals }) => {
       const user = orThrow(await locals.db.users.removeProfilePicture(requireSession(locals).user.id, currentUsername));
-      return { redirect: settingsHref(user.username) };
+      return { redirect: settingsHref(user.username, "profile") };
     },
   }),
   updateLocation: defineAction({
@@ -73,7 +74,7 @@ export const settingsActions = {
     input: updateLocationSchema,
     handler: async ({ currentUsername, location }, { locals }) => {
       const user = orThrow(await locals.db.users.setLocation(requireSession(locals).user.id, currentUsername, location));
-      return { redirect: settingsHref(user.username) };
+      return { redirect: settingsHref(user.username, "location") };
     },
   }),
   updateNotifications: defineAction({
@@ -81,7 +82,7 @@ export const settingsActions = {
     input: updateNotificationsSchema,
     handler: async ({ currentUsername, ...preferences }, { locals }) => {
       const user = orThrow(await locals.db.users.setNotificationPreferences(requireSession(locals).user.id, currentUsername, preferences));
-      return { redirect: settingsHref(user.username) };
+      return { redirect: settingsHref(user.username, "notifications") };
     },
   }),
   // The sessions are gone, so the next page finds none for the cookie and removes it.
@@ -91,7 +92,7 @@ export const settingsActions = {
     handler: async ({ currentUsername }, { locals }) => {
       const actorId = requireSession(locals).user.id;
       const user = orThrow(await locals.db.users.signOutEverywhere(actorId, currentUsername));
-      return { redirect: user.id === actorId ? "/login" : settingsHref(user.username) };
+      return { redirect: user.id === actorId ? "/login" : settingsHref(user.username, "security") };
     },
   }),
   deleteAccount: defineAction({

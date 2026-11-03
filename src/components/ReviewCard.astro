@@ -22,54 +22,81 @@ const { author, restaurant } = review;
 const canLike = canOn(viewer, "review:like", review) || (review.isLikedByViewer && canOn(viewer, "review:unlike", review));
 const canEdit = canOn(viewer, "review:edit", review);
 const stars = splitStars(review.rating);
+const pictureCount = review.pictures.length;
+
+// On a phone the pictures form a row of thumbnails under the text. From the sm breakpoint they form a small square beside it.
+const pictureCell = (index: number) => {
+  if (pictureCount === 1) return { item: "sm:col-span-2", image: "aspect-square" };
+  if (pictureCount === 3 && index === 0) return { item: "sm:col-span-2", image: "aspect-square sm:aspect-2/1" };
+  return { item: "", image: "aspect-square" };
+};
 ---
 
-<article class:list={["px-4 py-4", className]} {...props}>
-  <header class="flex items-center gap-3">
+<article
+  class:list={[
+    "p-4 sm:px-5",
+    pictureCount > 0 && "grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_8rem] sm:grid-rows-[auto_1fr_auto] sm:gap-x-5",
+    className,
+  ]}
+  {...props}
+>
+  <header class="flex items-start gap-3">
     {showAuthor && (
       <a href={profileHref(author.username)} tabindex="-1">
-        <Avatar class="size-9 text-xs" name={author.fullname} picture={author.profilePicture} />
+        <Avatar class="size-10 text-xs" name={author.fullname} picture={author.profilePicture} />
       </a>
     )}
     <div class="min-w-0 flex-1">
-      <p class="t-body-sm truncate">
-        {showAuthor && <a class="font-semibold link-hover" href={profileHref(author.username)}>{author.fullname}</a>}
-        {showAuthor && showRestaurant && <span class="text-fg-muted"> on </span>}
-        {showRestaurant && <a class="field-label inline link-hover" href={restaurantHref(restaurant.id)}>{restaurant.name}</a>}
+      <p class="truncate font-semibold">
+        {showAuthor && <a class="hover:underline" href={profileHref(author.username)}>{author.fullname}</a>}
+        {showAuthor && showRestaurant && <span class="font-normal text-fg-muted"> on </span>}
+        {showRestaurant && <a class="hover:underline" href={restaurantHref(restaurant.id)}>{restaurant.name}</a>}
       </p>
-      <a class="t-body-sm text-fg-muted link-hover" href={reviewHref(review.id)}>
-        <RelativeTime class="t-body-sm shrink-0 text-fg-muted" date={review.createdAt} />
-      </a>
+      <p class="t-body-sm flex flex-wrap items-center gap-x-2 text-fg-muted">
+        <span class="inline-flex items-center gap-0.5 text-brand-text" role="img" aria-label={describeStars(toStars(review.rating))}>
+          {Array.from({ length: stars.full }, () => <Star size={15} fill="currentColor" aria-hidden="true" />)}
+          {stars.half && <StarHalf size={15} fill="currentColor" aria-hidden="true" />}
+        </span>
+        <span class="flex gap-2 whitespace-nowrap">
+          <span aria-hidden="true">·</span>
+          <a class="hover:underline" href={reviewHref(review.id)}>
+            <RelativeTime date={review.createdAt} />
+          </a>
+        </span>
+        {canEdit && (
+          <a class="inline-flex items-center gap-1 whitespace-nowrap hover:text-fg hover:underline" href={editReviewHref(review.id)}>
+            <Pencil size={13} aria-hidden="true" />Edit<span class="sr-only"> review</span>
+          </a>
+        )}
+      </p>
     </div>
     {!review.isListed && (
-      <span class="tag" title="Only your three most recent reviews of a restaurant are public.">Hidden</span>
+      <span class="tag mt-0.5" title="Only your three most recent reviews of a restaurant are public.">Hidden</span>
     )}
   </header>
 
-  <span
-    class="mt-2 inline-flex items-center gap-0.5 text-brand-text"
-    role="img"
-    aria-label={describeStars(toStars(review.rating))}
-  >
-    {Array.from({ length: stars.full }, () => <Star size={16} fill="currentColor" aria-hidden="true" />)}
-    {stars.half && <StarHalf size={16} fill="currentColor" aria-hidden="true" />}
-  </span>
-  {review.description && <p class="t-body mt-1 whitespace-pre-line">{review.description}</p>}
+  {review.description && <p class="t-body mt-2 max-w-prose whitespace-pre-line sm:col-start-1">{review.description}</p>}
 
-  {review.pictures.length > 0 && (
-    <ul class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-      {review.pictures.map((picture) => (
-        <li>
+  {pictureCount > 0 && (
+    <ul class="mt-3 flex gap-1.5 sm:col-start-2 sm:row-span-3 sm:row-start-1 sm:mt-0 sm:grid sm:grid-cols-2 sm:self-start">
+      {review.pictures.map((picture, index) => (
+        <li class:list={["w-20 min-w-0 sm:w-auto", pictureCell(index).item]}>
           <a href={picture.url}>
-            <img class="aspect-square w-full rounded-field bg-subtle object-cover" src={picture.url} alt="" loading="lazy" decoding="async" />
+            <img
+              class:list={["w-full rounded-field bg-subtle object-cover", pictureCell(index).image]}
+              src={picture.url}
+              alt=""
+              loading="lazy"
+              decoding="async"
+            />
           </a>
         </li>
       ))}
     </ul>
   )}
 
-  {(canLike || canEdit || review.likeCount > 0) && (
-    <footer class="mt-3 flex items-center gap-2">
+  {(canLike || review.likeCount > 0) && (
+    <footer class="mt-3 flex items-center gap-2 sm:col-start-1 sm:row-start-3 sm:self-end">
       {canLike ? (
         <form class="flex" method="post" action={review.isLikedByViewer ? actions.reviews.unlike : actions.reviews.like}>
           <input type="hidden" name="reviewId" value={review.id} />
@@ -86,11 +113,6 @@ const stars = splitStars(review.rating);
             {review.likeCount} {review.likeCount === 1 ? "like" : "likes"}
           </p>
         )
-      )}
-      {canEdit && (
-        <a class="btn btn-sm btn-secondary" href={editReviewHref(review.id)}>
-          <Pencil size={16} aria-hidden="true" />Edit
-        </a>
       )}
     </footer>
   )}

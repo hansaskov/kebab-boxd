@@ -4,11 +4,11 @@ import BaseLayout from "@src/layouts/BaseLayout.astro";
 import { authorizationCookieMaxAgeSeconds } from "@src/auth/oauth";
 import { googleCookieNames } from "@src/auth/providers/google";
 import { sessionCookieName } from "@src/auth/session";
+import { settingsSectionDetails, type SettingsSection } from "@src/data/settings-sections";
 import { settingsHref } from "@src/hrefs";
 import { finishedSuggestionRetentionSeconds, historyRetentionSeconds, inactivityTimeoutSeconds } from "@src/data/retention-periods";
 
 const session = Astro.locals.session;
-const userSettingsHref = session && settingsHref(session.user.username);
 
 const days = (seconds: number) => `${seconds / (60 * 60 * 24)} days`;
 const minutes = (seconds: number) => `${seconds / 60} minutes`;
@@ -19,18 +19,18 @@ const cookies = [
   { name: googleCookieNames.codeVerifier, purpose: "Protects sign-in with Google.", lifetime: `after ${minutes(authorizationCookieMaxAgeSeconds)}` },
 ];
 
-const rights = [
-  { text: "Download all your data", section: "your-data", label: "Your data" },
-  { text: "Correct your profile", section: "account", label: "Account" },
-  { text: "Remove your location", section: "location", label: "Location" },
-  { text: "Delete your account and data", section: "danger-zone", label: "Danger zone" },
+const rights: { text: string; section: SettingsSection }[] = [
+  { text: "Download all your data", section: "data" },
+  { text: "Correct your profile", section: "profile" },
+  { text: "Remove your location", section: "location" },
+  { text: "Delete your account and data", section: "data" },
 ];
 ---
 
 <BaseLayout
   title="Privacy"
   description="How Kebab Boxd uses your personal data"
-  prefetchUrls={userSettingsHref ? ["/", userSettingsHref] : ["/login"]}
+  prefetchUrls={session ? ["/", settingsHref(session.user.username, "data")] : ["/login"]}
 >
   <h1>Privacy</h1>
 
@@ -127,7 +127,9 @@ const rights = [
       {rights.map((right) => (
         <li>
           {right.text}:{" "}
-          {userSettingsHref ? <a class="link" href={`${userSettingsHref}#${right.section}`}>Settings, {right.label}</a> : `Settings, ${right.label}`}.
+          {session
+            ? <a class="link" href={settingsHref(session.user.username, right.section)}>Settings, {settingsSectionDetails[right.section].label}</a>
+            : `Settings, ${settingsSectionDetails[right.section].label}`}.
         </li>
       ))}
       <li>

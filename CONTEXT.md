@@ -61,7 +61,7 @@ A person with a Kebab-Boxd account. Signs in through one or more Accounts. Has a
 _Avoid_: Member, Account, Person
 
 **Profile**:
-The public page of a User. Shows their Picture, name, Username, pronouns, bio and Follow counts, and lists their public Reviews, Favorites and BucketList. The Profile of a banned User is visible only to Admins.
+The public page of a User. Shows their Picture, name, Username, pronouns, bio and Follow counts, and lists their public Reviews, Favorites and BucketList. On their own Profile, a User also sees their Reviews that are not public, marked as hidden, so it is where they find everything they have written. The Profile of a banned User is visible only to Admins.
 _Avoid_: Account page, UserPage, Wall
 
 **Account**:

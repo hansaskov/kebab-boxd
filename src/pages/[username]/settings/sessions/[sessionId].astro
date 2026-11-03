@@ -1,92 +1,69 @@
 ---
-import { settingsSidebarMenuSections } from "@src/data/sidebar-menu-sections";
-import BaseLayout from "@src/layouts/BaseLayout.astro";
-import { can } from "@src/auth/permissions";
+import SettingsLayout from "@src/layouts/SettingsLayout.astro";
 import PagedSection from "@src/components/PagedSection.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
 import Stat from "@src/components/Stat.astro";
 import { parsePageRequest } from "@src/pagination";
 import { deviceName } from "@src/format/device-name";
 import { sessionHistoryHref, settingsHref } from "@src/hrefs";
+import { openSettings } from "@src/settings";
 
-const { username, sessionId } = Astro.params;
-
-if (!username || !sessionId) {
-    return Astro.rewrite("/404");
+const { sessionId } = Astro.params;
+if (!sessionId) {
+  return Astro.rewrite("/404");
 }
 
-const session = Astro.locals.session;
+const settings = await openSettings(Astro, "security", (username) => sessionHistoryHref(username, sessionId));
+if (settings instanceof Response) {
+  return settings;
+}
+const { session, user } = settings;
 
-if (!session) {
-    return Astro.redirect("/login");
+const device = await Astro.locals.db.sessions.findActive(sessionId, user.id);
+if (!device) {
+  return Astro.rewrite("/404");
 }
 
-const owner = await Astro.locals.db.users.findByUsername(username);
+const page = await Astro.locals.db.history.listBySession(sessionId, parsePageRequest(Astro.url));
 
-if (!owner) {
-    return Astro.rewrite("/404");
-}
-
-if (owner.username !== username) {
-    return Astro.redirect(`${sessionHistoryHref(owner.username, sessionId)}${Astro.url.search}`, 301);
-}
-
-if (!can(session.user, "user:manage-sessions", owner)) {
-    return Astro.rewrite("/403");
-}
-
-const selectedSession = await Astro.locals.db.sessions.findActive(
-    sessionId,
-    owner.id,
-);
-
-if (!selectedSession) {
-    return Astro.rewrite("/404");
-}
-
-const page = await Astro.locals.db.history.listBySession(
-    sessionId,
-    parsePageRequest(Astro.url),
-);
-
-const lastRequestAt = selectedSession.history.at(0)?.requestedAt;
-const name = deviceName(selectedSession, session.id);
-const ownerSettingsHref = settingsHref(owner.username);
+const lastRequestAt = device.history.at(0)?.requestedAt;
+const name = deviceName(device, session.id);
 ---
 
-<BaseLayout
-    title={name}
-    description={`History for ${name.toLowerCase()} of ${owner.fullname}`}
-    prefetchUrls={[ownerSettingsHref, "/explore", "/reviews", "/"]}
-    sidebarMenuSections={settingsSidebarMenuSections(owner.username)}
+<SettingsLayout
+  settings={settings}
+  section="security"
+  title={name}
+  description={`History for ${name.toLowerCase()} of ${user.fullname}`}
+  prefetchUrls={[settingsHref(user.username, "security")]}
 >
-    <h1>{name}</h1>
+  <h1>{name}</h1>
 
-    <dl class="t-body-sm mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <Stat label="Signed in"><RelativeTime date={selectedSession.createdAt} /></Stat>
-        <Stat label="Last used">{lastRequestAt ? <RelativeTime date={lastRequestAt} /> : "Never"}</Stat>
-        <Stat class="col-span-2 sm:col-span-1" label="Requests">{selectedSession.requestCount}</Stat>
-    </dl>
+  <dl class="t-body-sm mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+    <Stat label="Signed in"><RelativeTime date={device.createdAt} /></Stat>
+    <Stat label="Last used">{lastRequestAt ? <RelativeTime date={lastRequestAt} /> : "Never"}</Stat>
+    <Stat class="col-span-2 sm:col-span-1" label="Requests">{device.requestCount}</Stat>
+  </dl>
 
-    <PagedSection class="mt-8 space-y-4" aria-label="History" page={page} empty="This session has not made any requests yet.">
-        <h2 slot="heading">History</h2>
-        <ol class="list">
-            {page.items.map((entry) => (
-                <li class="list-row">
-                    <span
-                        class="tag min-w-[8ch] shrink-0 justify-center"
-                        title={entry.prefetched ? "Prefetched: the browser loaded this page early, in case it was opened next" : undefined}
-                    >
-                        {entry.prefetched ? "PRE" : entry.method}
-                    </span>
-                    <span class:list={["t-body-sm shrink-0 text-fg-muted", { "text-danger": entry.status >= 400 }]}>{entry.status}</span>
-                    <span class="flex min-w-0 flex-1 items-center gap-2">
-                        <span class="t-body min-w-0 truncate">{entry.path}</span>
-                        {entry.action && <span class="t-body-sm min-w-0 truncate text-fg-muted">{entry.action}</span>}
-                    </span>
-                    <RelativeTime class="t-body-sm shrink-0 text-right text-fg-muted" date={entry.requestedAt} narrow />
-                </li>
-            ))}
-        </ol>
-    </PagedSection>
-</BaseLayout>
+  <PagedSection class="mt-8 space-y-4" aria-label="History" page={page} empty="This session has not made any requests yet.">
+    <h2 slot="heading">History</h2>
+    <ol class="list">
+      {page.items.map((entry) => (
+        <li class="list-row">
+          <span
+            class="tag min-w-[8ch] shrink-0 justify-center"
+            title={entry.prefetched ? "Prefetched: the browser loaded this page early, in case it was opened next" : undefined}
+          >
+            {entry.prefetched ? "PRE" : entry.method}
+          </span>
+          <span class:list={["t-body-sm shrink-0 text-fg-muted", { "text-danger": entry.status >= 400 }]}>{entry.status}</span>
+          <span class="flex min-w-0 flex-1 items-center gap-2">
+            <span class="t-body min-w-0 truncate">{entry.path}</span>
+            {entry.action && <span class="t-body-sm min-w-0 truncate text-fg-muted">{entry.action}</span>}
+          </span>
+          <RelativeTime class="t-body-sm shrink-0 text-right text-fg-muted" date={entry.requestedAt} narrow />
+        </li>
+      ))}
+    </ol>
+  </PagedSection>
+</SettingsLayout>

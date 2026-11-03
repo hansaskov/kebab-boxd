@@ -1,4 +1,5 @@
 import type { Refusal } from "@src/auth/permissions";
+import type { SettingsSection } from "@src/data/settings-sections";
 import type { Notification } from "@src/db/notifications";
 import type { SearchType } from "@src/validation/search-params";
 
@@ -10,8 +11,10 @@ export function profileHref(username: string) {
 	return `${userPath(username)}/profile`;
 }
 
-export function settingsHref(username: string) {
-	return `${userPath(username)}/settings`;
+// The settings open on an overview of their sections.
+export function settingsHref(username: string, section: SettingsSection | undefined = undefined) {
+	const href = `${userPath(username)}/settings`;
+	return section ? `${href}/${section}` : href;
 }
 
 export function sessionHistoryHref(username: string, sessionId: string) {

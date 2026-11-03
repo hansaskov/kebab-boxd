@@ -1,13 +1,12 @@
 ---
 import "@src/styles.css";
-import { Bell, ChevronUp, CircleUser, DoorOpen, Menu, Moon, Search, Settings, Shield, Sun } from "@lucide/astro";
+import { Bell, CircleUser, Compass, DoorOpen, Lightbulb, Moon, Rss, Search, Settings, Shield, Sun } from "@lucide/astro";
 import { actions } from "astro:actions";
 import type { ComponentProps } from "astro/types";
 import Avatar from "@src/components/Avatar.astro";
 import Toast from "@src/components/Toast.astro";
 import SpeculationsAPI from "@src/components/SpeculationsAPI.astro";
 import { can } from "@src/auth/permissions";
-import { defaultSidebarMenuSections, type SidebarMenuSection } from "@src/data/sidebar-menu-sections";
 import { failureToast } from "@src/format/action-toast";
 import { profileHref, searchHref, settingsHref } from "@src/hrefs";
 
@@ -16,10 +15,7 @@ interface Props extends ComponentProps<typeof SpeculationsAPI> {
   description: string;
   preview?: string;
   ogType?: string;
-  sidebarMenuSections?: SidebarMenuSection[];
   class?: string;
-  // Without it, a page has the sidebar when the user is signed in.
-  includeSidebar?: boolean;
   // Without it, the page tells when the last action failed. A page that shows the failure itself passes null.
   toast?: ComponentProps<typeof Toast>["toast"] | null;
 }
@@ -31,8 +27,6 @@ const {
   description,
   preview = "/preview.webp",
   ogType = "website",
-  sidebarMenuSections = defaultSidebarMenuSections,
-  includeSidebar = !!session,
   toast = failureToast(Astro.locals),
   class: className,
   ...props
@@ -42,13 +36,28 @@ const image = new URL(preview, Astro.url);
 const unread = user?.unreadNotificationCount ?? 0;
 
 const { pathname } = Astro.url;
-const matches = (href: string) =>
-  href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
-const activeHref = sidebarMenuSections
-  .flatMap((section) => section.items.map((item) => item.href))
-  .filter(matches)
-  .toSorted((a, b) => b.length - a.length)
-  .at(0);
+const isUnder = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+const current = (href: string) => (pathname === href ? "page" : undefined);
+
+// The bar has the places to browse on the left, and Search on the right beside Notifications and the account.
+// The dock shows every icon, and the bar shows only the one of Search.
+const links = [
+  { name: "Feed", href: "/", icon: Rss },
+  { name: "Explore", href: "/explore", icon: Compass },
+  { name: "Search", href: searchHref(), icon: Search, startsRightGroup: true, hasIconInBar: true },
+];
+
+const accountMenu = user && {
+  profile: profileHref(user.username),
+  settings: settingsHref(user.username),
+  // A larger screen shows the menu of the sections beside each one, so it can open the first section directly.
+  firstSettingsSection: settingsHref(user.username, "profile"),
+  suggest: "/restaurants/suggest",
+  admin: can(user, "admin-console:view") ? "/admin" : undefined,
+};
+// The account button stands for the pages in its menu, since they have no place of their own in the navigation.
+const isOnAccountPage =
+  accountMenu !== undefined && [accountMenu.profile, accountMenu.settings, accountMenu.suggest, accountMenu.admin].some((href) => href && isUnder(href));
 ---
 
 <!doctype html>
@@ -74,165 +83,115 @@ const activeHref = sidebarMenuSections
     <meta property="twitter:title" content={title} />
     <meta property="twitter:description" content={description} />
     <meta property="twitter:image" content={image} />
+    <SpeculationsAPI {...props} />
     <slot name="head" />
   </head>
-  <body>
-    <div class:list={["flex min-h-dvh", { "lg:flex-row": includeSidebar }]}>
-      {
-        includeSidebar && (
-          <>
-            <input
-              id="site-nav"
-              type="checkbox"
-              class="sr-only"
-              aria-label="Toggle navigation menu"
-            />
-            <aside class="nav-panel flex flex-col">
-              <div class="px-5 pt-6 pb-2">
-                <a href="/" class="block text-xl font-bold tracking-tight">Kebab Boxd</a>
-              </div>
-
-              <nav class="flex-1 overflow-y-auto px-3 pb-3">
-                <ul class="flex flex-col gap-1" aria-label="Main navigation">
-                  {sidebarMenuSections.map((section) => (
-                    <>
-                      <li class="t-overline px-3 pt-4 pb-1" aria-hidden="true">{section.title}</li>
-                      {section.items.map((item) => {
-                        const Icon = item.icon;
-                        return (
-                          <li>
-                            <a
-                              href={item.href}
-                              class="nav-link"
-                              aria-current={item.href === activeHref ? "page" : undefined}
-                            >
-                              <Icon size={20} aria-hidden="true" />
-                              {item.name}
-                            </a>
-                          </li>
-                        );
-                      })}
-                    </>
-                  ))}
-                </ul>
-              </nav>
-
-              {session && user && (
-                <div class="relative p-3 border-t border-line">
-                  <button
-                    popovertarget="sidebar-user-menu"
-                    style="anchor-name:--sidebar-user-menu"
-                    class="flex items-center gap-3 px-2 py-2 rounded-field hover:bg-active cursor-pointer w-full text-left"
-                  >
-                    <Avatar class="size-10" name={user.fullname} picture={user.profilePicture} />
-                    <div class="flex-1 text-left min-w-0">
-                      <div class="font-semibold text-sm truncate">{user.fullname}</div>
-                      <div class="text-xs text-fg-muted truncate">@{user.username}</div>
-                    </div>
-                    <ChevronUp size={16} aria-hidden="true" />
-                  </button>
-                  <ul class="popover-panel menu-list" popover id="sidebar-user-menu">
-                    <li><a href={profileHref(user.username)}><CircleUser size={16} aria-hidden="true" />Profile</a></li>
-                    <li><a href={settingsHref(user.username)}><Settings size={16} aria-hidden="true" />Settings</a></li>
-                    <form method="post" action={actions.session.toggleTheme}>
-                      <li>
-                        <button type="submit">
-                          {session.theme === "dark" ? <Moon size={16} aria-hidden="true" /> : <Sun size={16} aria-hidden="true" />}
-                          Theme
-                        </button>
-                      </li>
-                    </form>
-                    {can(user, "admin-console:view") && (
-                      <>
-                        <li data-menu-title="true">Admin</li>
-                        <li><a href="/admin"><Shield size={16} aria-hidden="true" />Admin console</a></li>
-                      </>
-                    )}
-                    <form method="post" action={actions.session.signOut} class="border-t border-line pt-1 mt-1">
-                      <li>
-                        <button data-danger type="submit"><DoorOpen size={16} aria-hidden="true" />Sign out</button>
-                      </li>
-                    </form>
-                  </ul>
-                </div>
-              )}
-            </aside>
-            <label for="site-nav" class="nav-scrim" aria-hidden="true"></label>
-          </>
-        )
-      }
-
-      <div class="flex min-w-0 flex-1 flex-col bg-page">
-        <header
-          class="sticky top-0 z-30 h-16 w-full border-b border-line bg-page/90 backdrop-blur-sm lg:border-b-0 lg:bg-transparent lg:backdrop-blur-none"
-        >
-          <div class:list={["flex h-full items-center gap-2", includeSidebar ? "px-2.5" : "pl-gutter pr-2.5"]}>
-            {
-              includeSidebar && (
-                <div class="flex flex-1">
-                  <label for="site-nav" class="icon-btn lg:hidden" title="Open menu">
-                    <Menu size={20} aria-hidden="true" />
-                  </label>
-                </div>
-              )
-            }
-
-            <a href="/" class:list={["text-fg text-lg font-bold tracking-tight", { "lg:hidden": includeSidebar }]}>
-              Kebab Boxd
-            </a>
-
-            <div class="flex flex-1 items-center justify-end">
-              {user && (
-                <a
-                  href={searchHref()}
-                  class="icon-btn"
-                  title="Search"
-                  aria-current={pathname === searchHref() ? "page" : undefined}
-                >
-                  <Search size={20} aria-hidden="true" />
-                  <span class="sr-only">Search</span>
+  <body class="flex min-h-dvh flex-col">
+    {
+      session && user && accountMenu && (
+        <nav class="site-nav" aria-label="Main">
+          <ul class="site-nav-list">
+            {links.map(({ name, href, icon: Icon, startsRightGroup, hasIconInBar }) => (
+              <li class:list={{ "sm:ms-auto": startsRightGroup }}>
+                <a class="nav-link" href={href} aria-current={current(href)}>
+                  <Icon class:list={{ "sm:hidden": !hasIconInBar }} size={20} aria-hidden="true" />
+                  <span class="max-sm:sr-only">{name}</span>
                 </a>
-              )}
-              {user && (
-                <a
-                  href="/notifications"
-                  class="icon-btn relative"
-                  title="Notifications"
-                  aria-current={pathname === "/notifications" ? "page" : undefined}
-                >
+              </li>
+            ))}
+            <li>
+              <a class="nav-link" href="/notifications" aria-current={current("/notifications")}>
+                <span class="relative">
                   <Bell size={20} aria-hidden="true" />
-                  <span class="sr-only">Notifications{unread > 0 && `, ${unread} unread`}</span>
                   {unread > 0 && (
                     <span
-                      class="t-caption absolute top-1 right-1 grid h-4.5 min-w-4.5 place-items-center rounded-full bg-brand px-1 leading-none font-semibold text-on-brand tabular-nums"
+                      class="t-caption absolute -top-2 -right-2.5 grid h-4.5 min-w-4.5 place-items-center rounded-full bg-brand px-1 leading-none font-semibold text-on-brand tabular-nums"
                       aria-hidden="true"
                     >
                       {unread > 99 ? "99+" : unread}
                     </span>
                   )}
-                </a>
-              )}
-            </div>
-          </div>
-        </header>
-        <div class="flex justify-center">
-          <main id="main-content" class:list={["w-full max-w-225 px-gutter pt-5 pb-16", className]}>
-            <slot />
-          </main>
-        </div>
-        <footer class="shrink-0 mt-auto border-t border-line px-gutter py-8">
-          <div class="t-caption flex items-center justify-center gap-3 text-fg-muted">
-            <span>Kebab Boxd</span>
-            <span class="select-none text-fg-subtle" aria-hidden="true">•</span>
-            <span>{new Date().getFullYear()}</span>
-            <span class="select-none text-fg-subtle" aria-hidden="true">•</span>
-            <a class="link link-hover text-fg-muted" href="/privacy">Privacy</a>
-          </div>
-        </footer>
+                </span>
+                <span class="sr-only">Notifications{unread > 0 && `, ${unread} unread`}</span>
+              </a>
+            </li>
+            <li>
+              <button
+                type="button"
+                class="nav-link"
+                popovertarget="account-menu"
+                style="anchor-name:--account-menu"
+                data-current={isOnAccountPage ? "" : undefined}
+              >
+                <Avatar class="size-8 text-xs" name={user.fullname} picture={user.profilePicture} />
+                <span class="sr-only">Account</span>
+              </button>
+              <ul class="popover-panel menu-list" popover id="account-menu" style="position-anchor:--account-menu">
+                <li>
+                  <a href={accountMenu.profile} aria-current={current(accountMenu.profile)}>
+                    <CircleUser size={16} aria-hidden="true" />
+                    <span class="min-w-0">
+                      <span class="block truncate leading-tight font-semibold">{user.fullname}</span>
+                      <span class="t-caption block truncate leading-tight text-fg-muted">@{user.username}</span>
+                    </span>
+                  </a>
+                </li>
+                <li>
+                  <a href={accountMenu.suggest} aria-current={current(accountMenu.suggest)}>
+                    <Lightbulb size={16} aria-hidden="true" />Suggestions
+                  </a>
+                </li>
+                <li class="md:hidden">
+                  <a href={accountMenu.settings} aria-current={current(accountMenu.settings)}>
+                    <Settings size={16} aria-hidden="true" />Settings
+                  </a>
+                </li>
+                <li class="max-md:hidden">
+                  <a href={accountMenu.firstSettingsSection} aria-current={current(accountMenu.firstSettingsSection)}>
+                    <Settings size={16} aria-hidden="true" />Settings
+                  </a>
+                </li>
+                <li>
+                  <form method="post" action={actions.session.toggleTheme}>
+                    <button type="submit">
+                      {session.theme === "dark" ? <Moon size={16} aria-hidden="true" /> : <Sun size={16} aria-hidden="true" />}
+                      Theme
+                    </button>
+                  </form>
+                </li>
+                {accountMenu.admin && (
+                  <li>
+                    <a href={accountMenu.admin} aria-current={current(accountMenu.admin)}>
+                      <Shield size={16} aria-hidden="true" />Admin console
+                    </a>
+                  </li>
+                )}
+                <li class="mt-1 border-t border-line pt-1">
+                  <form method="post" action={actions.session.signOut}>
+                    <button data-danger type="submit"><DoorOpen size={16} aria-hidden="true" />Sign out</button>
+                  </form>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </nav>
+      )
+    }
+
+    <main id="main-content" class:list={["mx-auto w-full max-w-page px-gutter pt-5 pb-16", className]}>
+      <slot />
+    </main>
+
+    <footer class="mt-auto shrink-0 border-t border-line px-gutter py-8">
+      <div class="t-caption flex items-center justify-center gap-3 text-fg-muted">
+        <a class="link link-hover text-fg-muted" href="/">Kebab Boxd</a>
+        <span class="select-none text-fg-subtle" aria-hidden="true">•</span>
+        <span>{new Date().getFullYear()}</span>
+        <span class="select-none text-fg-subtle" aria-hidden="true">•</span>
+        <a class="link link-hover text-fg-muted" href="/privacy">Privacy</a>
       </div>
-    </div>
+    </footer>
+
     {toast && <Toast toast={toast} />}
   </body>
 </html>
-
-<SpeculationsAPI {...props} />

@@ -10,7 +10,8 @@ import RestaurantList from "@src/components/RestaurantList.astro";
 import ReviewList from "@src/components/ReviewList.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { can } from "@src/auth/permissions";
-import { profileHref, settingsHref } from "@src/hrefs";
+import { successToast } from "@src/format/action-toast";
+import { profileHref, searchHref, settingsHref } from "@src/hrefs";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
 import { parseOption } from "@src/validation/search-params";
 
@@ -37,11 +38,13 @@ if (user.username !== username) {
   return Astro.redirect(`${profileHref(user.username)}${Astro.url.search}`, 301);
 }
 
+const isOwnProfile = session.user.id === user.id;
 const canEditProfile = can(session.user, "user:edit-settings", user);
 const canFollow = can(session.user, "user:follow", user);
 const isFollowing = user.isFollowedByViewer && can(session.user, "user:unfollow", user);
 
 const canView = can(session.user, "user:view-profile", user);
+const canViewHiddenReviews = can(session.user, "user:view-hidden-reviews", user);
 const profileTabs = ["reviews", "favorites", "bucket-list", "followers", "following"] as const;
 type ProfileTab = (typeof profileTabs)[number];
 
@@ -54,7 +57,9 @@ let personPage;
 if (canView) {
   switch (tab) {
     case "reviews":
-      reviewPage = await reviews.listPublicByAuthor(user.id, session.user.id, pageRequest);
+      reviewPage = canViewHiddenReviews
+        ? await reviews.listAllByAuthor(user.id, session.user.id, pageRequest)
+        : await reviews.listPublicByAuthor(user.id, session.user.id, pageRequest);
       break;
     case "favorites":
       restaurantPage = await collections.list(user.id, "favorites", pageRequest);
@@ -70,10 +75,9 @@ if (canView) {
       break;
   }
 }
-const isOwnProfile = session.user.id === user.id;
 
 const tabs: Record<ProfileTab, { label: string; total: number; empty: string }> = {
-  reviews: { label: "Reviews", total: user.reviewCount, empty: "No reviews yet." },
+  reviews: { label: "Reviews", total: canViewHiddenReviews ? user.allReviewCount : user.reviewCount, empty: "No reviews yet." },
   favorites: { label: "Favorites", total: user.favoriteCount, empty: "No favorites yet." },
   "bucket-list": { label: "Bucket list", total: user.bucketListCount, empty: "The bucket list is empty." },
   followers: { label: "Followers", total: user.followerCount, empty: "No followers yet." },
@@ -93,13 +97,17 @@ const layout = canView
       description: user.bio ?? `Reviews, favorites and bucket list of ${user.fullname}`,
       prefetchUrls: [
         ...profileTabs.filter((option) => option !== tab).map(tabHref),
-        ...(canEditProfile ? [settingsHref(user.username)] : []),
+        ...(canEditProfile ? [settingsHref(user.username, "profile")] : []),
+        ...(isOwnProfile && reviewPage?.items.length === 0 ? [searchHref("restaurants")] : []),
         "/",
       ],
     }
   : { title: "Account suspended", description: "This account has been suspended", prefetchUrls: ["/"] };
 ---
-<BaseLayout {...layout}>
+<BaseLayout
+  {...layout}
+  toast={successToast(Astro.locals, actions.reviews.delete, { title: "Review deleted", text: "The review and its pictures are deleted." })}
+>
   {canView ? (
     <>
       <header class="flex flex-wrap items-center gap-4">
@@ -116,7 +124,7 @@ const layout = canView
         {(canEditProfile || canFollow || isFollowing) && (
           <div class="flex w-full gap-2 sm:w-auto">
             {canEditProfile && (
-              <a class="btn btn-secondary btn-md flex-1 sm:flex-none" href={`${settingsHref(user.username)}#account`}>Edit profile</a>
+              <a class="btn btn-secondary btn-md flex-1 sm:flex-none" href={settingsHref(user.username, "profile")}>Edit profile</a>
             )}
             {(isFollowing || canFollow) && (
               <FollowButton class="flex-1 sm:flex-none" username={user.username} following={isFollowing} />
@@ -142,7 +150,14 @@ const layout = canView
       <TabNav class="mt-8" aria-label="Profile lists" tabs={listTabs} />
 
       {reviewPage && (
-        <PagedSection class="mt-4" aria-label={tabs[tab].label} page={reviewPage} empty={tabs[tab].empty}>
+        <PagedSection class="mt-4" aria-label={tabs[tab].label} page={reviewPage}>
+          <Fragment slot="empty">
+            {isOwnProfile ? (
+              <>You have not written a review yet. <a class="link" href={searchHref("restaurants")}>Find a restaurant to review</a>.</>
+            ) : (
+              tabs[tab].empty
+            )}
+          </Fragment>
           <ReviewList reviews={reviewPage.items} viewer={session.user} showAuthor={false} />
         </PagedSection>
       )}

@@ -28,9 +28,9 @@ const tabs = [
   description="Reviews from the people you follow"
   prefetchUrls={[feedHref(feed === "following" ? "everyone" : "following"), "/explore", searchHref()]}
 >
-  <h1>Feed</h1>
+  <h1 class="sm:sr-only">Feed</h1>
 
-  <TabNav class="mt-4" aria-label="Feeds" tabs={tabs} />
+  <TabNav class="mt-4 sm:mt-0" aria-label="Feeds" tabs={tabs} />
 
   <PagedSection class="mt-4" aria-label="Reviews" page={page}>
     <Fragment slot="empty">

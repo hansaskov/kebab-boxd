@@ -33,6 +33,8 @@ describe("permissions", () => {
 		} as const;
 		const granted = {
 			"user:view-profile": ["user on themselves", "user on another user", "admin on themselves", "admin on a user", "admin on a banned user", "admin on another admin"],
+			// Only the author sees the reviews that are not public on their Profile.
+			"user:view-hidden-reviews": ["user on themselves", "admin on themselves"],
 			"user:follow": ["user on another user", "admin on a user", "admin on another admin"],
 			"user:unfollow": ["user on another user", "user on a banned user", "admin on a user", "admin on a banned user", "admin on another admin"],
 			"user:edit-settings": ["user on themselves", "admin on themselves", "admin on a user", "admin on a banned user", "admin on another admin"],

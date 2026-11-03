@@ -10,7 +10,10 @@ interface Props {
 
 const { field, label, description, layout = "row" } = Astro.props;
 const isRow = layout === "row";
-const hasLabelSlot = Astro.slots.has("label");
+// A component that forwards the label slot under a condition creates the slot even when the condition is false,
+// so the slot counts only when it renders something.
+const labelSlot = Astro.slots.has("label") ? (await Astro.slots.render("label")).trim() : "";
+const hasLabelSlot = labelSlot !== "";
 
 if (!label && !hasLabelSlot) {
     throw new Error(`The field "${field.id}" needs a label prop or a label slot.`);
@@ -20,7 +23,7 @@ if (!label && !hasLabelSlot) {
 <div class={isRow ? "settings-row" : "space-y-2"}>
     <div class={isRow ? "settings-row-text" : undefined}>
         <label class:list={["field-label", { "font-normal": hasLabelSlot }]} for={field.id}>
-            <slot name="label">{label}</slot>
+            {hasLabelSlot ? <Fragment set:html={labelSlot} /> : label}
         </label>
         {description && <p id={field.descriptionId} class="t-body-sm text-fg-muted">{description}</p>}
     </div>

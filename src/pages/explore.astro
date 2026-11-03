@@ -45,6 +45,7 @@ const nearby = nearest.map((pin) => ({
 	details: [formatDistance(distanceInMeters(map.center, pin)), pin.city],
 }));
 const isAtHome = home !== undefined && distanceInMeters(home, map.center) < 1;
+const showsLocationLink = !home || !isAtHome;
 ---
 
 <BaseLayout
@@ -53,16 +54,16 @@ const isAtHome = home !== undefined && distanceInMeters(home, map.center) < 1;
 	prefetchUrls={[controls.zoomIn, controls.zoomOut, searchHref("restaurants")].filter((href) => href !== undefined)}
 >
 	<div class="flex flex-wrap items-baseline justify-between gap-2">
-		<h1>Explore</h1>
+		<h1 class="sm:sr-only">Explore</h1>
 		{home && !isAtHome && (
-			<a class="t-body-sm link" href={exploreHref({ center: home, zoom: map.zoom })}>Back to your location</a>
+			<a class="t-body-sm link ms-auto" href={exploreHref({ center: home, zoom: map.zoom })}>Back to your location</a>
 		)}
 		{!home && (
-			<a class="t-body-sm link" href={`${settingsHref(session.user.username)}#location`}>Set your location</a>
+			<a class="t-body-sm link ms-auto" href={settingsHref(session.user.username, "location")}>Set your location</a>
 		)}
 	</div>
 
-	<MapView class="mt-4" viewport={map} size={exploreMapSize} markers={markers} here={home} controls={controls} />
+	<MapView class:list={["mt-4", { "sm:mt-0": !showsLocationLink }]} viewport={map} size={exploreMapSize} markers={markers} here={home} controls={controls} />
 
 	<section class="mt-8" aria-labelledby="nearby-heading">
 		<h2 id="nearby-heading">Nearby</h2>

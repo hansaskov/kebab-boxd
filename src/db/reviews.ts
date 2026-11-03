@@ -81,7 +81,7 @@ export function createReviews(client: Client, pictures: PictureStore) {
 			return list(viewerId, { ...listed, restaurantId }, page);
 		},
 
-		// Includes the reviews that are not public, so only the author or an admin may see the list.
+		// Includes the reviews that are not public, so it is only for a viewer with the permission user:view-hidden-reviews.
 		async listAllByAuthor(authorId: number, viewerId: number, page: PageRequest) {
 			return list(viewerId, { authorId }, page);
 		},

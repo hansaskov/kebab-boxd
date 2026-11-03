@@ -6,7 +6,7 @@ import type { Client, Transaction } from "@src/db/client";
 import { collectionCount } from "@src/db/collections";
 import { isFollowedBy, personCard } from "@src/db/follows";
 import type { NotificationPreferences } from "@src/db/notifications";
-import { cursorList, type Seek } from "@src/db/pagination";
+import { cursorList, type Filter, type Seek } from "@src/db/pagination";
 import { writeWithPictures } from "@src/db/pictures";
 import { problem } from "@src/db/problem";
 import * as s from "@src/db/schema";
@@ -46,6 +46,17 @@ function matching(search: string, filter: UserFilter, user: Users) {
 				)
 			: undefined,
 	);
+}
+
+// Matches names and usernames, never email addresses: those are private. An empty search matches everyone.
+function matchingName(text: string): Filter<"users"> {
+	if (!text) return {};
+	return {
+		OR: [
+			{ RAW: (user) => sql`instr(lower(${user.username}), lower(${text})) > 0` },
+			{ RAW: (user) => sql`instr(lower(${user.fullname}), lower(${text})) > 0` },
+		],
+	};
 }
 
 const qb = new QueryBuilder();
@@ -151,6 +162,8 @@ export function createUsers(client: Client, pictures: PictureStore) {
 					followerCount: followCount(client, "followers"),
 					followingCount: followCount(client, "following"),
 					reviewCount: reviewCount.value,
+					// With the hidden ones, which only the user sees, so the count matches the list the page shows them.
+					allReviewCount: (user) => client.$count(s.reviews, eq(s.reviews.authorId, user.id)),
 					favoriteCount: collectionCount(client, "favorites"),
 					bucketListCount: collectionCount(client, "bucketList"),
 					isFollowedByViewer: isFollowedBy(viewerId),
@@ -159,20 +172,14 @@ export function createUsers(client: Client, pictures: PictureStore) {
 			});
 		},
 
-		// Matches names and usernames, never email addresses: those are private. Leaves out banned users.
+		// The people whose name or username contains the text. Leaves out banned users.
 		async search(text: string, sort: PersonSort, viewerId: number, page: PageRequest) {
 			const card = personCard(viewerId);
 			const read = (seek: Seek<"users">) =>
 				client.query.users.findMany({
 					...card,
 					extras: { ...card.extras, reviewCount: reviewCount.value, latestReviewAt: latestReviewAt.value },
-					...seek({
-						bannedAt: { isNull: true },
-						OR: [
-							{ RAW: (user) => sql`instr(lower(${user.username}), lower(${text})) > 0` },
-							{ RAW: (user) => sql`instr(lower(${user.fullname}), lower(${text})) > 0` },
-						],
-					}),
+					...seek({ AND: [{ bannedAt: { isNull: true } }, matchingName(text)] }),
 				});
 			switch (sort) {
 				case "most-reviews":

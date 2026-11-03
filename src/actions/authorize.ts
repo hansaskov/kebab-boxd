@@ -14,6 +14,7 @@ export const targetUserSchema = z.object({
 
 const forbidden: Record<ResourcePermission | "restaurant:suggest", string> = {
   "user:view-profile": "You cannot see this profile.",
+  "user:view-hidden-reviews": "You cannot see the hidden reviews of this user.",
   "user:follow": "You cannot follow this user.",
   "user:unfollow": "You cannot unfollow this user.",
   "user:edit-settings": "You cannot change the settings of this account.",

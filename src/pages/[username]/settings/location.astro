@@ -1,0 +1,54 @@
+---
+import { actions } from "astro:actions";
+import SettingsLayout from "@src/layouts/SettingsLayout.astro";
+import FieldInput from "@src/components/FieldInput.astro";
+import { submittedForm } from "@src/actions/outcome";
+import { successToast } from "@src/format/action-toast";
+import { coordinatesTextSchema, formatCoordinates } from "@src/validation/coordinates";
+import { openSettings, otherSectionHrefs } from "@src/settings";
+
+const settings = await openSettings(Astro, "location");
+if (settings instanceof Response) {
+  return settings;
+}
+const { user } = settings;
+
+const locationForm = submittedForm(Astro.locals, actions.updateLocation);
+const home = user.latitude !== null && user.longitude !== null ? { latitude: user.latitude, longitude: user.longitude } : undefined;
+
+const toast = locationForm?.hasFieldErrors
+  ? null
+  : successToast(Astro.locals, actions.updateLocation, { title: "Location saved", text: "The map starts at your location." });
+---
+
+<SettingsLayout
+  settings={settings}
+  section="location"
+  title="Location settings"
+  description={`Where the map starts for ${user.fullname}`}
+  prefetchUrls={["/explore", ...otherSectionHrefs(settings, "location")]}
+  toast={toast}
+>
+  <h1>Location</h1>
+
+  <form class="mt-6" method="post" action={actions.updateLocation}>
+    <input type="hidden" name="currentUsername" value={user.username} />
+    <fieldset class="settings-card">
+      <FieldInput
+        label="Coordinates"
+        name="location"
+        description="The map starts here. Only you can see it."
+        type="text"
+        inputmode="decimal"
+        autocomplete="off"
+        placeholder="55.3959, 10.3883"
+        value={home ? formatCoordinates(home) : ""}
+        submitted={locationForm}
+        zodField={coordinatesTextSchema.nullable()}
+      />
+      <div class="settings-card-footer">
+        <button class="btn btn-primary btn-md" type="submit">Save location</button>
+      </div>
+    </fieldset>
+  </form>
+</SettingsLayout>
