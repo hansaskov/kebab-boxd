@@ -154,8 +154,7 @@ export function createRestaurants(client: Client) {
 			return authorizedWrite(client, actorId, "restaurant:moderate", (tx) => findTargetRestaurant(tx, id), (tx, restaurant) => {
 				if (restaurant.status === status) return "updated" as const;
 				tx.update(s.restaurants).set({ status }).where(eq(s.restaurants.id, id)).run();
-				// The decision replaces the earlier one with a new notification, which a "mark all as read" sent
-				// from a page that showed the earlier one does not mark.
+				// The decision replaces the earlier one with a new notification, so the suggester sees it as unread.
 				withdrawDecision(tx, id);
 				if (restaurant.suggestedBy !== null && restaurant.suggestedBy !== actorId) {
 					notify(tx, { kind: `suggestion-${status}`, recipientId: restaurant.suggestedBy, restaurantId: id });

@@ -22,7 +22,7 @@ const kinds = [
   section="notifications"
   title="Notification settings"
   description={`The notifications ${user.fullname} gets`}
-  prefetchUrls={["/notifications", ...otherSectionHrefs(settings, "notifications")]}
+  prefetchUrls={otherSectionHrefs(settings, "notifications")}
   toast={successToast(Astro.locals, actions.updateNotifications, { title: "Notifications saved", text: "You get the notifications you chose." })}
 >
   <h1>Notifications</h1>

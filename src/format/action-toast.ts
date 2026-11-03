@@ -21,7 +21,6 @@ const failureTitles: Record<ActionNames<typeof server>, string> = {
 	"admin.banUser": "Ban failed",
 	"admin.unbanUser": "Lifting the ban failed",
 	"admin.changeUserRole": "Role change failed",
-	"notifications.markAllRead": "Marking failed",
 	"profile.follow": "Follow failed",
 	"profile.unfollow": "Unfollow failed",
 	"restaurants.favorite": "Saving failed",

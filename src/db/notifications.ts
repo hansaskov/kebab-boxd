@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, lte, sql, type SQLWrapper } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql, type SQLWrapper } from "drizzle-orm";
 import type { Client, Transaction } from "@src/db/client";
 import { cursorList, type Seek } from "@src/db/pagination";
 import * as s from "@src/db/schema";
@@ -120,18 +120,22 @@ function toNotification(row: Row): Notification {
 
 export function createNotifications(client: Client) {
 	return {
-		async list(recipientId: number, page: PageRequest): Promise<Page<Notification>> {
+		// Shows the recipient a page of their notifications, each as unread or read as it was before, and marks
+		// the unread ones read, since the recipient has now seen them. Tells how many stay unread: those on
+		// other pages, and those that came after the page was read.
+		async show(recipientId: number, page: PageRequest): Promise<{ page: Page<Notification>; unreadCount: number }> {
 			const rows = await pages(page, listRows(client, recipientId));
-			return { ...rows, items: rows.items.map(toNotification) };
-		},
-
-		// Needs no permission: a user can only ever mark their own notifications. Marks none newer than the
-		// ones the user saw.
-		async markAllRead(recipientId: number, upToId: number) {
-			await client
-				.update(s.notifications)
-				.set({ readAt: new Date() })
-				.where(and(isUnreadOf(recipientId), lte(s.notifications.id, upToId)));
+			const shownUnread = rows.items.filter((row) => row.readAt === null).map((row) => row.id);
+			if (shownUnread.length > 0) {
+				await client
+					.update(s.notifications)
+					.set({ readAt: new Date() })
+					.where(and(isUnreadOf(recipientId), inArray(s.notifications.id, shownUnread)));
+			}
+			return {
+				page: { ...rows, items: rows.items.map(toNotification) },
+				unreadCount: await client.$count(s.notifications, isUnreadOf(recipientId)),
+			};
 		},
 	};
 }

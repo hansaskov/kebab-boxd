@@ -50,6 +50,7 @@
   --pr-fs-300: 0.8125rem;
   --pr-fs-400: 0.875rem;
   --pr-fs-500: 0.9375rem;
+  --pr-fs-550: 1rem;
   --pr-fs-600: 1.0625rem;
   --pr-fs-700: 1.1875rem;
   --pr-fs-800: 1.375rem;
@@ -81,6 +82,10 @@
 
   --ds-radius-field: 0.75rem;
   --ds-radius-box: 1rem;
+
+  /* A phone browser zooms in on a form control that gets focus when its text is smaller than 16px,
+     so the text of every form control is at least that large. */
+  --ds-fs-control: var(--pr-fs-550);
 }
 
 /* A page with the main navigation keeps what it scrolls to clear of it: of the dock below
@@ -384,7 +389,6 @@
     width: 100%;
     height: 2.75rem;
     padding-inline: 0.875rem;
-    font-size: var(--pr-fs-400);
     color: var(--ds-color-fg-default);
     background-color: var(--ds-color-bg-field);
     border: 1px solid var(--ds-color-border-strong);
@@ -491,7 +495,6 @@
     padding-bottom: calc(var(--dropzone-padding) + var(--dropzone-field-inset));
     padding-inline: calc((100cqw - var(--dropzone-field-width)) / 2 + var(--dropzone-field-inset));
     border-radius: inherit;
-    font-size: var(--pr-fs-400);
     line-height: var(--dropzone-button-height);
     color: var(--ds-color-fg-muted);
     text-align: start;
@@ -1140,6 +1143,14 @@
     font-size: var(--pr-fs-700);
     line-height: 1.3;
     font-weight: 600;
+  }
+
+  /* The only rule that sizes the text of a form control. It comes after the preflight of Tailwind,
+     which gives a control the font of its parent. */
+  input,
+  select,
+  textarea {
+    font-size: var(--ds-fs-control);
   }
 
   hr {

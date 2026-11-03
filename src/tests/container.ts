@@ -17,11 +17,11 @@ async function createContainer() {
 	return container;
 }
 
-export async function renderPage(page: Component, locals: TestLocals, path: string, params: Record<string, string> = {}) {
+export async function renderPage(page: Component, locals: TestLocals, path: string, params: Record<string, string> = {}, headers: HeadersInit = {}) {
 	const response = await (await createContainer()).renderToResponse(page, {
 		locals: locals as App.Locals,
 		params,
-		request: new Request(`http://localhost${path}`),
+		request: new Request(`http://localhost${path}`, { headers }),
 	});
 	return { response, html: await response.text() };
 }

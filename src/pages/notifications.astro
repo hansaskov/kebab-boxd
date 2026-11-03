@@ -1,11 +1,11 @@
 ---
 import { Check, X } from "@lucide/astro";
-import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import Avatar from "@src/components/Avatar.astro";
 import PagedSection from "@src/components/PagedSection.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
 import { notificationHref } from "@src/hrefs";
+import { isSpeculative, refuseSpeculation } from "@src/middleware/speculations";
 import { parsePageRequest } from "@src/pagination";
 
 const session = Astro.locals.session;
@@ -13,8 +13,14 @@ if (!session) {
   return Astro.redirect("/login");
 }
 
-const page = await Astro.locals.db.notifications.list(session.user.id, parsePageRequest(Astro.url));
-const newestUnreadId = session.user.newestUnreadNotificationId;
+// Showing the notifications marks them read, which a page the user may never open must not do.
+if (isSpeculative(Astro.request)) {
+  return refuseSpeculation();
+}
+
+const { page, unreadCount } = await Astro.locals.db.notifications.show(session.user.id, parsePageRequest(Astro.url));
+// The navigation counts the notifications the user has not seen yet, which no longer includes these.
+session.user.unreadNotificationCount = unreadCount;
 
 const unreadHrefs = page.items.filter((notification) => !notification.isRead).map(notificationHref);
 const prefetchUrls = [...new Set(unreadHrefs)].slice(0, 3);
@@ -25,20 +31,12 @@ const prefetchUrls = [...new Set(unreadHrefs)].slice(0, 3);
   description="What happened to your reviews, suggestions and followers"
   prefetchUrls={prefetchUrls.length > 0 ? prefetchUrls : ["/"]}
 >
-  <div class="flex items-center justify-between gap-3">
-    <h1 class="sm:sr-only">Notifications</h1>
-    {newestUnreadId !== null && (
-      <form class="ms-auto" method="post" action={actions.notifications.markAllRead}>
-        <input type="hidden" name="upToId" value={newestUnreadId} />
-        <button class="btn btn-secondary btn-sm" type="submit">Mark all as read</button>
-      </form>
-    )}
-  </div>
+  <h1 class="sm:sr-only">Notifications</h1>
 
-  <PagedSection class:list={["mt-4", { "sm:mt-0": newestUnreadId === null }]} aria-label="Notifications" page={page} empty="You have no notifications.">
+  <PagedSection class="mt-4 sm:mt-0" aria-label="Notifications" page={page} empty="You have no notifications.">
     <ol class="list">
       {page.items.map((notification) => (
-      <li class="list-row">
+        <li class="list-row">
           {notification.kind === "follow" || notification.kind === "like" ? (
             <Avatar class="size-10 text-sm" name={notification.actor.fullname} picture={notification.actor.profilePicture} />
           ) : (
@@ -67,8 +65,8 @@ const prefetchUrls = [...new Set(unreadHrefs)].slice(0, 3);
           </a>
           <RelativeTime class="t-body-sm shrink-0 text-fg-muted" date={notification.createdAt} narrow />
           <span class:list={["size-2 shrink-0 rounded-full", { "bg-brand-text": !notification.isRead }]}>
-            {!notification.isRead && <span class="sr-only">Unread</span>}
-            </span>
+            {!notification.isRead && <span class="sr-only">New</span>}
+          </span>
         </li>
       ))}
     </ol>

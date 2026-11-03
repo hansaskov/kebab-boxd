@@ -66,8 +66,3 @@ export async function writeReview(db: Database, authorId: number, restaurantId: 
 	if (isProblem(result)) throw new Error(`The review was refused: ${result.problem}.`);
 	return result.id;
 }
-
-// The newest notification the user has not read, as every page of theirs gets it with the session.
-export async function newestUnreadId(db: Database, userId: number) {
-	return (await signIn(db, userId)).user.newestUnreadNotificationId;
-}

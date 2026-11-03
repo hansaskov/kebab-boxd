@@ -1,4 +1,4 @@
-import { eq, max, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { ActionOutcome } from "@src/actions/outcome";
 import { inactivityTimeoutSeconds } from "@src/data/retention-periods";
 import type { Client, Transaction } from "@src/db/client";
@@ -37,11 +37,8 @@ export function createSessions(client: Client) {
 					user: {
 						with: { profilePicture: { columns: { url: true } } },
 						// Every page shows the count, so it comes with the session instead of costing a query of its own.
-						// "Mark all as read" marks up to the newest, so it marks the notifications the count told of.
 						extras: {
 							unreadNotificationCount: (user) => client.$count(s.notifications, isUnreadOf(user.id)),
-							newestUnreadNotificationId: (user) =>
-								sql<number | null>`(${client.select({ id: max(s.notifications.id) }).from(s.notifications).where(isUnreadOf(user.id))})`,
 						},
 					},
 				},

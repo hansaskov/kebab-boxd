@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Database } from "@src/db";
 import type { Notification } from "@src/db/notifications";
-import { createTestDatabase, insertRestaurant, insertUser, newestUnreadId, signIn } from "@src/tests/database";
+import NotificationsPage from "@src/pages/notifications.astro";
+import { renderPage } from "@src/tests/container";
+import { createTestDatabase, insertRestaurant, insertUser, signIn } from "@src/tests/database";
 
 function summary(notification: Notification) {
 	const read = notification.isRead ? " (read)" : "";
@@ -16,8 +18,9 @@ function summary(notification: Notification) {
 	}
 }
 
+// Shows the User their notifications, which marks them read.
 async function inbox(db: Database, userId: number) {
-	const page = await db.notifications.list(userId, { limit: 25, cursor: undefined });
+	const { page } = await db.notifications.show(userId, { limit: 25, cursor: undefined });
 	return page.items.map(summary);
 }
 
@@ -50,7 +53,9 @@ describe("Notifications", () => {
 		const grill = insertRestaurant(client, "Bosporus Grill", { suggestedBy: ada.id });
 
 		await db.restaurants.decide(admin.id, grill.id, "approved");
-		await db.notifications.markAllRead(ada.id, (await newestUnreadId(db, ada.id))!);
+
+		expect(await inbox(db, ada.id)).toEqual(["suggestion-approved Bosporus Grill"]);
+
 		await db.restaurants.decide(admin.id, grill.id, "approved");
 
 		expect(await inbox(db, ada.id)).toEqual(["suggestion-approved Bosporus Grill (read)"]);
@@ -86,31 +91,52 @@ describe("Notifications", () => {
 
 		await db.users.ban(admin.id, ada.username);
 
-		expect(await inbox(db, bob.id)).toEqual(["cleo followed"]);
 		expect(await unreadCount(db, bob.id)).toBe(1);
+		expect(await inbox(db, bob.id)).toEqual(["cleo followed"]);
 
 		await db.users.unban(admin.id, ada.username);
 
-		expect(await inbox(db, bob.id)).toEqual(["cleo followed", "ada followed"]);
-		expect(await unreadCount(db, bob.id)).toBe(2);
+		expect(await unreadCount(db, bob.id)).toBe(1);
+		expect(await inbox(db, bob.id)).toEqual(["cleo followed (read)", "ada followed"]);
 	});
 
-	it("are marked read up to the newest the User saw, leaving newer and hidden ones unread", async () => {
+	it("are marked read once shown, leaving those on other pages, newer ones and hidden ones unread", async () => {
 		const { client, db } = createTestDatabase();
 		const admin = insertUser(client, "root_admin", "admin");
 		const ada = insertUser(client, "ada");
 		const bob = insertUser(client, "bob");
 		const cleo = insertUser(client, "cleo");
 		const dan = insertUser(client, "dan");
+		const eve = insertUser(client, "eve");
 		await db.follows.follow(dan.id, "bob");
 		await db.users.ban(admin.id, dan.username);
 		await db.follows.follow(ada.id, "bob");
-		const seen = await newestUnreadId(db, bob.id);
 		await db.follows.follow(cleo.id, "bob");
 
-		await db.notifications.markAllRead(bob.id, seen!);
+		const firstPage = await db.notifications.show(bob.id, { limit: 1, cursor: undefined });
+		await db.follows.follow(eve.id, "bob");
 		await db.users.unban(admin.id, dan.username);
 
-		expect(await inbox(db, bob.id)).toEqual(["cleo followed", "ada followed (read)", "dan followed"]);
+		expect({ shown: firstPage.page.items.map(summary), unreadCount: firstPage.unreadCount }).toEqual({ shown: ["cleo followed"], unreadCount: 1 });
+		expect(await inbox(db, bob.id)).toEqual(["eve followed", "cleo followed (read)", "ada followed", "dan followed"]);
+	});
+
+	it("are marked read when the User opens their list, and not when the browser loads it in advance", async () => {
+		const { client, db } = createTestDatabase();
+		const ada = insertUser(client, "ada");
+		const bob = insertUser(client, "bob");
+		await db.follows.follow(ada.id, "bob");
+
+		const speculation = await renderPage(NotificationsPage, { db, session: await signIn(db, bob.id) }, "/notifications", {}, { "Sec-Purpose": "prefetch;prerender" });
+
+		expect(speculation.response.status).toBe(503);
+		expect(await unreadCount(db, bob.id)).toBe(1);
+
+		const { response, html } = await renderPage(NotificationsPage, { db, session: await signIn(db, bob.id) }, "/notifications");
+
+		expect(response.status).toBe(200);
+		expect(html).toContain('<span class="sr-only">New</span>');
+		expect(html).not.toContain(", 1 unread");
+		expect(await unreadCount(db, bob.id)).toBe(0);
 	});
 });

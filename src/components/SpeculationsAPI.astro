@@ -5,6 +5,9 @@ interface Props {
 }
 
 const { prefetchUrls, eagerness = "immediate" } = Astro.props;
+
+// Opening the notifications marks them read, so the browser must not open them before the user does.
+const neverSpeculated = ["/api/*", "/notifications"];
 ---
 
 <script
@@ -22,7 +25,7 @@ const { prefetchUrls, eagerness = "immediate" } = Astro.props;
                 where: {
                     and: [
                         { href_matches: "/*" },
-                        { not: { href_matches: "/api/*" } },
+                        { not: { href_matches: neverSpeculated } },
                     ],
                 },
                 eagerness: "eager",

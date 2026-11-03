@@ -4,7 +4,7 @@ import { readSession } from "@src/auth/session";
 import { defineMiddleware } from "astro:middleware";
 import { getActionContext } from "astro:actions";
 import { sameOriginReferer } from "@src/middleware/referer";
-import { redirectClearingSpeculations } from "@src/middleware/speculations";
+import { isSpeculative, redirectClearingSpeculations } from "@src/middleware/speculations";
 import { connectDatabase, type DatabaseRpc } from "@src/db/remote";
 import { picturePathPrefix } from "@src/pictures/store";
 import { toOutcome } from "@src/actions/outcome";
@@ -56,7 +56,7 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 			path: context.url.pathname,
 			action: context.url.searchParams.get("_action"),
 			status: response.status,
-			prefetched: context.request.headers.get("Sec-Purpose")?.startsWith("prefetch") ?? false,
+			prefetched: isSpeculative(context.request),
 		};
 
 		waitUntil(
