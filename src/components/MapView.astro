@@ -1,48 +1,49 @@
 ---
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, MapPin, Minus, Plus } from "@lucide/astro";
+import { MapPin, Minus, Plus } from "@lucide/astro";
 import type { HTMLAttributes } from "astro/types";
 import type { Coordinates } from "@src/map/coordinates";
-import type { PanDirection, Placement, Viewport, ViewportSize } from "@src/map/viewport";
+import type { Placement, Viewport } from "@src/map/viewport";
 
 export interface Marker {
   coordinates: Coordinates;
   href: string;
   label: string;
+  // The number of restaurants of a Cluster, which shows as a bubble instead of a pin.
+  count?: number | undefined;
 }
 
-export interface MapControls {
+interface Link {
+  href: string;
+  label: string;
+}
+
+export interface MapNavigation {
   zoomIn: string | undefined;
   zoomOut: string | undefined;
-  pan: Record<PanDirection, string>;
+  // The cells over the map, row by row, which each move the map to their middle.
+  cells: Link[];
+  columns: number;
 }
 
 interface Props extends HTMLAttributes<"div"> {
   viewport: Viewport;
-  size: ViewportSize;
   markers: Marker[];
   here?: Coordinates | undefined;
-  controls?: MapControls | undefined;
+  navigation?: MapNavigation | undefined;
 }
 
-const { viewport, size, markers, here, controls, class: className, ...props } = Astro.props;
+const { viewport, markers, here, navigation, class: className, ...props } = Astro.props;
+const { width, height } = viewport.size;
 
 const position = ({ left, top }: Placement) => `left:${left.toFixed(3)}%;top:${top.toFixed(3)}%`;
-const isInside = ({ left, top }: Placement) => left >= 0 && left <= 100 && top >= 0 && top <= 100;
-
-const placedMarkers = markers
-  .map((marker) => ({ ...marker, placement: viewport.place(marker.coordinates) }))
-  .filter((marker) => isInside(marker.placement));
 const herePlacement = here && viewport.place(here);
-
-const panButtons = [
-  { direction: "north", label: "Move north", icon: ArrowUp },
-  { direction: "west", label: "Move west", icon: ArrowLeft },
-  { direction: "east", label: "Move east", icon: ArrowRight },
-  { direction: "south", label: "Move south", icon: ArrowDown },
-] as const;
+const isHereInView = herePlacement !== undefined && herePlacement.left >= 0 && herePlacement.left <= 100 && herePlacement.top >= 0 && herePlacement.top <= 100;
+const compact = new Intl.NumberFormat("en", { notation: "compact" });
+// A map has many links, and a user opens few of them, so each link has the browser load its page in advance
+// only when the user is about to open it.
 ---
 
-<div class:list={["map", className]} style={`aspect-ratio:${size.width}/${size.height}`} {...props}>
+<div class:list={["map", className]} style={`aspect-ratio:${width}/${height}`} {...props}>
   {viewport.tiles.map((tile) => (
     <img
       class="map-tile"
@@ -54,38 +55,44 @@ const panButtons = [
     />
   ))}
 
-  {herePlacement && isInside(herePlacement) && (
+  {isHereInView && (
     <span class="map-here" style={position(herePlacement)} title="Your location"><span class="sr-only">Your location</span></span>
   )}
 
   <ul>
-    {placedMarkers.map((marker) => (
-      <li class="map-marker" style={position(marker.placement)}>
-        <a href={marker.href} title={marker.label}>
-          <MapPin size={28} fill="currentColor" aria-hidden="true" />
+    {markers.map((marker) => (
+      <li class={marker.count === undefined ? "map-pin" : "map-cluster"} style={position(viewport.place(marker.coordinates))}>
+        <a href={marker.href} title={marker.label} data-eagerness="moderate">
+          {marker.count === undefined ? (
+            <MapPin size={28} fill="currentColor" aria-hidden="true" />
+          ) : (
+            <span aria-hidden="true">{compact.format(marker.count)}</span>
+          )}
           <span class="sr-only">{marker.label}</span>
         </a>
       </li>
     ))}
   </ul>
 
-  {controls && (
+  {navigation && (
     <>
-      <div class="map-controls map-controls-zoom">
-        <a class="icon-btn" href={controls.zoomIn} aria-disabled={controls.zoomIn ? undefined : "true"} title="Zoom in">
+      <div class="map-controls">
+        <a class="icon-btn" href={navigation.zoomIn} aria-disabled={navigation.zoomIn ? undefined : "true"} title="Zoom in" data-eagerness="moderate">
           <Plus size={18} aria-hidden="true" /><span class="sr-only">Zoom in</span>
         </a>
-        <a class="icon-btn" href={controls.zoomOut} aria-disabled={controls.zoomOut ? undefined : "true"} title="Zoom out">
+        <a class="icon-btn" href={navigation.zoomOut} aria-disabled={navigation.zoomOut ? undefined : "true"} title="Zoom out" data-eagerness="moderate">
           <Minus size={18} aria-hidden="true" /><span class="sr-only">Zoom out</span>
         </a>
       </div>
-      <div class="map-controls map-controls-pan">
-        {panButtons.map(({ direction, label, icon: Icon }) => (
-          <a class="icon-btn" data-direction={direction} href={controls.pan[direction]} title={label}>
-            <Icon size={18} aria-hidden="true" /><span class="sr-only">{label}</span>
-          </a>
+      <nav
+        class="map-cells"
+        aria-label="Move the map"
+        style={`--map-columns:${navigation.columns};--map-rows:${Math.ceil(navigation.cells.length / navigation.columns)}`}
+      >
+        {navigation.cells.map((cell) => (
+          <a class="map-cell" href={cell.href} data-eagerness="moderate"><span class="sr-only">{cell.label}</span></a>
         ))}
-      </div>
+      </nav>
     </>
   )}
 

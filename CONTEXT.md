@@ -113,8 +113,12 @@ A hosted image stored in blob storage (only the URL is in the database). Used fo
 _Avoid_: Image, Photo, Avatar
 
 **Location**:
-A structured physical address for a Restaurant: address lines, city, postal code, region, country, plus required latitude/longitude coordinates. Not used for Users, users store coordinates directly on their own record, and only they can see them, not even an Admin. The map starts at the coordinates of the User.
+A structured physical address for a Restaurant: address lines, city, postal code, region, country, plus required latitude/longitude coordinates. Not used for Users, users store coordinates directly on their own record, and only they can see them, not even an Admin. The map starts at the coordinates of the User, which they write in their settings or set to the middle of the map. A search on the map moves it to a City.
 _Avoid_: Address, Spot, Place
+
+**Cluster**:
+The approved Restaurants close together on the map at its zoom, shown as one marker with their number and named after the best-rated of them, such as "Mangal Express and 4 more". Opening it zooms the map in until all of them are on it. A Restaurant with no other near it is a Cluster of one, shown as a pin that leads to it. At the largest zoom each Restaurant is a Cluster of its own, since a Cluster could not be opened there. The list under the map has one row for each Cluster on it, the nearest to the middle of the map first.
+_Avoid_: Group, Bubble, Marker
 
 **ReviewCount**:
 The cached count of total Reviews a Restaurant has received from users who are not banned. A display field only (e.g. "123 reviews"). Does not participate in the RatingAvg calculation, which requires the actual Review data to compute user-weighted averages.

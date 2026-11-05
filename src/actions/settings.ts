@@ -70,12 +70,12 @@ export const settingsActions = {
       return { redirect: settingsHref(user.username, "profile") };
     },
   }),
+  // The location is set in the settings and on the map, and the user goes back to the page they set it on.
   updateLocation: defineAction({
     accept: "form",
     input: updateLocationSchema,
     handler: async ({ currentUsername, location }, { locals }) => {
-      const user = orThrow(await locals.db.users.setLocation(requireSession(locals).user.id, currentUsername, location));
-      return { redirect: settingsHref(user.username, "location") };
+      orThrow(await locals.db.users.setLocation(requireSession(locals).user.id, currentUsername, location));
     },
   }),
   updatePrivacy: defineAction({

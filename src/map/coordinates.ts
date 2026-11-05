@@ -25,9 +25,8 @@ export function distanceInMeters(from: Coordinates, to: Coordinates): number {
 	return 2 * earthRadiusMeters * Math.asin(Math.min(1, Math.sqrt(a)));
 }
 
-// How much shorter a degree of longitude is than a degree of latitude at the latitude. Squared distances
-// in degrees scaled by it order places by distance as the real distance does, which SQLite can compute.
-export function longitudeScale(latitude: number): number {
+// How much shorter a degree of longitude is than a degree of latitude at the latitude.
+function longitudeScale(latitude: number): number {
 	return Math.cos(radians(latitude));
 }
 

@@ -1,13 +1,25 @@
 ---
+import { ZoomIn } from "@lucide/astro";
+import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
+import AverageRating from "@src/components/AverageRating.astro";
 import MapView from "@src/components/MapView.astro";
-import RestaurantList from "@src/components/RestaurantList.astro";
-import { defaultMapCenter, defaultMapZoom, exploreMapSize, mapMarkerLimit, nearbyRestaurantCount } from "@src/data/map";
+import SearchForm from "@src/components/SearchForm.astro";
+import TabNav from "@src/components/TabNav.astro";
+import { defaultMapCenter, defaultMapZoom, exploreCityLimit, exploreMapCells, exploreMapSize } from "@src/data/map";
+import { successToast } from "@src/format/action-toast";
+import { regionAndCountry } from "@src/format/country";
 import { formatDistance } from "@src/format/distance";
-import { exploreHref, restaurantHref, searchHref, settingsHref } from "@src/hrefs";
-import { distanceInMeters, type Coordinates } from "@src/map/coordinates";
-import { maxZoom, minZoom, viewport } from "@src/map/viewport";
+import { formatOffset } from "@src/format/offset";
+import { exploreCityHref, exploreHref, restaurantHref, searchHref, signInHref } from "@src/hrefs";
+import { clustersOn, openedView } from "@src/map/clusters";
+import { boundsAround, distanceInMeters, type Coordinates } from "@src/map/coordinates";
+import { isShortSearch } from "@src/map/geonames";
+import { searchRadiusMeters } from "@src/map/overpass";
+import { fitBounds, maxZoom, minZoom, viewport } from "@src/map/viewport";
+import { parseId } from "@src/validation/id";
 import { parseMapView } from "@src/validation/map-view";
+import { parseSearch } from "@src/validation/search-params";
 
 const session = Astro.locals.session;
 
@@ -16,61 +28,118 @@ const home: Coordinates | undefined =
 	session && session.user.latitude !== null && session.user.longitude !== null
 		? { latitude: session.user.latitude, longitude: session.user.longitude }
 		: undefined;
-const view = parseMapView(Astro.url.searchParams, { center: home ?? defaultMapCenter, zoom: defaultMapZoom });
+
+// A search moves the map to the most populous City whose name starts with it, or to the one of them the user
+// chose. The map shows the circle a CitySearch finds the Restaurants of the City in. A search that finds no
+// City leaves the map where it was, since the search form keeps the place of the map.
+const query = parseSearch(Astro.url.searchParams);
+const cities = query ? await Astro.locals.db.cities.search(query, exploreCityLimit) : [];
+const chosenCityId = parseId(Astro.url.searchParams.get("city") ?? undefined);
+const city = cities.find((match) => match.id === chosenCityId) ?? cities[0];
+const view = city
+	? fitBounds(boundsAround(city, searchRadiusMeters(city.population)), exploreMapSize, 0)
+	: parseMapView(Astro.url.searchParams, { center: home ?? defaultMapCenter, zoom: defaultMapZoom });
 const map = viewport(view.center, view.zoom, exploreMapSize);
 
-const { restaurants } = Astro.locals.db;
-const [pins, nearest] = await Promise.all([
-	restaurants.listNearest(map.center, mapMarkerLimit, map.bounds),
-	restaurants.listNearest(map.center, nearbyRestaurantCount),
-]);
+// Each Cluster is a marker on the map and a row of the list below it. A cluster of one restaurant leads to the
+// restaurant, and a larger one zooms in on its restaurants.
+const clusters = (await clustersOn(map, Astro.locals.db.restaurants.listClusters)).map((cluster) => {
+	const isRestaurant = cluster.count === 1;
+	return {
+		...cluster,
+		isRestaurant,
+		name: isRestaurant ? cluster.best.name : `${cluster.best.name} and ${cluster.count - 1} more`,
+		href: isRestaurant ? restaurantHref(cluster.best.id) : exploreHref(openedView(cluster, map)),
+		details: [formatDistance(distanceInMeters(map.center, cluster.center)), cluster.best.city].filter(Boolean).join(" · "),
+	};
+});
 
-const controls = {
+const navigation = {
 	zoomIn: map.zoom < maxZoom ? exploreHref({ center: map.center, zoom: map.zoom + 1 }) : undefined,
 	zoomOut: map.zoom > minZoom ? exploreHref({ center: map.center, zoom: map.zoom - 1 }) : undefined,
-	pan: {
-		north: exploreHref({ center: map.panned("north"), zoom: map.zoom }),
-		south: exploreHref({ center: map.panned("south"), zoom: map.zoom }),
-		east: exploreHref({ center: map.panned("east"), zoom: map.zoom }),
-		west: exploreHref({ center: map.panned("west"), zoom: map.zoom }),
-	},
+	columns: exploreMapCells.columns,
+	cells: map.cellCenters(exploreMapCells.columns, exploreMapCells.rows).map((center) => ({
+		href: exploreHref({ center, zoom: map.zoom }),
+		label: `Move ${formatOffset(map.center, center)}`,
+	})),
 };
-const markers = pins.map((pin) => ({
-	coordinates: pin,
-	href: restaurantHref(pin.restaurant.id),
-	label: pin.restaurant.name,
+const markers = clusters.map((cluster) => ({
+	coordinates: cluster.center,
+	href: cluster.href,
+	label: cluster.name,
+	count: cluster.isRestaurant ? undefined : cluster.count,
 }));
-const nearby = nearest.map((pin) => ({
-	...pin.restaurant,
-	details: [formatDistance(distanceInMeters(map.center, pin)), pin.city],
-}));
+
 const isAtHome = home !== undefined && distanceInMeters(home, map.center) < 1;
-const showsLocationLink = session !== null && !isAtHome;
+// The middle of the map, to a tenth of a meter, in the format the location is written in. A fixed number of
+// decimals keeps a small number from being written as an exponent, which the format does not allow.
+const mapCenter = `${map.center.latitude.toFixed(6)}, ${map.center.longitude.toFixed(6)}`;
+
+const toast = successToast(Astro.locals, actions.updateLocation, { title: "Location saved", text: "The map starts here now." });
 ---
 
-<BaseLayout
-	title="Explore"
-	description="Kebab restaurants on a map"
-	prefetchUrls={[controls.zoomIn, controls.zoomOut, searchHref("restaurants")].filter((href) => href !== undefined)}
->
-	<div class="flex flex-wrap items-baseline justify-between gap-2">
-		<h1 class="sm:sr-only">Explore</h1>
-		{home && !isAtHome && (
-			<a class="t-body-sm link ms-auto" href={exploreHref({ center: home, zoom: map.zoom })}>Back to your location</a>
+<BaseLayout title="Explore" description="Kebab restaurants on a map" prefetchUrls={[searchHref("restaurants")]} toast={toast}>
+	<h1 class="sm:sr-only">Explore</h1>
+	<div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-3 sm:mt-0">
+		<SearchForm class="w-full sm:max-w-sm" id="explore-city" label="Find a city" value={query} placeholder="City" />
+		{!isAtHome && (
+			<div class="t-body-sm ms-auto flex flex-wrap items-center gap-x-4 gap-y-1 max-sm:order-last">
+				{home && <a class="link" href={exploreHref({ center: home, zoom: map.zoom })}>Back to your location</a>}
+				{session ? (
+					<form method="post" action={actions.updateLocation}>
+						<input type="hidden" name="currentUsername" value={session.user.username} />
+						<input type="hidden" name="location" value={mapCenter} />
+						<button class="link cursor-pointer" type="submit">Set this as your location</button>
+					</form>
+				) : (
+					<a class="link" href={signInHref(Astro.url)}>Set this as your location</a>
+				)}
+			</div>
 		)}
-		{session && !home && (
-			<a class="t-body-sm link ms-auto" href={settingsHref(session.user.username, "location")}>Set your location</a>
+		{query && !city && (
+			<p class="t-body-sm w-full text-fg-muted">{isShortSearch(query) ? "Type at least two letters." : `No city starts with “${query}”.`}</p>
+		)}
+		{cities.length > 1 && (
+			<TabNav
+				class="w-full"
+				aria-label="Cities"
+				tabs={cities.map((match) => ({
+					label: `${match.name}, ${regionAndCountry(match)}`,
+					href: exploreCityHref(query, match.id),
+					current: match.id === city?.id,
+				}))}
+			/>
 		)}
 	</div>
 
-	<MapView class:list={["mt-4", { "sm:mt-0": !showsLocationLink }]} viewport={map} size={exploreMapSize} markers={markers} here={home} controls={controls} />
+	<MapView class="mt-4" viewport={map} markers={markers} here={home} navigation={navigation} />
 
-	<section class="mt-8" aria-labelledby="nearby-heading">
-		<h2 id="nearby-heading">Nearby</h2>
-		{nearby.length === 0 ? (
-			<p class="t-body mt-2 text-fg-muted">There are no restaurants yet.</p>
+	<section class="mt-8" aria-labelledby="on-the-map">
+		<h2 id="on-the-map">On the map</h2>
+		{clusters.length === 0 ? (
+			<p class="t-body mt-2 text-fg-muted">There are no restaurants on this part of the map.</p>
 		) : (
-			<RestaurantList class="mt-3" restaurants={nearby} />
+			<ul class="list mt-3">
+				{clusters.map((cluster) => (
+					<li class="list-row">
+						<div class="min-w-0 flex-1">
+							<a
+								class="list-row-link field-label block truncate"
+								href={cluster.href}
+								data-eagerness={cluster.isRestaurant ? undefined : "moderate"}
+							>
+								{cluster.name}
+							</a>
+							<p class="t-body-sm truncate text-fg-muted">{cluster.details}</p>
+						</div>
+						{cluster.isRestaurant ? (
+							<AverageRating ratingAvg={cluster.best.ratingAvg} />
+						) : (
+							<ZoomIn class="shrink-0 text-fg-muted" size={16} aria-hidden="true" />
+						)}
+					</li>
+				))}
+			</ul>
 		)}
 	</section>
 </BaseLayout>

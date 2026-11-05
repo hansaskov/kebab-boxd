@@ -1,10 +1,4 @@
-import type { Coordinates } from "@src/map/coordinates";
-import { clampZoom } from "@src/map/viewport";
-
-export interface MapView {
-	center: Coordinates;
-	zoom: number;
-}
+import { clampZoom, type MapView } from "@src/map/viewport";
 
 function parseNumber(params: URLSearchParams, name: string, limit: number) {
 	const text = params.get(name);

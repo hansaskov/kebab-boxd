@@ -1,6 +1,7 @@
 import type { Refusal } from "@src/auth/permissions";
 import type { SettingsSection } from "@src/data/settings-sections";
 import type { Notification } from "@src/db/notifications";
+import type { MapView } from "@src/map/viewport";
 import type { SearchType } from "@src/validation/search-params";
 
 // Why the user is back on the sign-in page, which tells them.
@@ -85,13 +86,18 @@ export function editReviewHref(id: number) {
 	return `${reviewHref(id)}/edit`;
 }
 
-export function exploreHref({ center, zoom }: { center: { latitude: number; longitude: number }; zoom: number }) {
+export function exploreHref({ center, zoom }: MapView) {
 	const query = new URLSearchParams({
 		lat: center.latitude.toFixed(5),
 		lng: center.longitude.toFixed(5),
 		zoom: String(zoom),
 	});
 	return `/explore?${query}`;
+}
+
+// The map of one of the cities whose name starts with the search, which the map shows among the others.
+export function exploreCityHref(search: string, cityId: number) {
+	return `/explore?${new URLSearchParams({ q: search, city: String(cityId) })}`;
 }
 
 export function notificationHref(notification: Notification) {

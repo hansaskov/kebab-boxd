@@ -8,6 +8,11 @@ const { prefetchUrls, eagerness = "immediate" } = Astro.props;
 
 // Opening the notifications marks them read, so the browser must not open them before the user does.
 const neverSpeculated = ["/api/*", "/notifications"];
+const sameSite = [{ href_matches: "/*" }, { not: { href_matches: neverSpeculated } }];
+// A link with data-eagerness="moderate" is one of many that a user opens few of, such as those of a map. The
+// browser prerenders its page only when the user is about to open it: when the pointer rests on the link, or
+// presses it.
+const onIntent = { selector_matches: '[data-eagerness="moderate"]' };
 
 // JSON does not escape "<", so a URL holding "</script>" would end the script and let the rest run as HTML.
 const rules = JSON.stringify({
@@ -18,15 +23,8 @@ const rules = JSON.stringify({
         },
     ],
     prerender: [
-        {
-            where: {
-                and: [
-                    { href_matches: "/*" },
-                    { not: { href_matches: neverSpeculated } },
-                ],
-            },
-            eagerness: "eager",
-        },
+        { where: { and: [...sameSite, { not: onIntent }] }, eagerness: "eager" },
+        { where: { and: [...sameSite, onIntent] }, eagerness: "moderate" },
     ],
 }).replaceAll("<", "\\u003c");
 ---

@@ -112,7 +112,6 @@ const signIn = viewer ? undefined : { toReview: signInHref(newReviewHref(restaur
   <MapView
     class="mt-6"
     viewport={map}
-    size={restaurantMapSize}
     markers={[{ coordinates: location, href: exploreHref({ center: location, zoom: restaurantMapZoom }), label: "Show nearby restaurants" }]}
   />
 

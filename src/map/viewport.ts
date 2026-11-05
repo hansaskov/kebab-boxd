@@ -14,6 +14,12 @@ export interface ViewportSize {
 	height: number;
 }
 
+// What the map shows: the place at its middle, and how far it is zoomed in.
+export interface MapView {
+	center: Coordinates;
+	zoom: number;
+}
+
 export interface Placement {
 	left: number;
 	top: number;
@@ -25,7 +31,15 @@ export interface Tile extends Placement {
 	height: number;
 }
 
-export type PanDirection = "north" | "south" | "east" | "west";
+// A grid of square cells over the whole world at one zoom, which restaurants are clustered on. Cells stay in
+// place when the map moves, so a cluster does not change while it stays in view.
+export interface ClusterGrid {
+	// The column of a longitude is the whole part of (longitude + 180) × columnsPerDegree.
+	columnsPerDegree: number;
+	// The latitudes of the edges between the rows in view, from north to south. A place is as many rows
+	// south of the first row as there are edges at or north of it.
+	rowEdges: number[];
+}
 
 interface Point {
 	x: number;
@@ -62,6 +76,11 @@ function modulo(value: number, divisor: number) {
 	return ((value % divisor) + divisor) % divisor;
 }
 
+// The same place, with its longitude moved into -180 to 180 after the map went round the world.
+function wrapped({ latitude, longitude }: Coordinates): Coordinates {
+	return { latitude, longitude: modulo(longitude + 180, 360) - 180 };
+}
+
 export function tileUrl(zoom: number, x: number, y: number) {
 	return `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
 }
@@ -70,12 +89,23 @@ export function clampZoom(zoom: number) {
 	return clamp(Math.round(zoom), minZoom, maxZoom);
 }
 
-export function viewport(requestedCenter: Coordinates, requestedZoom: number, { width, height }: ViewportSize) {
+// The view of a map of the size that shows all of the bounds with a margin, in pixels, around them, as near as it can.
+export function fitBounds(area: Bounds, { width, height }: ViewportSize, margin: number): MapView {
+	const topLeft = project({ latitude: area.north, longitude: area.west }, 0);
+	const bottomRight = project({ latitude: area.south, longitude: area.east }, 0);
+	const scale = Math.min((width - 2 * margin) / (bottomRight.x - topLeft.x), (height - 2 * margin) / (bottomRight.y - topLeft.y));
+	const middle = { x: (topLeft.x + bottomRight.x) / 2, y: (topLeft.y + bottomRight.y) / 2 };
+	// Bounds around a single place fit at every zoom, which makes the scale infinite.
+	return { center: unproject(middle, 0), zoom: Number.isFinite(scale) ? clampZoom(Math.floor(Math.log2(scale))) : maxZoom };
+}
+
+export function viewport(requestedCenter: Coordinates, requestedZoom: number, size: ViewportSize) {
+	const { width, height } = size;
 	const zoom = clampZoom(requestedZoom);
-	const size = worldSize(zoom);
+	const world = worldSize(zoom);
 	const projected = project(requestedCenter, zoom);
 	// The world ends at the poles, so the viewport is kept inside it from north to south.
-	const centerPoint = { x: projected.x, y: clamp(projected.y, height / 2, size - height / 2) };
+	const centerPoint = { x: projected.x, y: clamp(projected.y, height / 2, world - height / 2) };
 	const origin = { x: centerPoint.x - width / 2, y: centerPoint.y - height / 2 };
 	const center = unproject(centerPoint, zoom);
 
@@ -107,25 +137,37 @@ export function viewport(requestedCenter: Coordinates, requestedZoom: number, { 
 		east: Math.min(180, southEast.longitude),
 	};
 
-	const shifts: Record<PanDirection, Point> = {
-		north: { x: 0, y: -height / 2 },
-		south: { x: 0, y: height / 2 },
-		east: { x: width / 2, y: 0 },
-		west: { x: -width / 2, y: 0 },
-	};
-
 	return {
 		center,
 		zoom,
+		size,
 		tiles,
 		bounds,
 		place(coordinates: Coordinates): Placement {
 			return toPlacement(project(coordinates, zoom));
 		},
-		panned(direction: PanDirection): Coordinates {
-			const shift = shifts[direction];
-			const moved = unproject({ x: centerPoint.x + shift.x, y: centerPoint.y + shift.y }, zoom);
-			return { latitude: moved.latitude, longitude: modulo(moved.longitude + 180, 360) - 180 };
+		// How far apart two places are on the map, in the pixels of its size.
+		pixelsBetween(from: Coordinates, to: Coordinates): number {
+			const a = project(from, zoom);
+			const b = project(to, zoom);
+			return Math.hypot(a.x - b.x, a.y - b.y);
+		},
+		// The middles of the cells of a grid over the viewport, row by row from the north-west.
+		cellCenters(columns: number, rows: number): Coordinates[] {
+			return Array.from({ length: rows * columns }, (_, index) => {
+				const column = index % columns;
+				const row = Math.floor(index / columns);
+				const point = { x: origin.x + ((column + 0.5) * width) / columns, y: origin.y + ((row + 0.5) * height) / rows };
+				return wrapped(unproject(point, zoom));
+			});
+		},
+		// The grid with cells of the given size, in the pixels of the map, that the restaurants in view are clustered on.
+		clusterGrid(cellSize: number): ClusterGrid {
+			const rowEdges: number[] = [];
+			for (let row = Math.floor(origin.y / cellSize) + 1; row * cellSize < origin.y + height; row++) {
+				rowEdges.push(unproject({ x: 0, y: row * cellSize }, zoom).latitude);
+			}
+			return { columnsPerDegree: world / 360 / cellSize, rowEdges };
 		},
 	};
 }

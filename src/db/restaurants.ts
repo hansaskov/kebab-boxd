@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, between, eq, sql } from "drizzle-orm";
 import { authorizedWriteAll, findTargetRestaurants } from "@src/db/authorize";
 import type { Client } from "@src/db/client";
 import { isInCollectionOf } from "@src/db/collections";
@@ -6,7 +6,9 @@ import { notify, withdrawDecision } from "@src/db/notifications";
 import { cursorList, type Filter, type Seek } from "@src/db/pagination";
 import * as s from "@src/db/schema";
 import type { RestaurantStatus } from "@src/db/schema";
-import { longitudeScale, type Bounds, type Coordinates } from "@src/map/coordinates";
+import type { Cluster } from "@src/map/clusters";
+import type { Bounds } from "@src/map/coordinates";
+import type { ClusterGrid } from "@src/map/viewport";
 import type { PageRequest } from "@src/pagination";
 
 export const restaurantSorts = ["top-rated", "popular", "newest"] as const;
@@ -32,26 +34,22 @@ function matching(search: string): Filter<"restaurants"> {
 	};
 }
 
-// Orders by the squared distance in degrees, with longitude scaled to the latitude. Over the distances a map
-// shows, this is the order of the real distance, and SQLite computes it without trigonometric functions.
-function byDistanceFrom(center: Coordinates) {
-	const scale = longitudeScale(center.latitude) ** 2;
-	return (location: typeof s.locations) =>
-		sql`(${location.latitude} - ${center.latitude}) * (${location.latitude} - ${center.latitude})
-			+ (${location.longitude} - ${center.longitude}) * (${location.longitude} - ${center.longitude}) * ${scale}`;
-}
-
-export interface Pin {
-	latitude: number;
-	longitude: number;
+export interface ClusterRestaurant {
+	id: number;
+	name: string;
+	ratingAvg: number;
 	city: string | null;
-	restaurant: { id: number; name: string; ratingAvg: number; reviewCount: number };
 }
 
-const pinned = {
-	columns: { latitude: true, longitude: true, city: true },
-	with: { restaurant: { columns: { id: true, name: true, ratingAvg: true, reviewCount: true } } },
-} as const;
+// The cell of the grid a location is in. The longitude plus 180 is never negative, so casting it to an integer
+// rounds it down.
+function cellOf({ columnsPerDegree, rowEdges }: ClusterGrid) {
+	const { latitude, longitude } = s.locations;
+	return {
+		column: sql<number>`cast((${longitude} + 180) * ${columnsPerDegree} as integer)`,
+		row: rowEdges.length === 0 ? sql<number>`0` : sql<number>`${sql.join(rowEdges.map((edge) => sql`(${latitude} <= ${edge})`), sql` + `)}`,
+	};
+}
 
 export function createRestaurants(client: Client) {
 	return {
@@ -98,22 +96,65 @@ export function createRestaurants(client: Client) {
 			});
 		},
 
-		// The approved restaurants nearest to the center, within the bounds when there are any.
-		async listNearest(center: Coordinates, limit: number, bounds?: Bounds): Promise<Pin[]> {
-			const locations = await client.query.locations.findMany({
-				...pinned,
-				where: {
-					...(bounds && {
-						latitude: { gte: bounds.south, lte: bounds.north },
-						longitude: { gte: bounds.west, lte: bounds.east },
-					}),
-					restaurant: { status: "approved" },
-				},
-				orderBy: byDistanceFrom(center),
-				limit,
-			});
-			// The filter on the restaurant guarantees one, which the type of the relation cannot tell.
-			return locations.flatMap(({ restaurant, ...location }) => (restaurant ? [{ ...location, restaurant }] : []));
+		// The approved restaurants in the bounds, as a Cluster for each cell of the grid that has any. Without a
+		// grid, each restaurant is a cluster of its own.
+		//
+		// The relational queries cannot group rows, so this uses the core query builder. The innermost query finds
+		// the cell of each restaurant once, which keeps the values bound to the statement few. Window functions over
+		// the restaurants of each cell then give every row the count, average position and bounds of its cluster,
+		// and rank the rows, so that the first row in the ranking stands for its cluster.
+		async listClusters(bounds: Bounds, grid: ClusterGrid | undefined): Promise<Cluster<ClusterRestaurant>[]> {
+			const cell = grid ? cellOf(grid) : { column: sql<number>`${s.restaurants.id}`, row: sql<number>`0` };
+			const located = client
+				.select({
+					id: s.restaurants.id,
+					name: s.restaurants.name,
+					ratingAvg: s.restaurants.ratingAvg,
+					city: s.locations.city,
+					latitude: s.locations.latitude,
+					longitude: s.locations.longitude,
+					column: cell.column.as("cell_column"),
+					row: cell.row.as("cell_row"),
+				})
+				.from(s.restaurants)
+				.innerJoin(s.locations, eq(s.locations.id, s.restaurants.locationId))
+				.where(
+					and(
+						eq(s.restaurants.status, "approved"),
+						between(s.locations.latitude, bounds.south, bounds.north),
+						between(s.locations.longitude, bounds.west, bounds.east),
+					),
+				)
+				.as("located");
+
+			const ofCluster = sql`over (partition by ${located.column}, ${located.row})`;
+			const ranked = client
+				.select({
+					id: located.id,
+					name: located.name,
+					ratingAvg: located.ratingAvg,
+					city: located.city,
+					count: sql<number>`count(*) ${ofCluster}`.as("count"),
+					latitude: sql<number>`avg(${located.latitude}) ${ofCluster}`.as("average_latitude"),
+					longitude: sql<number>`avg(${located.longitude}) ${ofCluster}`.as("average_longitude"),
+					north: sql<number>`max(${located.latitude}) ${ofCluster}`.as("north"),
+					south: sql<number>`min(${located.latitude}) ${ofCluster}`.as("south"),
+					east: sql<number>`max(${located.longitude}) ${ofCluster}`.as("east"),
+					west: sql<number>`min(${located.longitude}) ${ofCluster}`.as("west"),
+					rank: sql<number>`row_number() over (partition by ${located.column}, ${located.row} order by ${located.ratingAvg} desc, ${located.id})`.as(
+						"rank",
+					),
+				})
+				.from(located)
+				.as("ranked");
+
+			const rows = await client.select().from(ranked).where(eq(ranked.rank, 1));
+			return rows.map(({ id, name, ratingAvg, city, count, latitude, longitude, north, south, east, west }) => ({
+				count,
+				center: { latitude, longitude },
+				bounds: { north, south, east, west },
+				best: { id, name, ratingAvg, city },
+			}));
 		},
 
 		// The queue of suggestions is worked through oldest first; decided suggestions show the latest first.
