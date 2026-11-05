@@ -5,7 +5,7 @@ import { authorizationCookieMaxAgeSeconds, returnPathCookieName } from "@src/aut
 import { googleCookieNames } from "@src/auth/providers/google";
 import { sessionCookieName } from "@src/auth/session";
 import { settingsSectionDetails, type SettingsSection } from "@src/data/settings-sections";
-import { settingsHref } from "@src/hrefs";
+import { feedHref, settingsHref, signInHref } from "@src/hrefs";
 import { finishedSuggestionRetentionSeconds, historyRetentionSeconds, inactivityTimeoutSeconds } from "@src/data/retention-periods";
 
 const session = Astro.locals.session;
@@ -32,7 +32,7 @@ const rights: { text: string; section: SettingsSection }[] = [
 <BaseLayout
   title="Privacy"
   description="How Kebab Boxd uses your personal data"
-  prefetchUrls={session ? ["/", settingsHref(session.user.username, "data")] : ["/login"]}
+  prefetchUrls={session ? [feedHref, settingsHref(session.user.username, "data")] : [signInHref()]}
 >
   <h1>Privacy</h1>
 

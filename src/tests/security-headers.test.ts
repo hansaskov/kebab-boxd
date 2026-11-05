@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import * as s from "@src/db/schema";
 import { withSecurityHeaders } from "@src/middleware/security-headers";
 import ExplorePage from "@src/pages/explore.astro";
-import FeedPage from "@src/pages/index.astro";
+import FeedPage from "@src/pages/feed.astro";
+import LandingPage from "@src/pages/index.astro";
 import LoginPage from "@src/pages/login.astro";
 import ProfilePage from "@src/pages/[username]/profile.astro";
 import RestaurantPage from "@src/pages/restaurants/[id].astro";
@@ -47,10 +48,11 @@ describe("the security headers", () => {
 		const locals = { db, session: await signIn(db, ada.id) };
 
 		const pages = await Promise.all([
-			renderPage(FeedPage, locals, "/?feed=everyone"),
+			renderPage(FeedPage, locals, "/feed?feed=everyone"),
 			renderPage(ExplorePage, locals, "/explore"),
 			renderPage(RestaurantPage, locals, `/restaurants/${grill.id}`, { id: String(grill.id) }),
 			renderPage(ProfilePage, locals, "/ada/profile", { username: "ada" }),
+			renderPage(LandingPage, { db, session: null }, "/"),
 			renderPage(LoginPage, { db, session: null }, "/login"),
 		]);
 		const html = pages.map((page) => page.html).join("\n");

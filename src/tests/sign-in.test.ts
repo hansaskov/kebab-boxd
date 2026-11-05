@@ -5,6 +5,7 @@ import { returnPathCookieName } from "@src/auth/oauth";
 import { googleCookieNames } from "@src/auth/providers/google";
 import * as StartEndpoint from "@src/pages/api/google/index";
 import * as CallbackEndpoint from "@src/pages/api/google/callback";
+import { signInHref } from "@src/hrefs";
 import LoginPage from "@src/pages/login.astro";
 import { renderPage, requestEndpoint } from "@src/tests/container";
 import { createTestDatabase, insertUser, signIn } from "@src/tests/database";
@@ -41,8 +42,8 @@ describe("signing in with Google", () => {
 	it("sends the user back to sign in again when the attempt is not the one their browser started", async () => {
 		const cookie = `${googleCookieNames.state}=ours; ${googleCookieNames.codeVerifier}=verifier`;
 
-		expect((await callback("code=c&state=ours")).location).toBe("/login?error=expired");
-		expect((await callback("code=c&state=theirs", cookie)).location).toBe("/login?error=expired");
+		expect((await callback("code=c&state=ours")).location).toBe("/login?reason=expired");
+		expect((await callback("code=c&state=theirs", cookie)).location).toBe("/login?reason=expired");
 	});
 
 	it("sends the user back without an error when they said no at Google, and ends the attempt either way", async () => {
@@ -67,10 +68,10 @@ describe("signing in with Google", () => {
 		expect(decodeURIComponent(started.get(returnPathCookieName)!)).toBe("/restaurants/1");
 		expect(cancelled.location).toBe("/login?next=%2Frestaurants%2F1");
 		expect(cancelled.cookies.get(returnPathCookieName)).toBe("deleted");
-		expect(expired.location).toBe("/login?error=expired&next=%2Frestaurants%2F1");
+		expect(expired.location).toBe("/login?reason=expired&next=%2Frestaurants%2F1");
 	});
 
-	it("never sends the user away from Kebab Boxd, nor back to the sign-in page", async () => {
+	it("never sends the user away from Kebab Boxd, nor back to the landing page or the sign-in page", async () => {
 		const { db } = createTestDatabase();
 
 		const started = cookiesOf(await requestEndpoint(StartEndpoint, { db, session: null }, `/api/google?next=${encodeURIComponent("//evil.example/")}`));
@@ -93,7 +94,23 @@ describe("signing in with Google", () => {
 				"/%2e//evil.example",
 				"/a/..//evil.example",
 			].map(parseReturnPath),
-		).toEqual(["/restaurants/1?page=2", "/", ...Array<undefined>(11).fill(undefined)]);
+		).toEqual(["/restaurants/1?page=2", ...Array<undefined>(12).fill(undefined)]);
+	});
+
+	it("links to the login page with only a page it brings the user back to", () => {
+		expect([
+			signInHref(new URL("http://localhost/restaurants/1?page=2#reviews")),
+			signInHref("/reviews/new?restaurant=1", "write-review"),
+			signInHref(new URL("http://localhost/?notice=account-deleted")),
+			signInHref("/login?next=%2Fada%2Fprofile"),
+			signInHref(),
+		]).toEqual([
+			`/login?next=${encodeURIComponent("/restaurants/1?page=2")}`,
+			`/login?reason=write-review&next=${encodeURIComponent("/reviews/new?restaurant=1")}`,
+			"/login",
+			"/login",
+			"/login",
+		]);
 	});
 
 	it("passes the page to come back to on to Google, and sends a User who is signed in already straight to it", async () => {
@@ -107,6 +124,6 @@ describe("signing in with Google", () => {
 
 		expect(visitor).toContain('href="/api/google?next=%2Fada%2Fprofile"');
 		expect(signedIn.headers.get("Location")).toBe("/ada/profile");
-		expect(toAnotherSite.headers.get("Location")).toBe("/");
+		expect(toAnotherSite.headers.get("Location")).toBe("/feed");
 	});
 });

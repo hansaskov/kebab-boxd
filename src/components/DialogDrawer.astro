@@ -4,7 +4,7 @@ import { X } from "@lucide/astro";
 interface Props extends astroHTML.JSX.DialogHTMLAttributes {
     id: string;
     title: string;
-    description?: string;
+    description?: string | undefined;
 }
 
 const { id, title, description, class: className, ...props } = Astro.props;

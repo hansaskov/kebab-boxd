@@ -34,3 +34,8 @@ export async function requestEndpoint(endpoint: Endpoint, locals: TestLocals, pa
 		routeType: "endpoint",
 	});
 }
+
+// The dialog with the id in the HTML of a page, or an empty string.
+export function dialogIn(html: string, id: string) {
+	return html.match(new RegExp(`<dialog id="${id}"[\\s\\S]*?</dialog>`))?.[0] ?? "";
+}

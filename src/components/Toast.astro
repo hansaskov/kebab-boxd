@@ -3,8 +3,8 @@ import { X } from "@lucide/astro";
 
 export interface Toast {
 	title: string;
-	text: string;
-	variant?: "error";
+	text?: string | undefined;
+	variant?: "error" | undefined;
 }
 
 interface Props {
@@ -32,7 +32,7 @@ const isError = toast?.variant === "error";
 			<div class:list={["flex w-full items-start gap-3 rounded-box border p-4 bg-surface text-fg shadow-lift pointer-events-auto sm:w-auto sm:max-w-md", isError ? "border-danger" : "border-line"]}>
 				<div class="min-w-0 flex-1">
 					<p class:list={["text-sm font-semibold", isError && "text-danger"]}>{toast.title}</p>
-					<p class="t-body-sm text-fg-muted">{toast.text}</p>
+					{toast.text && <p class="t-body-sm text-fg-muted">{toast.text}</p>}
 				</div>
 				<label
 					for="toast-dismiss"

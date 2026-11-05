@@ -14,12 +14,18 @@ export function sitePath(url: URL): string | undefined {
 }
 
 // The page to go back to after signing in, as a path on this site, or undefined. A link to another site is left
-// out, so that a link to the sign-in page cannot send the user away from Kebab Boxd. So are the sign-in page and
-// the API, which are no page to go back to.
+// out, so that a link to the sign-in page cannot send the user away from Kebab Boxd. So are the landing page,
+// which is for Visitors, the sign-in page and the API, which are no page to go back to. Without one, the user
+// goes to their Feed.
 export function parseReturnPath(value: string | null | undefined): string | undefined {
 	if (!value?.startsWith("/")) return undefined;
 	const url = URL.parse(value, origin);
 	if (!url || url.origin !== origin) return undefined;
-	if (url.pathname === "/login" || url.pathname.startsWith("/api/")) return undefined;
+	if (url.pathname === "/" || url.pathname === "/login" || url.pathname.startsWith("/api/")) return undefined;
 	return sitePath(url);
+}
+
+// The page to go back to after signing in from the page at the URL, or from the path.
+export function returnPathOf(from: URL | string | undefined): string | undefined {
+	return parseReturnPath(from instanceof URL ? `${from.pathname}${from.search}` : from);
 }

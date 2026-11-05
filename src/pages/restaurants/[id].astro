@@ -8,9 +8,11 @@ import PagedSection from "@src/components/PagedSection.astro";
 import RestaurantStatusTag from "@src/components/RestaurantStatusTag.astro";
 import ReviewList from "@src/components/ReviewList.astro";
 import SuggestionDecision from "@src/components/SuggestionDecision.astro";
+import LoginDialog from "@src/components/LoginDialog.astro";
 import { canOn, refusal } from "@src/auth/permissions";
 import { restaurantMapSize, restaurantMapZoom } from "@src/data/map";
-import { exploreHref, newReviewHref, profileHref, refusalPage, searchHref, signInHref } from "@src/hrefs";
+import { loginDialogId } from "@src/data/login-reasons";
+import { exploreHref, newReviewHref, profileHref, refusalPage, searchHref } from "@src/hrefs";
 import { viewport } from "@src/map/viewport";
 import { parsePageRequest } from "@src/pagination";
 import { parseId } from "@src/validation/id";
@@ -36,14 +38,14 @@ const address = [location.addressLine1, location.addressLine2, [location.postalC
 const canReview = canOn(viewer, "restaurant:review", restaurant);
 const canCollect = canOn(viewer, "restaurant:collect", restaurant);
 const canModerate = canOn(viewer, "restaurant:moderate", restaurant);
-// A Visitor sees only approved restaurants, which a User may review and save, so they are asked to sign in for it.
-const signIn = viewer ? undefined : { toReview: signInHref(newReviewHref(restaurant.id)), toCollect: signInHref(Astro.url) };
+// A Visitor sees only approved restaurants, which a User may review and save, so a dialog asks them to log in for it.
+const isVisitor = !viewer;
 ---
 
 <BaseLayout
   title={restaurant.name}
   description={`Reviews of ${restaurant.name}${location.city ? ` in ${location.city}` : ""}`}
-  prefetchUrls={[...(canReview ? [newReviewHref(restaurant.id)] : signIn ? [signIn.toReview] : []), searchHref("restaurants")]}
+  prefetchUrls={[...(canReview ? [newReviewHref(restaurant.id)] : []), searchHref("restaurants")]}
 >
   <header class="flex flex-wrap items-start gap-4">
     <div class="min-w-0 flex-1">
@@ -57,14 +59,19 @@ const signIn = viewer ? undefined : { toReview: signInHref(newReviewHref(restaur
         <span>{restaurant.reviewCount} {restaurant.reviewCount === 1 ? "review" : "reviews"}</span>
       </div>
     </div>
-    {(canReview || signIn) && (
-      <a class="btn btn-primary btn-md w-full sm:w-auto" href={signIn?.toReview ?? newReviewHref(restaurant.id)}>
+    {canReview && (
+      <a class="btn btn-primary btn-md w-full sm:w-auto" href={newReviewHref(restaurant.id)}>
         <SquarePen size={16} aria-hidden="true" />Write a review
       </a>
     )}
+    {isVisitor && (
+      <button class="btn btn-primary btn-md w-full sm:w-auto" type="button" commandfor={loginDialogId("write-review")} command="show-modal">
+        <SquarePen size={16} aria-hidden="true" />Write a review
+      </button>
+    )}
   </header>
 
-  {(canCollect || signIn || restaurant.isFavoriteOfViewer || restaurant.isInBucketListOfViewer) && (
+  {(canCollect || isVisitor || restaurant.isFavoriteOfViewer || restaurant.isInBucketListOfViewer) && (
     <div class="mt-4 flex gap-2">
       {[
         {
@@ -82,11 +89,11 @@ const signIn = viewer ? undefined : { toReview: signInHref(newReviewHref(restaur
           icon: restaurant.isInBucketListOfViewer ? <BookmarkCheck size={16} aria-hidden="true" /> : <Bookmark size={16} aria-hidden="true" />,
         },
       ].map(({ label, collected, add, remove, icon }) =>
-        signIn ? (
-          <a class="btn btn-secondary btn-md flex-1 sm:flex-none" href={signIn.toCollect}>
+        isVisitor ? (
+          <button class="btn btn-secondary btn-md flex-1 sm:flex-none" type="button" commandfor={loginDialogId("save-restaurant")} command="show-modal">
             {icon}
             {label}
-          </a>
+          </button>
         ) : (
           <form class="flex flex-1 sm:flex-none" method="post" action={collected ? remove : add}>
             <input type="hidden" name="restaurantId" value={restaurant.id} />
@@ -119,4 +126,11 @@ const signIn = viewer ? undefined : { toReview: signInHref(newReviewHref(restaur
     <h2 slot="heading">Reviews</h2>
     <ReviewList reviews={page.items} viewer={viewer} showRestaurant={false} />
   </PagedSection>
+
+  {isVisitor && (
+    <>
+      <LoginDialog reason="write-review" returnTo={newReviewHref(restaurant.id)} />
+      <LoginDialog reason="save-restaurant" returnTo={Astro.url} />
+    </>
+  )}
 </BaseLayout>

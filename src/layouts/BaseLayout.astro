@@ -8,7 +8,7 @@ import Toast from "@src/components/Toast.astro";
 import SpeculationsAPI from "@src/components/SpeculationsAPI.astro";
 import { can } from "@src/auth/permissions";
 import { failureToast } from "@src/format/action-toast";
-import { profileHref, searchHref, settingsHref, signInHref } from "@src/hrefs";
+import { feedHref, homeHref, profileHref, searchHref, settingsHref, signInHref } from "@src/hrefs";
 
 interface Props extends ComponentProps<typeof SpeculationsAPI> {
   title: string;
@@ -45,7 +45,7 @@ const current = (href: string) => (pathname === href ? "page" : undefined);
 // The bar has the places to browse on the left, and Search on the right beside Notifications and the account.
 // The dock shows every icon, and the bar shows only the one of Search.
 const links = [
-  { name: "Feed", href: "/", icon: Rss },
+  { name: "Feed", href: feedHref, icon: Rss },
   { name: "Explore", href: "/explore", icon: Compass },
   { name: "Search", href: searchHref(), icon: Search, startsRightGroup: true, hasIconInBar: true },
 ];
@@ -61,8 +61,8 @@ const accountMenu = user && {
 // The account button stands for the pages in its menu, since they have no place of their own in the navigation.
 const isOnAccountPage =
   accountMenu !== undefined && [accountMenu.profile, accountMenu.settings, accountMenu.suggest, accountMenu.admin].some((href) => href && isUnder(href));
-// A Visitor signs in where the account would be, and comes back to the page they are on. The sign-in page needs no link to itself.
-const signIn = !user && pathname !== "/login" ? signInHref(Astro.url) : undefined;
+// A Visitor logs in where the account would be, and comes back to the page they are on. The login page needs no link to itself.
+const login = !user && pathname !== signInHref() ? signInHref(Astro.url) : undefined;
 ---
 
 <!doctype html>
@@ -103,11 +103,11 @@ const signIn = !user && pathname !== "/login" ? signInHref(Astro.url) : undefine
             </a>
           </li>
         ))}
-        {signIn && (
+        {login && (
           <li>
-            <a class="nav-link" href={signIn}>
+            <a class="nav-link" href={login}>
               <LogIn class="sm:hidden" size={20} aria-hidden="true" />
-              <span class="max-sm:sr-only">Sign in</span>
+              <span class="max-sm:sr-only">Login</span>
             </a>
           </li>
         )}
@@ -198,7 +198,7 @@ const signIn = !user && pathname !== "/login" ? signInHref(Astro.url) : undefine
 
     <footer class="mt-auto shrink-0 border-t border-line px-gutter py-8">
       <div class="t-caption flex items-center justify-center gap-3 text-fg-muted">
-        <a class="link link-hover text-fg-muted" href="/">Kebab Boxd</a>
+        <a class="link link-hover text-fg-muted" href={homeHref(session)}>Kebab Boxd</a>
         <span class="select-none text-fg-subtle" aria-hidden="true">•</span>
         <span>{new Date().getFullYear()}</span>
         <span class="select-none text-fg-subtle" aria-hidden="true">•</span>

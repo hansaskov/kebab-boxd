@@ -6,13 +6,13 @@ import FollowRequestButtons from "@src/components/FollowRequestButtons.astro";
 import PagedSection from "@src/components/PagedSection.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
 import { plural } from "@src/format/plural";
-import { notificationHref, signInHref } from "@src/hrefs";
+import { feedHref, notificationHref, signInHref } from "@src/hrefs";
 import { isSpeculative, refuseSpeculation } from "@src/middleware/speculations";
 import { parsePageRequest } from "@src/pagination";
 
 const session = Astro.locals.session;
 if (!session) {
-  return Astro.redirect(signInHref(Astro.url));
+  return Astro.redirect(signInHref(Astro.url, "notifications"));
 }
 
 // Showing the notifications marks them read, which a page the user may never open must not do.
@@ -31,7 +31,7 @@ const prefetchUrls = [...new Set(unreadHrefs)].slice(0, 3);
 <BaseLayout
   title="Notifications"
   description="What happened to your reviews, suggestions and followers"
-  prefetchUrls={prefetchUrls.length > 0 ? prefetchUrls : ["/"]}
+  prefetchUrls={prefetchUrls.length > 0 ? prefetchUrls : [feedHref]}
 >
   <h1 class="sm:sr-only">Notifications</h1>
 

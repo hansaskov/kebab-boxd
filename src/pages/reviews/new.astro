@@ -12,7 +12,7 @@ import { createReviewSchema, maxPicturesPerReview } from "@src/validation/review
 
 const session = Astro.locals.session;
 if (!session) {
-  return Astro.redirect(signInHref(Astro.url));
+  return Astro.redirect(signInHref(Astro.url, "write-review"));
 }
 
 const restaurantId = parseId(Astro.url.searchParams.get("restaurant") ?? undefined);

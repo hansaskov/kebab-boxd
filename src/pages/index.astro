@@ -1,47 +1,145 @@
 ---
+import { Heart, MapPin, Star, UsersRound } from "@lucide/astro";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
-import PagedSection from "@src/components/PagedSection.astro";
-import ReviewList from "@src/components/ReviewList.astro";
-import TabNav from "@src/components/TabNav.astro";
-import { feeds, type Feed } from "@src/db/reviews";
-import { searchHref } from "@src/hrefs";
-import { firstPageHref, parsePageRequest } from "@src/pagination";
-import { parseOption } from "@src/validation/search-params";
+import Avatar from "@src/components/Avatar.astro";
+import LoginDialog from "@src/components/LoginDialog.astro";
+import type { Toast } from "@src/components/Toast.astro";
+import { loginDialogId } from "@src/data/login-reasons";
+import { feedHref, landingNotices, type LandingNotice } from "@src/hrefs";
 
-const session = Astro.locals.session;
-const viewer = session?.user ?? null;
-const { reviews } = Astro.locals.db;
-const pageRequest = parsePageRequest(Astro.url);
+// The landing page tells Visitors what Kebab Boxd is. A User knows, so they go on to their Feed.
+if (Astro.locals.session) {
+    return Astro.redirect(feedHref);
+}
 
-// A Visitor follows no one, so they see the Feed of everyone.
-const feed: Feed = session ? parseOption(Astro.url.searchParams, "feed", feeds, "following") : "everyone";
-const page =
-  session && feed === "following"
-    ? await reviews.listFollowed(session.user.id, pageRequest)
-    : await reviews.listEveryone(viewer?.id ?? null, pageRequest);
+const noticeToasts: Record<LandingNotice, Toast> = {
+    "account-deleted": {
+        title: "Account deleted",
+        text: "Your account and your data are deleted.",
+    },
+};
 
-const feedHref = (option: Feed) => firstPageHref(Astro.url, { feed: option === "following" ? undefined : option });
-const tabs = [
-  { label: "Following", href: feedHref("following"), current: feed === "following" },
-  { label: "Everyone", href: feedHref("everyone"), current: feed === "everyone" },
+const notice = landingNotices.find(
+    (option) => option === Astro.url.searchParams.get("notice"),
+);
+
+const features = [
+    {
+        icon: Star,
+        title: "Rate every visit",
+        text: "Give a restaurant 1 to 5 stars each time you eat there. Each person counts once in its rating.",
+    },
+    {
+        icon: MapPin,
+        title: "Find places near you",
+        text: "Open the map to see the restaurants around you and how people rate them.",
+    },
+    {
+        icon: Heart,
+        title: "Keep your lists",
+        text: "Save the places you love as favorites, and the places you want to try on your bucket list.",
+    },
+    {
+        icon: UsersRound,
+        title: "Follow your friends",
+        text: "Your feed shows the reviews of the people you follow.",
+    },
 ];
 ---
 
 <BaseLayout
-  title="Feed"
-  description={session ? "Reviews from the people you follow" : "The latest reviews of kebab restaurants"}
-  prefetchUrls={[...(session ? [feedHref(feed === "following" ? "everyone" : "following")] : []), "/explore", searchHref()]}
+    title="Kebab Boxd"
+    description="Review kebab restaurants, keep lists of the places you love, and follow your friends."
+    prefetchUrls={[feedHref]}
+    toast={notice ? noticeToasts[notice] : undefined}
 >
-  <h1 class="sm:sr-only">Feed</h1>
+    <link slot="head" rel="preload" href="/fonts/google-sans-medium-latin.woff2" as="font" type="font/woff2" crossorigin />
 
-  {session && <TabNav class="mt-4 sm:mt-0" aria-label="Feeds" tabs={tabs} />}
+    <section class="grid items-center gap-12 pt-6 pb-section md:grid-cols-[1.15fr_1fr] md:pt-12">
+        <div class="text-center md:text-left">
+            <h1 class="text-4xl leading-[1.08] font-semibold tracking-tight text-balance sm:text-5xl">
+                Social media for kebab.
+            </h1>
+            <p class="t-lead mx-auto mt-5 max-w-[34ch] text-balance text-fg-muted md:mx-0 md:text-pretty">
+                Review the restaurants you visit, find the best places near you,
+                and see where your friends eat.
+            </p>
+            <button class="btn btn-primary btn-md mt-8" type="button" commandfor={loginDialogId("get-started")} command="show-modal">
+                Get started
+            </button>
+        </div>
 
-  <PagedSection class:list={["mt-4", { "sm:mt-0": !session }]} aria-label="Reviews" page={page}>
-    <Fragment slot="empty">
-      {feed === "following"
-        ? <>Reviews of the people you follow show up here. <a class="link" href={searchHref("people")}>Find people to follow</a>.</>
-        : "No one has written a review yet."}
-    </Fragment>
-    <ReviewList reviews={page.items} viewer={viewer} />
-  </PagedSection>
+        <div
+            class="relative mx-auto w-full max-w-sm select-none md:mx-0"
+            aria-hidden="true"
+        >
+            <div class="ml-auto w-[85%] translate-x-2 rotate-3 rounded-box border border-line bg-surface px-4 py-3.5 shadow-lift">
+                <div class="flex items-center justify-between gap-3">
+                    <p class="field-label">Killer Kebab</p>
+                    <span class="t-body-sm flex items-center gap-1 text-fg-muted">
+                        <Star
+                            class="text-brand-text"
+                            size={14}
+                            fill="currentColor"
+                        />
+                        4.6
+                    </span>
+                </div>
+                <p class="t-body-sm text-fg-muted">Copenhagen</p>
+            </div>
+
+            <div class="relative -mt-3 w-[92%] -rotate-2 rounded-box border border-line bg-surface p-4 shadow-lift">
+                <div class="flex items-center gap-3">
+                    <Avatar class="size-9 text-xs" name="Hans Askov" />
+                    <div class="min-w-0">
+                        <p class="t-body-sm truncate">
+                            <span class="font-semibold">Hans Askov</span>
+                            <span class="text-fg-muted"> on </span>
+                            <span class="field-label inline">Jay's Döner</span>
+                        </p>
+                        <p class="t-body-sm text-fg-muted">2 hours ago</p>
+                    </div>
+                </div>
+                <span class="mt-2 inline-flex items-center gap-0.5 text-brand-text">
+                    {Array.from({ length: 5 }, () => (
+                        <Star size={16} fill="currentColor" />
+                    ))}
+                </span>
+                <p class="t-body mt-1">So good, a tear trickled down my leg</p>
+                <p class="t-body-sm mt-3 flex items-center gap-1 text-fg-muted">
+                    <Heart class="text-danger" size={16} fill="currentColor" />
+                    12 likes
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <ul class="grid gap-x-10 gap-y-8 border-t border-line py-section sm:grid-cols-2">
+        {features.map((feature) => {
+            const Icon = feature.icon;
+            return (
+                <li class="flex gap-4">
+                    <span class="grid size-10 shrink-0 place-items-center rounded-field bg-brand-subtle text-brand-text">
+                        <Icon size={20} aria-hidden="true" />
+                    </span>
+                    <div>
+                        <h2 class="t-subheading">{feature.title}</h2>
+                        <p class="t-body mt-1 text-fg-muted">{feature.text}</p>
+                    </div>
+                </li>
+            );
+        })}
+    </ul>
+
+    <section class="flex flex-col items-center gap-5 border-t border-line pt-section text-center sm:flex-row sm:justify-between sm:text-left">
+        <h2 class="text-2xl font-semibold tracking-tight text-balance">
+            Where will you eat next?
+        </h2>
+        <button class="btn btn-secondary btn-md" type="button" commandfor={loginDialogId("get-started")} command="show-modal">
+            Get started
+        </button>
+    </section>
+
+    {/* The landing page is no page to come back to, so once signed in, the Visitor goes to their Feed. */}
+    <LoginDialog reason="get-started" returnTo={Astro.url} />
 </BaseLayout>

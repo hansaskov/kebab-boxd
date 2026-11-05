@@ -6,12 +6,14 @@ import AverageRating from "@src/components/AverageRating.astro";
 import MapView from "@src/components/MapView.astro";
 import SearchForm from "@src/components/SearchForm.astro";
 import TabNav from "@src/components/TabNav.astro";
+import LoginDialog from "@src/components/LoginDialog.astro";
 import { defaultMapCenter, defaultMapZoom, exploreCityLimit, exploreMapCells, exploreMapSize } from "@src/data/map";
 import { successToast } from "@src/format/action-toast";
 import { regionAndCountry } from "@src/format/country";
 import { formatDistance } from "@src/format/distance";
 import { formatOffset } from "@src/format/offset";
-import { exploreCityHref, exploreHref, restaurantHref, searchHref, signInHref } from "@src/hrefs";
+import { loginDialogId } from "@src/data/login-reasons";
+import { exploreCityHref, exploreHref, restaurantHref, searchHref } from "@src/hrefs";
 import { clustersOn, openedView } from "@src/map/clusters";
 import { boundsAround, distanceInMeters, type Coordinates } from "@src/map/coordinates";
 import { isShortSearch } from "@src/map/geonames";
@@ -92,7 +94,10 @@ const toast = successToast(Astro.locals, actions.updateLocation, { title: "Locat
 						<button class="link cursor-pointer" type="submit">Set this as your location</button>
 					</form>
 				) : (
-					<a class="link" href={signInHref(Astro.url)}>Set this as your location</a>
+					<>
+						<button class="link cursor-pointer" type="button" commandfor={loginDialogId("set-location")} command="show-modal">Set this as your location</button>
+						<LoginDialog reason="set-location" returnTo={Astro.url} />
+					</>
 				)}
 			</div>
 		)}

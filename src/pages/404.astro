@@ -1,16 +1,19 @@
 ---
 import BaseLayout from "@src/layouts/BaseLayout.astro";
+import { homeHref } from "@src/hrefs";
+
+const home = homeHref(Astro.locals.session);
 ---
 
 <BaseLayout
   title="404: Not Found"
   description="Something went wrong"
-  prefetchUrls={["/"]}
+  prefetchUrls={[home]}
 >
   <div class="text-center">
     <h1 class="mb-4">🏝</h1>
     <h1 class="mb-2">404</h1>
     <h3 class="t-subheading">The page you're looking for couldn't be found.</h3>
-    <a class="btn btn-primary btn-md mt-9" href="/">Home</a>
+    <a class="btn btn-primary btn-md mt-9" href={home}>Home</a>
   </div>
 </BaseLayout>

@@ -1,5 +1,6 @@
 import { defineAction } from "astro:actions";
 import { requireSession } from "@src/actions/authorize";
+import { landingHref } from "@src/hrefs";
 
 export const sessionActions = {
   toggleTheme: defineAction({
@@ -13,7 +14,7 @@ export const sessionActions = {
     accept: "form",
     handler: async (_, { locals }) => {
       await locals.db.sessions.delete(requireSession(locals).id);
-      return { redirect: "/login" };
+      return { redirect: landingHref };
     },
   }),
 };

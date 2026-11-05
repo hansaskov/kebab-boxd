@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* The font of the Sign in with Google button. Kebab Boxd serves it, under the licence in google-sans-OFL.txt beside
+   it, so the login page asks nothing of Google before the user chooses to sign in. */
+@font-face {
+  font-family: "Google Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/google-sans-medium-latin.woff2") format("woff2");
+}
+
 :root {
 
   --pr-paper-0: oklch(99.4% 0.002 85);
@@ -57,6 +67,13 @@
   --pr-fs-900: 1.625rem;
 
   --pr-ease-out: cubic-bezier(0.32, 0.72, 0.35, 1);
+
+  /* The colours and font of the Sign in with Google button, from Google's branding guidelines. */
+  --pr-google-white: #ffffff;
+  --pr-google-grey-500: #747775;
+  --pr-google-grey-900: #1f1f1f;
+  --pr-google-grey-a8: rgb(48 48 48 / 8%);
+  --pr-font-google-sans: "Google Sans", Roboto, Arial, sans-serif;
 }
 
 :root {
@@ -132,6 +149,12 @@
   --ds-color-focus: var(--pr-jade-700);
   --ds-color-scrim: var(--pr-ink-a45);
 
+  /* The Sign in with Google button has Google's Light theme in both themes of the site. */
+  --ds-color-google-bg: var(--pr-google-white);
+  --ds-color-google-hover: var(--pr-google-grey-a8);
+  --ds-color-google-border: var(--pr-google-grey-500);
+  --ds-color-google-fg: var(--pr-google-grey-900);
+
   --ds-shadow-card: 0 1px 2px oklch(25% 0.03 285 / 0.05);
   --ds-shadow-lift:
     0 2px 4px oklch(25% 0.03 285 / 0.05), 0 12px 32px -12px oklch(25% 0.03 285 / 0.18);
@@ -165,6 +188,11 @@
 
   --ds-color-focus: var(--pr-night-300);
   --ds-color-scrim: var(--pr-black-a60);
+
+  --ds-color-google-bg: var(--pr-google-white);
+  --ds-color-google-hover: var(--pr-google-grey-a8);
+  --ds-color-google-border: var(--pr-google-grey-500);
+  --ds-color-google-fg: var(--pr-google-grey-900);
 
   --ds-shadow-card: 0 1px 2px oklch(0 0 0 / 0.3);
   --ds-shadow-lift: 0 2px 4px oklch(0 0 0 / 0.3), 0 12px 32px -12px oklch(0 0 0 / 0.5);
@@ -348,6 +376,35 @@
   .btn-danger:hover {
     background: var(--ds-color-danger-subtle);
     border-color: var(--ds-color-danger-default);
+  }
+
+  /* Sign in with Google, measured as Google's branding guidelines draw it for the web: the pill shape, 12px
+     before the logo, 10px between the logo and the text, and 12px after the text. Made wider, as in a dialog,
+     it keeps the logo and the text together in the middle. Hovering lays Google's grey over the white. */
+  .btn-google {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    height: 40px;
+    padding-inline: 12px;
+    border: 1px solid var(--ds-color-google-border);
+    border-radius: 20px;
+    background-color: var(--ds-color-google-bg);
+    color: var(--ds-color-google-fg);
+    font-family: var(--pr-font-google-sans);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .btn-google:hover {
+    background-image: linear-gradient(var(--ds-color-google-hover), var(--ds-color-google-hover));
+  }
+  .btn-google > img {
+    width: 20px;
+    height: 20px;
   }
 
   .icon-btn {
@@ -723,6 +780,8 @@
     z-index: 1;
   }
 
+  /* A sheet from the bottom on a phone and a centred dialog on a larger screen. Its content is a column that
+     each element fills the width of, so the action lines up with Cancel below it. */
   .dialog-drawer {
     position: fixed;
     inset: auto 0 0;

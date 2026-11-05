@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "@src/layouts/BaseLayout.astro";
+import { homeHref } from "@src/hrefs";
 
 interface Props {
   error: unknown;
@@ -8,17 +9,19 @@ interface Props {
 const { error } = Astro.props
 
 console.error(error)
+
+const home = homeHref(Astro.locals.session);
 ---
 
 <BaseLayout
   title="500: Internal server error"
   description="Something went wrong"
-  prefetchUrls={["/"]}
+  prefetchUrls={[home]}
 >
   <div class="text-center">
     <h1 class="mb-4">❌</h1>
     <h1 class="mb-2">500</h1>
     <div class="t-body text-fg-muted">Something went wrong on our side. Please try again later.</div>
-    <a class="btn btn-primary btn-md mt-9" href="/">Home</a>
+    <a class="btn btn-primary btn-md mt-9" href={home}>Home</a>
   </div>
 </BaseLayout>

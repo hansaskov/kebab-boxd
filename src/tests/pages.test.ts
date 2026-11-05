@@ -9,6 +9,7 @@ import NotificationsPage from "@src/pages/notifications.astro";
 import AdminRestaurantsPage from "@src/pages/admin/restaurants/index.astro";
 import AdminUsersPage from "@src/pages/admin/users/index.astro";
 import AdminUserPage from "@src/pages/admin/users/[username].astro";
+import LandingPage from "@src/pages/index.astro";
 import LoginPage from "@src/pages/login.astro";
 import ProfilePage from "@src/pages/[username]/profile.astro";
 import SessionPage from "@src/pages/[username]/settings/sessions/[sessionId].astro";
@@ -18,28 +19,76 @@ import RestaurantPage from "@src/pages/restaurants/[id].astro";
 import SearchPage from "@src/pages/search.astro";
 import * as ExportEndpoint from "@src/pages/api/users/[username]/export";
 import { loadSampleCityList } from "@src/tests/cities";
-import { renderPage, requestEndpoint } from "@src/tests/container";
+import { dialogIn, renderPage, requestEndpoint } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertReview, insertUser, signIn } from "@src/tests/database";
 
 describe("pages", () => {
+	it("show a Visitor what Kebab Boxd is, and ask them to log in on the page to get started, then send them to their Feed", async () => {
+		const { db } = createTestDatabase();
+
+		const { response, html } = await renderPage(LandingPage, { db, session: null }, "/");
+		const dialog = dialogIn(html, "login-get-started");
+
+		expect(response.status).toBe(200);
+		expect(html.match(/commandfor="login-get-started" command="show-modal"/g)).toHaveLength(2);
+		expect(dialog).toContain("Log in to Kebab Boxd");
+		expect(dialog).toContain('href="/api/google"');
+		expect(dialog).not.toMatch(/^<dialog\b[^>]*\sopen\b/);
+		expect(html).toContain('rel="preload" href="/fonts/google-sans-medium-latin.woff2"');
+	});
+
+	it("tell a Visitor on the landing page that their account is deleted", async () => {
+		const { db } = createTestDatabase();
+
+		const { html } = await renderPage(LandingPage, { db, session: null }, "/?notice=account-deleted");
+
+		expect(html).toContain("Account deleted");
+	});
+
 	it("invite a visitor who is not signed in to sign in with Google", async () => {
 		const { db } = createTestDatabase();
 
-		const { response, html } = await renderPage(LoginPage, { db, session: null }, "/login?error=banned");
+		const { response, html } = await renderPage(LoginPage, { db, session: null }, "/login");
 
 		expect(response.status).toBe(200);
-		expect(html).toContain('href="/api/google"');
-		expect(html).toContain("Account banned");
+		expect(html).toMatch(/<a class="btn-google" href="\/api\/google">\s*<img src="\/google-g.svg" alt="">\s*Sign in with Google\s*<\/a>/);
+		expect(html).toContain('rel="preload" href="/fonts/google-sans-medium-latin.woff2"');
+		expect(html).not.toContain("<dialog");
 	});
 
-	it("send a signed-in User from the sign-in page to their Feed", async () => {
+	it.each([
+		["notifications", "status", "Log in to see your notifications"],
+		["logged-out", "alert", "You are logged out"],
+		["banned", "alert", "Account banned"],
+	])("tell a visitor who is sent to the login page for %s why, in a toast, and keep the page to come back to", async (reason, role, title) => {
+		const { db } = createTestDatabase();
+
+		const { html } = await renderPage(LoginPage, { db, session: null }, `/login?reason=${reason}&next=%2Fnotifications`);
+
+		expect(html).toMatch(new RegExp(`role="${role}"[\\s\\S]*?>${title}</p>`));
+		expect(html).toContain('href="/api/google?next=%2Fnotifications"');
+		expect(html).not.toContain("<dialog");
+	});
+
+	it("show no toast for a reason the login page does not know", async () => {
+		const { db } = createTestDatabase();
+
+		const { html } = await renderPage(LoginPage, { db, session: null }, "/login?reason=%3Cscript%3E");
+
+		expect(html).not.toMatch(/role="(status|alert)"/);
+	});
+
+	it.each([
+		["landing", LandingPage, "/"],
+		["login", LoginPage, "/login"],
+	] as const)("send a signed-in User from the %s page to their Feed", async (_name, page, path) => {
 		const { client, db } = createTestDatabase();
 		const ada = insertUser(client, "ada");
 
-		const { response } = await renderPage(LoginPage, { db, session: await signIn(db, ada.id) }, "/login");
+		const { response } = await renderPage(page, { db, session: await signIn(db, ada.id) }, path);
 
 		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe("/");
+		expect(response.headers.get("Location")).toBe("/feed");
 	});
 
 	it.each([

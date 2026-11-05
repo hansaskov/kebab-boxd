@@ -3,14 +3,12 @@ import { Resource } from "sst/resource";
 import { readSession } from "@src/auth/session";
 import { defineMiddleware, sequence } from "astro:middleware";
 import { getActionContext } from "astro:actions";
-import { sameOriginReferer } from "@src/middleware/referer";
 import { withSecurityHeaders } from "@src/middleware/security-headers";
+import { answerFormOfVisitor, formPage } from "@src/middleware/forms";
 import { isSpeculative, redirectClearingSpeculations } from "@src/middleware/speculations";
-import { isSitePath } from "@src/validation/return-path";
 import { connectDatabase, type DatabaseRpc } from "@src/db/remote";
 import { picturePathPrefix } from "@src/pictures/store";
 import { toOutcome } from "@src/actions/outcome";
-import { signInHref } from "@src/hrefs";
 
 // The history holds the pages a device opened, not the pictures on them.
 function isPage(routePattern: string) {
@@ -31,14 +29,9 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 	context.locals.session = session;
 
 	const { action } = getActionContext(context);
-	// The form is sent to the address of its page, so that address stands in for a missing Referer. A page at
-	// `//evil.com` would send the browser to evil.com, so the Feed stands in for it.
-	const formPage = () =>
-		sameOriginReferer(context.request, context.url.origin) ?? (isSitePath(context.originPathname) ? context.originPathname : "/");
+	const sentFrom = () => formPage(context.request, context.url.origin, context.originPathname);
 
-	// Every action changes something, which a Visitor may not do. They sign in and come back to the form. Like the
-	// answer to every other form, the answer clears the pages loaded in advance.
-	if (!session) return action?.calledFrom === "form" ? redirectClearingSpeculations(signInHref(formPage())) : next();
+	if (!session) return action?.calledFrom === "form" ? answerFormOfVisitor(sentFrom()) : next();
 
 	if (action?.calledFrom === "form") {
 		// The handler reads the body, so a copy is kept to give the form back what the user typed if it fails.
@@ -47,7 +40,7 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 		await db.sessions.setActionData(session.id, await toOutcome(action.name, error, submitted));
 
 		const location = !error && hasRedirect(data) ? data.redirect : undefined;
-		return redirectClearingSpeculations(location ?? formPage());
+		return redirectClearingSpeculations(location ?? sentFrom());
 	}
 
 	if (context.request.method === "GET" && session.actionData) {

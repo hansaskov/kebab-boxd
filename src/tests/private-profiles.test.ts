@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Database } from "@src/db";
 import { isProblem } from "@src/db/problem";
-import FeedPage from "@src/pages/index.astro";
+import FeedPage from "@src/pages/feed.astro";
 import NotificationsPage from "@src/pages/notifications.astro";
 import ProfilePage from "@src/pages/[username]/profile.astro";
 import RestaurantPage from "@src/pages/restaurants/[id].astro";
@@ -28,7 +28,7 @@ async function whereShown(db: Database, viewerId: number | null, review: { id: n
 	const profile = await renderPage(ProfilePage, locals, `/${review.author}/profile`, { username: review.author });
 	const page = await renderPage(ReviewPage, locals, `/reviews/${id}`, { id });
 	const restaurant = await renderPage(RestaurantPage, locals, `/restaurants/${restaurantId}`, { id: restaurantId });
-	const feed = await renderPage(FeedPage, locals, "/?feed=everyone");
+	const feed = await renderPage(FeedPage, locals, "/feed?feed=everyone");
 	return [profile.html, page.response.status === 200 && page.html, restaurant.html, feed.html].map((html) => html !== false && html.includes(review.text));
 }
 

@@ -1,0 +1,47 @@
+---
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+import PagedSection from "@src/components/PagedSection.astro";
+import ReviewList from "@src/components/ReviewList.astro";
+import TabNav from "@src/components/TabNav.astro";
+import { feeds, type Feed } from "@src/db/reviews";
+import { searchHref } from "@src/hrefs";
+import { firstPageHref, parsePageRequest } from "@src/pagination";
+import { parseOption } from "@src/validation/search-params";
+
+const session = Astro.locals.session;
+const viewer = session?.user ?? null;
+const { reviews } = Astro.locals.db;
+const pageRequest = parsePageRequest(Astro.url);
+
+// A Visitor follows no one, so they see the Feed of everyone.
+const feed: Feed = session ? parseOption(Astro.url.searchParams, "feed", feeds, "following") : "everyone";
+const page =
+  session && feed === "following"
+    ? await reviews.listFollowed(session.user.id, pageRequest)
+    : await reviews.listEveryone(viewer?.id ?? null, pageRequest);
+
+const feedHref = (option: Feed) => firstPageHref(Astro.url, { feed: option === "following" ? undefined : option });
+const tabs = [
+  { label: "Following", href: feedHref("following"), current: feed === "following" },
+  { label: "Everyone", href: feedHref("everyone"), current: feed === "everyone" },
+];
+---
+
+<BaseLayout
+  title="Feed"
+  description={session ? "Reviews from the people you follow" : "The latest reviews of kebab restaurants"}
+  prefetchUrls={[...(session ? [feedHref(feed === "following" ? "everyone" : "following")] : []), "/explore", searchHref()]}
+>
+  <h1 class="sm:sr-only">Feed</h1>
+
+  {session && <TabNav class="mt-4 sm:mt-0" aria-label="Feeds" tabs={tabs} />}
+
+  <PagedSection class:list={["mt-4", { "sm:mt-0": !session }]} aria-label="Reviews" page={page}>
+    <Fragment slot="empty">
+      {feed === "following"
+        ? <>Reviews of the people you follow show up here. <a class="link" href={searchHref("people")}>Find people to follow</a>.</>
+        : "No one has written a review yet."}
+    </Fragment>
+    <ReviewList reviews={page.items} viewer={viewer} />
+  </PagedSection>
+</BaseLayout>

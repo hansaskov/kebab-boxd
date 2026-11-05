@@ -13,7 +13,7 @@ import { maxPicturesPerReview, updateReviewSchema } from "@src/validation/review
 
 const session = Astro.locals.session;
 if (!session) {
-  return Astro.redirect(signInHref(Astro.url));
+  return Astro.redirect(signInHref(Astro.url, "edit-review"));
 }
 
 const id = parseId(Astro.params.id);

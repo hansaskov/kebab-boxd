@@ -6,7 +6,7 @@ import SearchForm from "@src/components/SearchForm.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { can } from "@src/auth/permissions";
 import { adminTabs } from "@src/data/admin-tabs";
-import { adminUserHref, signInHref } from "@src/hrefs";
+import { adminUserHref, feedHref, signInHref } from "@src/hrefs";
 import { userFilters, type UserFilter } from "@src/db/users";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
 import { parseOption, parseSearch } from "@src/validation/search-params";
@@ -14,7 +14,7 @@ import { parseOption, parseSearch } from "@src/validation/search-params";
 const session = Astro.locals.session;
 
 if (!session) {
-  return Astro.redirect(signInHref(Astro.url));
+  return Astro.redirect(signInHref(Astro.url, "admin"));
 }
 
 if (!can(session.user, "admin-console:view")) {
@@ -44,7 +44,7 @@ const emptyMessage = search ? `No users match “${search}”.` : emptyGroupMess
 <BaseLayout
   title="Users"
   description="Search and manage the users of Kebab Boxd"
-  prefetchUrls={["/admin", "/"]}
+  prefetchUrls={["/admin", feedHref]}
 >
   <TabNav aria-label="Admin console" tabs={adminTabs(Astro.url.pathname)} />
 

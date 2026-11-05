@@ -1,9 +1,10 @@
 import type { APIRoute } from "astro";
 import { can } from "@src/auth/permissions";
+import { signInHref } from "@src/hrefs";
 
 export const GET = (async ({ params, locals: { db, session }, redirect, rewrite }) => {
 	if (!session) {
-		return redirect("/login");
+		return redirect(signInHref(undefined, "download-data"));
 	}
 
 	const user = params.username ? await db.users.findByUsername(params.username) : undefined;

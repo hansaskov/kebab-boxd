@@ -16,7 +16,7 @@ import { parseId } from "@src/validation/id";
 const session = Astro.locals.session;
 
 if (!session) {
-  return Astro.redirect(signInHref(Astro.url));
+  return Astro.redirect(signInHref(Astro.url, "admin"));
 }
 
 if (!can(session.user, "admin-console:view")) {

@@ -1,0 +1,15 @@
+---
+import { googleSignInHref } from "@src/hrefs";
+
+interface Props {
+  // The page to bring the user back to once they are signed in.
+  returnPath: string | undefined;
+}
+
+const { returnPath } = Astro.props;
+---
+
+<a class="btn-google" href={googleSignInHref(returnPath)}>
+  <img src="/google-g.svg" alt="" />
+  Sign in with Google
+</a>

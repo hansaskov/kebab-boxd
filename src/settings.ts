@@ -29,7 +29,7 @@ export async function openSettings(
 	if (!username) return Astro.rewrite("/404");
 
 	const { session } = Astro.locals;
-	if (!session) return Astro.redirect(signInHref(Astro.url));
+	if (!session) return Astro.redirect(signInHref(Astro.url, "settings"));
 
 	const user = await Astro.locals.db.users.findByUsername(username);
 	if (!user) return Astro.rewrite("/404");

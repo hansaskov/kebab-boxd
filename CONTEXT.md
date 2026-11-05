@@ -77,7 +77,7 @@ A person with a Kebab-Boxd account. Signs in through one or more Accounts. Has a
 _Avoid_: Member, Account, Person
 
 **Visitor**:
-A person who is not signed in. A Visitor reads what is public: approved Restaurants, the listed Reviews of public Profiles, Profiles and the Everyone Feed. Each change a User could make asks them to sign in, and brings them back to the page they were on.
+A person who is not signed in. A Visitor reads what is public: approved Restaurants, the listed Reviews of public Profiles, Profiles and the Everyone Feed. Each change a User could make asks them to sign in, tells them why, and brings them back to the page they were on.
 _Avoid_: Guest, Anonymous, Logged-out user
 
 **Profile**:

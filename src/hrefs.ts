@@ -1,19 +1,37 @@
 import type { Refusal } from "@src/auth/permissions";
+import type { SignInReason } from "@src/data/login-reasons";
 import type { SettingsSection } from "@src/data/settings-sections";
 import type { Notification } from "@src/db/notifications";
 import type { MapView } from "@src/map/viewport";
+import { returnPathOf } from "@src/validation/return-path";
 import type { SearchType } from "@src/validation/search-params";
 
-// Why the user is back on the sign-in page, which tells them.
-export const signInErrors = ["expired", "failed", "banned"] as const;
-export type SignInError = (typeof signInErrors)[number];
+// The page that tells Visitors what Kebab Boxd is. A User has their Feed instead, and is sent on to it.
+export const landingHref = "/";
 
-// The sign-in page, which brings the user back to the page they came from once they are signed in.
-export function signInHref(from: URL | string | undefined = undefined, error: SignInError | undefined = undefined) {
-	const next = from instanceof URL ? `${from.pathname}${from.search}` : from;
+// Why the user is on the landing page, which tells them.
+export const landingNotices = ["account-deleted"] as const;
+export type LandingNotice = (typeof landingNotices)[number];
+
+export function landingNoticeHref(notice: LandingNotice) {
+	return `${landingHref}?${new URLSearchParams({ notice })}`;
+}
+
+export const feedHref = "/feed";
+
+// Where the site starts: the Feed for a User, and the landing page for a Visitor.
+export function homeHref(session: App.Locals["session"] | undefined) {
+	return session ? feedHref : landingHref;
+}
+
+// The sign-in page, which brings the user back to the page they came from once they are signed in. A page the
+// sign-in page would not bring them back to is left out of the link. Without a reason, the user came on their own.
+// One who presses something on a page that needs an account is asked in a dialog on that page instead.
+export function signInHref(from: URL | string | undefined = undefined, reason: SignInReason | undefined = undefined) {
+	const next = returnPathOf(from);
 	const query = new URLSearchParams();
-	if (error) query.set("error", error);
-	if (next && next !== "/") query.set("next", next);
+	if (reason) query.set("reason", reason);
+	if (next) query.set("next", next);
 	return query.size > 0 ? `/login?${query}` : "/login";
 }
 

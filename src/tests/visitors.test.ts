@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { isProblem } from "@src/db/problem";
 import * as s from "@src/db/schema";
 import ExplorePage from "@src/pages/explore.astro";
-import FeedPage from "@src/pages/index.astro";
+import FeedPage from "@src/pages/feed.astro";
 import NotificationsPage from "@src/pages/notifications.astro";
 import ProfilePage from "@src/pages/[username]/profile.astro";
 import RestaurantPage from "@src/pages/restaurants/[id].astro";
@@ -12,7 +12,7 @@ import NewReviewPage from "@src/pages/reviews/new.astro";
 import SearchPage from "@src/pages/search.astro";
 import SettingsPage from "@src/pages/[username]/settings/index.astro";
 import type { Database } from "@src/db";
-import { renderPage } from "@src/tests/container";
+import { dialogIn, renderPage } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertReview, insertUser } from "@src/tests/database";
 
 type Page = Parameters<typeof renderPage>[0];
@@ -36,9 +36,9 @@ describe("A Visitor", () => {
 		const reviewId = await publish(db, ada.id, grill.id, "Crisp bread");
 
 		const pages = {
-			feed: await visit(db, FeedPage, "/"),
+			feed: await visit(db, FeedPage, "/feed"),
 			// A Visitor follows no one, so the Feed of the people they follow is the Feed of everyone.
-			followedFeed: await visit(db, FeedPage, "/?feed=following"),
+			followedFeed: await visit(db, FeedPage, "/feed?feed=following"),
 			restaurant: await visit(db, RestaurantPage, `/restaurants/${id}`, { id }),
 			review: await visit(db, ReviewPage, `/reviews/${reviewId}`, { id: reviewId }),
 			profile: await visit(db, ProfilePage, "/ada/profile", { username: "ada" }),
@@ -90,16 +90,23 @@ describe("A Visitor", () => {
 		const restaurant = (await visit(db, RestaurantPage, `/restaurants/${id}`, { id })).html;
 		const profile = (await visit(db, ProfilePage, "/ada/profile", { username: "ada" })).html;
 		const others = await Promise.all([
-			visit(db, FeedPage, "/"),
+			visit(db, FeedPage, "/feed"),
 			visit(db, ReviewPage, `/reviews/${reviewId}`, { id: reviewId }),
 			visit(db, SearchPage, "/search?q=ada"),
 		]);
 
 		expect([restaurant, profile, ...others.map((page) => page.html)].some((html) => html.includes('method="post"'))).toBe(false);
-		// Writing a review leads to the form for it once the Visitor is signed in. Saving the restaurant leads back to it.
-		expect(restaurant).toContain(`href="/login?next=${encodeURIComponent(`/reviews/new?restaurant=${id}`)}"`);
-		expect(restaurant).toContain(`href="/login?next=${encodeURIComponent(`/restaurants/${id}`)}"`);
-		expect(profile).toContain(`href="/login?next=${encodeURIComponent("/ada/profile")}"`);
+		// Each opens a dialog on the page that asks the Visitor to log in. Writing a review leads to the form for it once
+		// they are signed in. Saving the restaurant and following lead back to the page.
+		const asks = (html: string, reason: string) => [html.includes(`commandfor="login-${reason}" command="show-modal"`), dialogIn(html, `login-${reason}`)];
+		const [writes, writeDialog] = asks(restaurant, "write-review");
+		const [saves, saveDialog] = asks(restaurant, "save-restaurant");
+		const [follows, followDialog] = asks(profile, "follow");
+		expect([writes, saves, follows]).toEqual([true, true, true]);
+		expect(writeDialog).toContain(`href="/api/google?next=${encodeURIComponent(`/reviews/new?restaurant=${id}`)}"`);
+		expect(saveDialog).toContain(`href="/api/google?next=${encodeURIComponent(`/restaurants/${id}`)}"`);
+		expect(followDialog).toContain(`href="/api/google?next=${encodeURIComponent("/ada/profile")}"`);
+		expect([writeDialog, saveDialog, followDialog].some((dialog) => /^<dialog\b[^>]*\sopen\b/.test(String(dialog)))).toBe(false);
 	});
 
 	it("is sent to sign in by the pages that are personal or change something, and brought back to them", async () => {
@@ -116,9 +123,9 @@ describe("A Visitor", () => {
 		);
 
 		expect(locations).toEqual([
-			`/login?next=${encodeURIComponent(`/reviews/new?restaurant=${grill.id}`)}`,
-			`/login?next=${encodeURIComponent("/notifications")}`,
-			`/login?next=${encodeURIComponent("/ada/settings")}`,
+			`/login?reason=write-review&next=${encodeURIComponent(`/reviews/new?restaurant=${grill.id}`)}`,
+			`/login?reason=notifications&next=${encodeURIComponent("/notifications")}`,
+			`/login?reason=settings&next=${encodeURIComponent("/ada/settings")}`,
 		]);
 	});
 });

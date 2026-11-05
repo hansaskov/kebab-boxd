@@ -2,7 +2,7 @@ import { defineAction } from "astro:actions";
 import { z } from "astro/zod";
 import { pronouns } from "@src/data/pronouns";
 import { orThrow, requireSession } from "@src/actions/authorize";
-import { settingsHref } from "@src/hrefs";
+import { landingHref, landingNoticeHref, settingsHref } from "@src/hrefs";
 import { usernameSchema } from "@src/validation/username";
 import { coordinatesSchema } from "@src/validation/coordinates";
 import { requiredPictureSchema } from "@src/validation/picture";
@@ -101,7 +101,7 @@ export const settingsActions = {
     handler: async ({ currentUsername }, { locals }) => {
       const actorId = requireSession(locals).user.id;
       const user = orThrow(await locals.db.users.signOutEverywhere(actorId, currentUsername));
-      return { redirect: user.id === actorId ? "/login" : settingsHref(user.username, "security") };
+      return { redirect: user.id === actorId ? landingHref : settingsHref(user.username, "security") };
     },
   }),
   deleteAccount: defineAction({
@@ -109,7 +109,7 @@ export const settingsActions = {
     input: deleteAccountSchema,
     handler: async ({ currentUsername }, { locals }) => {
       orThrow(await locals.db.users.delete(requireSession(locals).user.id, currentUsername));
-      return { redirect: "/login?notice=account-deleted" };
+      return { redirect: landingNoticeHref("account-deleted") };
     },
   }),
 };

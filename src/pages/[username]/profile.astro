@@ -3,6 +3,7 @@ import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import Avatar from "@src/components/Avatar.astro";
 import FollowButton from "@src/components/FollowButton.astro";
+import LoginDialog from "@src/components/LoginDialog.astro";
 import PagedSection from "@src/components/PagedSection.astro";
 import PersonList from "@src/components/PersonList.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
@@ -11,7 +12,8 @@ import ReviewList from "@src/components/ReviewList.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { can } from "@src/auth/permissions";
 import { successToast } from "@src/format/action-toast";
-import { profileHref, searchHref, settingsHref, signInHref } from "@src/hrefs";
+import { loginDialogId } from "@src/data/login-reasons";
+import { feedHref, profileHref, searchHref, settingsHref } from "@src/hrefs";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
 import { parseOption } from "@src/validation/search-params";
 
@@ -102,10 +104,10 @@ const layout = canView
         ...openTabs.filter((option) => option !== tab).map(tabHref),
         ...(canEditProfile ? [settingsHref(user.username, "profile")] : []),
         ...(isOwnProfile && reviewPage?.items.length === 0 ? [searchHref("restaurants")] : []),
-        "/",
+        feedHref,
       ],
     }
-  : { title: "Account suspended", description: "This account has been suspended", prefetchUrls: ["/"] };
+  : { title: "Account suspended", description: "This account has been suspended", prefetchUrls: [feedHref] };
 ---
 <BaseLayout
   {...layout}
@@ -132,7 +134,12 @@ const layout = canView
           {viewer ? (
             <FollowButton class="flex-1 sm:flex-none" viewer={viewer} user={user} />
           ) : (
-            <a class="btn btn-primary btn-md flex-1 sm:flex-none" href={signInHref(Astro.url)}>Follow</a>
+            <>
+              <button class="btn btn-primary btn-md flex-1 sm:flex-none" type="button" commandfor={loginDialogId("follow")} command="show-modal">
+                Follow
+              </button>
+              <LoginDialog reason="follow" returnTo={Astro.url} />
+            </>
           )}
         </div>
       </header>

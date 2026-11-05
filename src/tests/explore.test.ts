@@ -3,13 +3,13 @@ import { eq } from "drizzle-orm";
 import { clusterCellSize, clusterMargin, defaultMapCenter, defaultMapZoom, exploreMapCells, exploreMapSize } from "@src/data/map";
 import type { Client } from "@src/db/client";
 import * as s from "@src/db/schema";
-import { exploreCityHref, restaurantHref, signInHref } from "@src/hrefs";
+import { exploreCityHref, restaurantHref } from "@src/hrefs";
 import { clustersOn, openedView } from "@src/map/clusters";
 import type { Coordinates } from "@src/map/coordinates";
 import { maxZoom, viewport } from "@src/map/viewport";
 import ExplorePage from "@src/pages/explore.astro";
 import { loadSampleCityList } from "@src/tests/cities";
-import { renderPage } from "@src/tests/container";
+import { dialogIn, renderPage } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertUser, signIn } from "@src/tests/database";
 import { coordinatesSchema } from "@src/validation/coordinates";
 
@@ -260,12 +260,13 @@ describe("setting the location from the explore map", () => {
 		expect(html).toContain("Set this as your location");
 	});
 
-	it("asks a Visitor to sign in to set their location, and brings them back to the same place on the map", async () => {
+	it("asks a Visitor in a dialog to log in to set their location, and brings them back to the same place on the map", async () => {
 		const { db } = createTestDatabase();
 
 		const { html } = await renderPage(ExplorePage, { db, session: null }, copenhagen);
 
 		expect(html).not.toContain('method="post"');
-		expect(html).toContain(`<a class="link" href="${signInHref(copenhagen)}">Set this as your location</a>`);
+		expect(html).toContain(`<button class="link cursor-pointer" type="button" commandfor="login-set-location" command="show-modal">Set this as your location</button>`);
+		expect(dialogIn(html, "login-set-location")).toContain(`href="/api/google?next=${encodeURIComponent(copenhagen)}"`);
 	});
 });

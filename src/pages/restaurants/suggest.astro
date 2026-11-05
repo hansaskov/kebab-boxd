@@ -15,7 +15,7 @@ import { suggestionSchema } from "@src/validation/restaurant";
 
 const session = Astro.locals.session;
 if (!session) {
-  return Astro.redirect(signInHref(Astro.url));
+  return Astro.redirect(signInHref(Astro.url, "suggest"));
 }
 
 if (!can(session.user, "restaurant:suggest")) {

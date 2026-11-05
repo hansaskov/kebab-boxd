@@ -12,14 +12,15 @@ import { renderPage } from "@src/tests/container";
 import { createTestDatabase, insertUser, signIn } from "@src/tests/database";
 
 describe("the navigation", () => {
-	it("leads a signed-in User to their account, and a Visitor to sign in and back to the page they are on", async () => {
+	it("leads a signed-in User to their account, and a Visitor to log in and back to the page they are on", async () => {
 		const { client, db } = createTestDatabase();
 		const ada = insertUser(client, "ada");
 		const shows = (html: string) => ({
 			navigation: html.includes('aria-label="Main"'),
 			account: html.includes('popovertarget="account-menu"'),
 			notifications: html.includes('href="/notifications"'),
-			signIn: html.includes('href="/login?next=%2Fsearch%3Fq%3Dkebab"'),
+			feed: html.includes('<a class="nav-link" href="/feed"'),
+			login: /href="\/login\?next=%2Fsearch%3Fq%3Dkebab"[^>]*>[\s\S]*?Login<\/span>/.test(html),
 		});
 
 		const signedIn = (await renderPage(SearchPage, { db, session: await signIn(db, ada.id) }, "/search?q=kebab")).html;
@@ -27,8 +28,8 @@ describe("the navigation", () => {
 		const onSignIn = (await renderPage(LoginPage, { db, session: null }, "/login")).html;
 
 		expect({ signedIn: shows(signedIn), visitor: shows(visitor), onSignIn: [shows(onSignIn).navigation, onSignIn.includes('href="/login')] }).toEqual({
-			signedIn: { navigation: true, account: true, notifications: true, signIn: false },
-			visitor: { navigation: true, account: false, notifications: false, signIn: true },
+			signedIn: { navigation: true, account: true, notifications: true, feed: true, login: false },
+			visitor: { navigation: true, account: false, notifications: false, feed: true, login: true },
 			onSignIn: [true, false],
 		});
 	});

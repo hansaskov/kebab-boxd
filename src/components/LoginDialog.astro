@@ -1,0 +1,21 @@
+---
+import type { ComponentProps } from "astro/types";
+import DialogDrawer from "@src/components/DialogDrawer.astro";
+import GoogleSignInButton from "@src/components/GoogleSignInButton.astro";
+import { loginDialogId, signInReasonMessages, type SignInReason } from "@src/data/login-reasons";
+import { returnPathOf } from "@src/validation/return-path";
+
+// Asks a Visitor on the page to log in for what they pressed, which opens it with command="show-modal" and
+// commandfor={loginDialogId(reason)}. Once signed in, they come to returnTo.
+interface Props extends Omit<ComponentProps<typeof DialogDrawer>, "id" | "title" | "description"> {
+  reason: SignInReason;
+  returnTo: URL | string;
+}
+
+const { reason, returnTo, ...props } = Astro.props;
+const { title, text } = signInReasonMessages[reason];
+---
+
+<DialogDrawer id={loginDialogId(reason)} title={title} description={text} {...props}>
+  <GoogleSignInButton returnPath={returnPathOf(returnTo)} />
+</DialogDrawer>
