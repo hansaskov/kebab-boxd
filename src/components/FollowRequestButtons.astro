@@ -1,0 +1,22 @@
+---
+import { actions } from "astro:actions";
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends HTMLAttributes<"div"> {
+  // The user who asked to follow the viewer.
+  username: string;
+}
+
+const { username, class: className, ...props } = Astro.props;
+---
+
+<div class:list={["flex gap-2", className]} {...props}>
+  <form class="flex" method="post" action={actions.profile.approveFollowRequest}>
+    <input type="hidden" name="username" value={username} />
+    <button class="btn btn-primary btn-sm" type="submit">Approve</button>
+  </form>
+  <form class="flex" method="post" action={actions.profile.removeFollower}>
+    <input type="hidden" name="username" value={username} />
+    <button class="btn btn-secondary btn-sm" type="submit">Decline</button>
+  </form>
+</div>

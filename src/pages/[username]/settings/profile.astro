@@ -27,6 +27,10 @@ const shownInline = [detailsForm, pictureForm].some((form) => form?.hasFieldErro
 const toast = shownInline
   ? null
   : (successToast(Astro.locals, actions.updateSettings, { title: "Profile saved", text: "Your profile shows the changes." }) ??
+    successToast(Astro.locals, actions.updatePrivacy, {
+      title: "Privacy saved",
+      text: user.isPrivate ? "Only your followers see your reviews." : "Everyone sees your reviews.",
+    }) ??
     successToast(Astro.locals, actions.updateProfilePicture, { title: "Picture saved", text: "Your profile shows the new picture." }) ??
     successToast(Astro.locals, actions.removeProfilePicture, { title: "Picture removed", text: "Your profile shows your initials." }));
 ---
@@ -83,6 +87,25 @@ const toast = shownInline
         />
         <div class="settings-card-footer">
           <button class="btn btn-primary btn-md" type="submit">Save profile</button>
+        </div>
+      </fieldset>
+    </form>
+  </section>
+
+  <section class="mt-8" aria-labelledby="privacy-heading">
+    <h2 id="privacy-heading">Privacy</h2>
+    <form class="mt-3" method="post" action={actions.updatePrivacy}>
+      <input type="hidden" name="currentUsername" value={user.username} />
+      <fieldset class="settings-card">
+        <label class="flex cursor-pointer items-center justify-between gap-6 py-5">
+          <span>
+            <span class="field-label block">Private profile</span>
+            <span class="t-body-sm block text-fg-muted">Only your followers see your reviews.</span>
+          </span>
+          <input type="checkbox" class="checkbox" name="isPrivate" checked={user.isPrivate} />
+        </label>
+        <div class="settings-card-footer">
+          <button class="btn btn-primary btn-md" type="submit">Save privacy</button>
         </div>
       </fieldset>
     </form>

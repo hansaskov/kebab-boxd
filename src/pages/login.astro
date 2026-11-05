@@ -3,12 +3,16 @@ import { Heart, MapPin, Star, StarHalf, UsersRound } from "@lucide/astro";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import Avatar from "@src/components/Avatar.astro";
 import type { Toast } from "@src/components/Toast.astro";
+import { googleSignInHref, signInErrors, type SignInError } from "@src/hrefs";
+import { parseReturnPath } from "@src/validation/return-path";
+
+const returnPath = parseReturnPath(Astro.url.searchParams.get("next"));
 
 if (Astro.locals.session) {
-	return Astro.redirect("/");
+	return Astro.redirect(returnPath ?? "/");
 }
 
-const errorToasts: Record<string, Toast> = {
+const errorToasts: Record<SignInError, Toast> = {
 	expired: {
 		variant: "error",
 		title: "Sign-in expired",
@@ -33,9 +37,10 @@ const noticeToasts: Record<string, Toast> = {
 	},
 };
 
-const error = Astro.url.searchParams.get("error");
+const error = signInErrors.find((option) => option === Astro.url.searchParams.get("error"));
 const notice = Astro.url.searchParams.get("notice");
-const toast = (error ? errorToasts[error] : undefined) ?? (notice ? noticeToasts[notice] : undefined);
+const toast = (error ? errorToasts[error] : undefined) ?? (notice && Object.hasOwn(noticeToasts, notice) ? noticeToasts[notice] : undefined);
+const googleHref = googleSignInHref(returnPath);
 
 const features = [
 	{
@@ -75,7 +80,7 @@ const features = [
 			<p class="t-lead mx-auto mt-5 max-w-[34ch] text-balance text-fg-muted md:mx-0 md:text-pretty">
 				Review the restaurants you visit, find the best places near you, and see where your friends eat.
 			</p>
-			<a class="btn btn-primary btn-md mt-8" href="/api/google">Sign in with Google</a>
+			<a class="btn btn-primary btn-md mt-8" href={googleHref}>Sign in with Google</a>
 		</div>
 
 		<div class="relative mx-auto w-full max-w-sm select-none md:mx-0" aria-hidden="true">
@@ -130,6 +135,6 @@ const features = [
 
 	<section class="flex flex-col items-center gap-5 border-t border-line pt-section text-center sm:flex-row sm:justify-between sm:text-left">
 		<h2 class="text-2xl font-semibold tracking-tight text-balance">Where will you eat next?</h2>
-		<a class="btn btn-secondary btn-md" href="/api/google">Sign in with Google</a>
+		<a class="btn btn-secondary btn-md" href={googleHref}>Sign in with Google</a>
 	</section>
 </BaseLayout>

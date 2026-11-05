@@ -11,7 +11,7 @@ if (settings instanceof Response) {
 const { user } = settings;
 
 const kinds = [
-  { label: "New followers", name: "followNotifications", checked: user.followNotifications },
+  { label: "New followers and follow requests", name: "followNotifications", checked: user.followNotifications },
   { label: "Likes on reviews", name: "likeNotifications", checked: user.likeNotifications },
   { label: "Decisions on suggestions", name: "suggestionNotifications", checked: user.suggestionNotifications },
 ];

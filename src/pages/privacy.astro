@@ -1,7 +1,7 @@
 ---
 import { DATA_CONTROLLER_EMAIL, DATA_CONTROLLER_NAME } from "astro:env/server";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
-import { authorizationCookieMaxAgeSeconds } from "@src/auth/oauth";
+import { authorizationCookieMaxAgeSeconds, returnPathCookieName } from "@src/auth/oauth";
 import { googleCookieNames } from "@src/auth/providers/google";
 import { sessionCookieName } from "@src/auth/session";
 import { settingsSectionDetails, type SettingsSection } from "@src/data/settings-sections";
@@ -17,11 +17,13 @@ const cookies = [
   { name: sessionCookieName, purpose: "Keeps you signed in.", lifetime: `${days(inactivityTimeoutSeconds)} after your last visit` },
   { name: googleCookieNames.state, purpose: "Protects sign-in with Google.", lifetime: `after ${minutes(authorizationCookieMaxAgeSeconds)}` },
   { name: googleCookieNames.codeVerifier, purpose: "Protects sign-in with Google.", lifetime: `after ${minutes(authorizationCookieMaxAgeSeconds)}` },
+  { name: returnPathCookieName, purpose: "Brings you back to the page you signed in from.", lifetime: `after ${minutes(authorizationCookieMaxAgeSeconds)}` },
 ];
 
 const rights: { text: string; section: SettingsSection }[] = [
   { text: "Download all your data", section: "data" },
   { text: "Correct your profile", section: "profile" },
+  { text: "Make your profile private", section: "profile" },
   { text: "Remove your location", section: "location" },
   { text: "Delete your account and data", section: "data" },
 ];
@@ -51,15 +53,16 @@ const rights: { text: string; section: SettingsSection }[] = [
       </li>
       <li>
         <strong>Your profile:</strong> your username, picture, pronouns and bio, if you add them.
-        Other users can see them.
+        Anyone can see them, also people who are not signed in.
       </li>
       <li>
         <strong>Your location:</strong> the coordinates you save in your settings, if you do.
-        We use them to start the map where you are. Other users cannot see them.
+        We use them to start the map where you are. No one else can see them, not even an admin.
       </li>
       <li>
-        <strong>What you do on Kebab Boxd:</strong> your reviews, pictures, likes, follows, favorites, bucket list and the restaurants you suggest.
-        Other users can see your reviews and pictures.
+        <strong>What you do on Kebab Boxd:</strong> your reviews, pictures, likes, follows, follow requests, favorites, bucket list and the restaurants you suggest.
+        Anyone can see your reviews and their pictures, your favorites, your bucket list, who you follow and who follows you, also people who are not signed in.
+        If you make your profile private, only the people who follow you and the admins can see your reviews, and you approve each new follower.
         We remove the camera details from every picture you upload, such as the place where it was taken.
       </li>
       <li>
@@ -67,8 +70,8 @@ const rights: { text: string; section: SettingsSection }[] = [
         Other admins can see who searched each city.
       </li>
       <li>
-        <strong>Your notifications:</strong> who followed you or liked your reviews, the decisions on the restaurants you suggest,
-        the city searches you started, whether you have read them, and which kinds you want. Only you can see them.
+        <strong>Your notifications:</strong> who followed you, asked to follow you, approved your follow request or liked your reviews, the decisions on the restaurants you suggest,
+        the city searches you started, whether you have read them, and which kinds you want. Only you can see your notifications.
       </li>
       <li>
         <strong>Your devices:</strong> when each device signed in, and which pages it opened and when.
@@ -83,6 +86,25 @@ const rights: { text: string; section: SettingsSection }[] = [
     <p class="t-body mt-3">
       We need this data to give you the service you signed up for.
       We keep the device history because we have a legitimate interest in protecting your account.
+    </p>
+  </section>
+
+  <section class="mt-8">
+    <h2>What admins see</h2>
+    <p class="t-body mt-2">
+      Admins look after Kebab Boxd. To stop abuse, such as a review that breaks the law, and to help you when you ask, they can see:
+    </p>
+    <ul class="t-body mt-2 list-disc space-y-2 pl-5">
+      <li>your email address, and find your account by it</li>
+      <li>all your reviews, also those that are hidden or that your private profile shares only with your followers</li>
+      <li>your devices: when each one signed in, and which pages it opened and when</li>
+      <li>which kinds of notifications you want</li>
+      <li>the restaurants you suggest</li>
+    </ul>
+    <p class="t-body mt-3">
+      Admins can also change your profile, also whether it is private, and which notifications you get. They can sign out your devices, delete your reviews and ban your account.
+      They cannot see your location, your notifications or your follow requests.
+      We have a legitimate interest in this: it keeps Kebab Boxd safe.
     </p>
   </section>
 
@@ -119,6 +141,7 @@ const rights: { text: string; section: SettingsSection }[] = [
     <ul class="t-body mt-2 list-disc space-y-2 pl-5">
       <li>Your account and everything you post: until you delete your account.</li>
       <li>A notification: until the follow, like, review or decision it is about is undone, or until you delete your account.</li>
+      <li>A follow request: until it is approved, declined or taken back, or until you or the other user delete the account.</li>
       <li>Who started a city search or a city list update: until you delete your account. The search itself stays.</li>
       <li>A Google Maps link you suggest: until it becomes a restaurant, or {days(finishedSuggestionRetentionSeconds)} after we could not use it.</li>
       <li>A signed-in device: {days(inactivityTimeoutSeconds)} after its last use, or when you sign it out.</li>

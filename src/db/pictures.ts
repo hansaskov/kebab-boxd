@@ -1,5 +1,7 @@
 import { inArray } from "drizzle-orm";
-import type { Transaction } from "@src/db/client";
+import type { Resource, ResourcePermission } from "@src/auth/permissions";
+import { authorizedWrite, refusalBeforeWrite } from "@src/db/authorize";
+import type { Client, Transaction } from "@src/db/client";
 import { problem, type Problem } from "@src/db/problem";
 import * as s from "@src/db/schema";
 import { InvalidPictureError, type PictureKind, type PictureStore } from "@src/pictures/store";
@@ -23,7 +25,7 @@ export interface PictureChanges {
 // is not a picture stops the write before it starts. When the write throws, its transaction is undone and the added
 // files go again. When it returns, the files of the removed rows go, and so do the added files it did not insert.
 // A file that cannot be removed then is only logged: the rows no longer point to it.
-export async function writeWithPictures<T>(
+async function writeWithPictures<T>(
 	store: PictureStore,
 	write: (changes: PictureChanges) => T | Problem,
 	added?: { files: File[]; kind: PictureKind },
@@ -67,4 +69,27 @@ export async function writeWithPictures<T>(
 	}
 	await store.remove(isInserted ? removedUrls : [...removedUrls, ...addedUrls]);
 	return result;
+}
+
+// A write on a resource that adds files as pictures, removes pictures, or both, as writeWithPictures runs it.
+// Encoding the files costs, so a write that would be refused is refused before they are encoded. The write
+// checks the permission again in its transaction, since the actor or the resource may change meanwhile.
+export async function authorizedWriteWithPictures<P extends ResourcePermission, R extends Resource<P>, T>(
+	client: Client,
+	store: PictureStore,
+	actorId: number,
+	permission: P,
+	findResource: (tx: Transaction) => R | undefined,
+	write: (tx: Transaction, resource: R, changes: PictureChanges) => T,
+	added?: { files: File[]; kind: PictureKind },
+): Promise<T | Problem> {
+	if (added && added.files.length > 0) {
+		const refused = refusalBeforeWrite(client, actorId, permission, findResource);
+		if (refused) return refused;
+	}
+	return writeWithPictures(
+		store,
+		(changes) => authorizedWrite(client, actorId, permission, findResource, (tx, resource) => write(tx, resource, changes)),
+		added,
+	);
 }

@@ -160,8 +160,11 @@ describe("deleting an account", () => {
 		const { client, db } = createTestDatabase();
 		const ada = insertUser(client, "ada");
 		const bob = insertUser(client, "bob");
+		const cleo = insertUser(client, "cleo");
 		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
 		const suggested = insertRestaurant(client, "Mangal Express", { suggestedBy: ada.id });
+		await db.users.setPrivacy(cleo.id, cleo.username, true);
+		await db.follows.follow(ada.id, cleo.username);
 		await writeReview(db, ada.id, grill.id, 10);
 		const bobReview = await writeReview(db, bob.id, grill.id, 4);
 		await signIn(db, ada.id);
@@ -175,7 +178,7 @@ describe("deleting an account", () => {
 		await db.users.delete(ada.id, ada.username);
 
 		expect(await db.users.findByUsername("ada")).toBeUndefined();
-		for (const table of [s.sessions, s.accounts, s.likes, s.followers, s.favorites, s.bucketList, s.notifications]) {
+		for (const table of [s.sessions, s.accounts, s.likes, s.followers, s.followRequests, s.favorites, s.bucketList, s.notifications]) {
 			expect(await client.$count(table)).toBe(0);
 		}
 		expect(client.query.reviews.findMany({ columns: { id: true, likeCount: true } }).sync()).toEqual([{ id: bobReview, likeCount: 0 }]);
@@ -185,6 +188,25 @@ describe("deleting an account", () => {
 });
 
 describe("the personal data export", () => {
+	it("holds the privacy of the Profile and the follow requests the User sent and got", async () => {
+		const { client, db } = createTestDatabase();
+		const ada = insertUser(client, "ada");
+		const bob = insertUser(client, "bob");
+		const cleo = insertUser(client, "cleo");
+		await db.users.setPrivacy(ada.id, ada.username, true);
+		await db.users.setPrivacy(cleo.id, cleo.username, true);
+		await db.follows.follow(ada.id, cleo.username);
+		await db.follows.follow(bob.id, ada.username);
+
+		const exported = await db.personalData.findByUser(ada.id);
+
+		expect({
+			isPrivate: exported?.isPrivate,
+			sent: exported?.sentFollowRequests.map((request) => request.following.username),
+			received: exported?.receivedFollowRequests.map((request) => request.follower.username),
+		}).toEqual({ isPrivate: true, sent: ["cleo"], received: ["bob"] });
+	});
+
 	it("leaves out session secrets and the private data of other users", async () => {
 		const { client, db } = createTestDatabase();
 		const ada = insertUser(client, "ada");

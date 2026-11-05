@@ -3,11 +3,12 @@ import BaseLayout from "@src/layouts/BaseLayout.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { can } from "@src/auth/permissions";
 import { adminTabs } from "@src/data/admin-tabs";
+import { signInHref } from "@src/hrefs";
 
 const session = Astro.locals.session;
 
 if (!session) {
-  return Astro.redirect("/login");
+  return Astro.redirect(signInHref(Astro.url));
 }
 
 if (!can(session.user, "admin-console:view")) {

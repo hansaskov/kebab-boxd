@@ -1,7 +1,9 @@
 import { defineAction } from "astro:actions";
 import { orThrow, requireSession, targetUserSchema } from "@src/actions/authorize";
+import type { Database } from "@src/db";
 
-function followAction(write: "follow" | "unfollow") {
+// Each changes the Follow between the signed-in User and the user the form names.
+function followAction(write: keyof Pick<Database["follows"], "follow" | "unfollow" | "approveRequest" | "removeFollower">) {
   return defineAction({
     accept: "form",
     input: targetUserSchema,
@@ -14,4 +16,6 @@ function followAction(write: "follow" | "unfollow") {
 export const profileActions = {
   follow: followAction("follow"),
   unfollow: followAction("unfollow"),
+  approveFollowRequest: followAction("approveRequest"),
+  removeFollower: followAction("removeFollower"),
 };

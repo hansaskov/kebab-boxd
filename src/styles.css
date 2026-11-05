@@ -82,6 +82,8 @@
 
   --ds-radius-field: 0.75rem;
   --ds-radius-box: 1rem;
+  /* The corners of what fills a box inside its 1px border, so they follow the corners of the box. */
+  --ds-radius-box-inner: calc(var(--ds-radius-box) - 1px);
 
   /* A phone browser zooms in on a form control that gets focus when its text is smaller than 16px,
      so the text of every form control is at least that large. */
@@ -603,7 +605,7 @@
     margin-inline: -1.5rem;
     padding: 1rem 1.5rem;
     background: var(--ds-color-bg-subtle);
-    border-radius: 0 0 calc(var(--ds-radius-box) - 1px) calc(var(--ds-radius-box) - 1px);
+    border-radius: 0 0 var(--ds-radius-box-inner) var(--ds-radius-box-inner);
   }
 
   .settings-row {
@@ -672,7 +674,8 @@
 
   /* A boxed list of rows. A row becomes one link target through its
      `.list-row-link`, which stretches over the row; the row's other
-     controls sit above it. The box clips the row hover to its corners. */
+     controls sit above it. The first and last rows have the corners of
+     the box, so the hover and the focus ring of a row follow them. */
   .list {
     overflow: clip;
     border: 1px solid var(--ds-color-border-subtle);
@@ -681,6 +684,14 @@
   }
   .list > li + li {
     border-top: 1px solid var(--ds-color-border-subtle);
+  }
+  .list > li:first-child {
+    border-top-left-radius: var(--ds-radius-box-inner);
+    border-top-right-radius: var(--ds-radius-box-inner);
+  }
+  .list > li:last-child {
+    border-bottom-left-radius: var(--ds-radius-box-inner);
+    border-bottom-right-radius: var(--ds-radius-box-inner);
   }
 
   .list-row {

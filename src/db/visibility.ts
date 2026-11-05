@@ -20,6 +20,35 @@ export function isUnbannedUser(userId: SQLWrapper): SQL {
 	return exists(qb.select({ row: sql`1` }).from(s.users).where(and(eq(s.users.id, userId), isNull(s.users.bannedAt))));
 }
 
+// A condition on the viewer, as an extra of a query. A Visitor has nothing of their own, so it is false for them.
+export function ofViewer(viewerId: number | null, condition: (viewerId: number) => SQL) {
+	return (viewerId === null ? sql`0` : condition(viewerId)).mapWith(Boolean);
+}
+
+export function isFollowing(followerId: number, followingId: SQLWrapper): SQL {
+	return exists(
+		qb.select({ row: sql`1` }).from(s.followers).where(and(eq(s.followers.followerId, followerId), eq(s.followers.followingId, followingId))),
+	);
+}
+
+// Whether the viewer follows the user, as an extra of a query on users. A Visitor follows no one.
+export function isFollowedBy(viewerId: number | null) {
+	return (user: typeof s.users) => ofViewer(viewerId, (id) => isFollowing(id, user.id));
+}
+
+// The author of a Review as the permissions need them, as a relation of a query on reviews.
+export function reviewAuthor(viewerId: number | null) {
+	return { columns: { id: true, isPrivate: true }, extras: { isFollowedByViewer: isFollowedBy(viewerId) } } as const;
+}
+
+// The author shares their Reviews with the viewer, who is null for a Visitor: the Profile of the author is public,
+// or the viewer is the author or follows them. The permissions write the same rule for one Review.
+export function sharesReviewsWith(authorId: SQLWrapper, viewerId: number | null): SQL {
+	const isPublic = exists(qb.select({ row: sql`1` }).from(s.users).where(and(eq(s.users.id, authorId), eq(s.users.isPrivate, false))));
+	if (viewerId === null) return isPublic;
+	return sql`(${or(isPublic, eq(authorId, viewerId), isFollowing(viewerId, authorId))})`;
+}
+
 export function isApprovedRestaurant(restaurantId: SQLWrapper): SQL {
 	return exists(
 		qb.select({ row: sql`1` }).from(s.restaurants).where(and(eq(s.restaurants.id, restaurantId), eq(s.restaurants.status, "approved"))),
@@ -49,6 +78,11 @@ export function isPublicReview(review: ReviewColumns): SQL {
 // Shown in Feeds and on its Restaurant, and may be liked.
 export function isListedReview(review: ReviewColumns): SQL {
 	return all(isPublicReview(review), isUnbannedUser(review.authorId));
+}
+
+// Listed, and shared by its author with the viewer, who is null for a Visitor.
+export function isListedReviewFor(review: ReviewColumns, viewerId: number | null): SQL {
+	return all(isListedReview(review), sharesReviewsWith(review.authorId, viewerId));
 }
 
 // Hidden while the user who caused it is banned, and shown again when the ban is lifted.

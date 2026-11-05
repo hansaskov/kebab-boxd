@@ -8,7 +8,7 @@ export type SettingsSection = (typeof settingsSections)[number];
 
 export const settingsSectionDetails: Record<SettingsSection, { label: string; icon: typeof Bell; permission: UserPermission }> = {
 	profile: { label: "Profile", icon: UserRound, permission: "user:edit-settings" },
-	location: { label: "Location", icon: MapPin, permission: "user:edit-settings" },
+	location: { label: "Location", icon: MapPin, permission: "user:edit-location" },
 	notifications: { label: "Notifications", icon: Bell, permission: "user:edit-settings" },
 	security: { label: "Security", icon: Shield, permission: "user:manage-sessions" },
 	data: { label: "Your data", icon: Download, permission: "user:export-data" },

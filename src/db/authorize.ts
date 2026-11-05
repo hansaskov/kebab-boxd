@@ -2,10 +2,17 @@ import { can, refusal, type Resource, type ResourcePermission, type SubjectPermi
 import type { Client, Transaction } from "@src/db/client";
 import { chunks, durableSqliteLimits } from "@src/db/limits";
 import type { Problem } from "@src/db/problem";
-import { isListedReview } from "@src/db/visibility";
+import { isListedReview, reviewAuthor } from "@src/db/visibility";
 
 function findActor(tx: Transaction, id: number) {
 	return tx.query.users.findFirst({ columns: { id: true, role: true, bannedAt: true }, where: { id } }).sync();
+}
+
+// Why the actor may not have the permission on the resource, as the transaction reads them, or undefined when they may.
+function refusalIn<P extends ResourcePermission>(tx: Transaction, actorId: number, permission: P, resource: Resource<P> | undefined): Problem | undefined {
+	const actor = findActor(tx, actorId);
+	const refused = !actor || actor.bannedAt ? "forbidden" : refusal(actor, permission, resource);
+	return refused ? { problem: refused, permission } : undefined;
 }
 
 // The only check of a permission on a resource: it reads the actor and the resource inside the write
@@ -18,14 +25,24 @@ export function authorizedWrite<P extends ResourcePermission, R extends Resource
 	write: (tx: Transaction, resource: R) => T,
 ): T | Problem {
 	const run = (tx: Transaction): T | Problem => {
-		const actor = findActor(tx, actorId);
 		const resource = findResource(tx);
-		const refused = !actor || actor.bannedAt ? "forbidden" : refusal(actor, permission, resource);
-		return refused ? { problem: refused, permission } : write(tx, resource!);
+		return refusalIn(tx, actorId, permission, resource) ?? write(tx, resource!);
 	};
 	// The transaction type refuses a generic result because it cannot prove that the result is no promise.
 	// The writes are synchronous, so it is not.
 	return client.transaction(run as (tx: Transaction) => Problem) as T | Problem;
+}
+
+// Why the actor may not have the permission on the resource now, or undefined when they may. Only for work that
+// must not start for a write that would be refused, such as encoding its pictures. The write checks again with
+// authorizedWrite, since the actor or the resource may change before it runs.
+export function refusalBeforeWrite<P extends ResourcePermission>(
+	client: Client,
+	actorId: number,
+	permission: P,
+	findResource: (tx: Transaction) => Resource<P> | undefined,
+): Problem | undefined {
+	return client.transaction((tx): Problem | undefined => refusalIn(tx, actorId, permission, findResource(tx)));
 }
 
 // A write that needs a permission on no resource, checked against the actor as the transaction reads them.
@@ -59,7 +76,7 @@ export function authorizedWriteAll<P extends ResourcePermission, R extends Resou
 }
 
 // The user a write is about, as the permissions need them and the action needs them to name the page it goes back to.
-export const targetUserColumns = { id: true, username: true, role: true, bannedAt: true } as const;
+export const targetUserColumns = { id: true, username: true, role: true, bannedAt: true, isPrivate: true } as const;
 
 function findTargetUser(tx: Transaction, username: string) {
 	return tx.query.users.findFirst({ columns: targetUserColumns, where: { username: username.toLowerCase() } }).sync();
@@ -92,12 +109,12 @@ export function findTargetRestaurants(tx: Transaction, ids: number[]) {
 	return ids.map((id) => found.get(id));
 }
 
-// With its pictures, whose files go when the write removes them.
-export function findTargetReview(tx: Transaction, id: number) {
+// As the actor sees it, with its pictures, whose files go when the write removes them.
+export function findTargetReview(tx: Transaction, id: number, actorId: number) {
 	return tx.query.reviews
 		.findFirst({
 			columns: { id: true, authorId: true, restaurantId: true },
-			with: { pictures: { columns: { id: true, url: true } } },
+			with: { author: reviewAuthor(actorId), pictures: { columns: { id: true, url: true } } },
 			extras: { isListed: (review) => isListedReview(review).mapWith(Boolean) },
 			where: { id },
 		})

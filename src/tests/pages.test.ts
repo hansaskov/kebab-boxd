@@ -12,6 +12,8 @@ import AdminUserPage from "@src/pages/admin/users/[username].astro";
 import LoginPage from "@src/pages/login.astro";
 import ProfilePage from "@src/pages/[username]/profile.astro";
 import SessionPage from "@src/pages/[username]/settings/sessions/[sessionId].astro";
+import SettingsPage from "@src/pages/[username]/settings/index.astro";
+import LocationSettingsPage from "@src/pages/[username]/settings/location.astro";
 import RestaurantPage from "@src/pages/restaurants/[id].astro";
 import SearchPage from "@src/pages/search.astro";
 import * as ExportEndpoint from "@src/pages/api/users/[username]/export";
@@ -285,6 +287,28 @@ describe("pages", () => {
 		}).toEqual({
 			searching: [true, true, false],
 			failed: [true, false, true, true],
+		});
+	});
+
+	it("keep the location of a User from an Admin, who manages the rest of their settings", async () => {
+		const { client, db } = createTestDatabase();
+		const ada = insertUser(client, "ada");
+		const admin = insertUser(client, "root_admin", "admin");
+		await db.users.setLocation(ada.id, ada.username, { latitude: 55.4, longitude: 10.39 });
+		const session = await signIn(db, admin.id);
+
+		const location = await renderPage(LocationSettingsPage, { db, session }, "/ada/settings/location", { username: "ada" });
+		const overview = (await renderPage(SettingsPage, { db, session }, "/ada/settings", { username: "ada" })).html;
+		const change = await db.users.setLocation(admin.id, ada.username, null);
+
+		expect({
+			location: [location.response.status, location.html.includes("55.4")],
+			overview: [overview.includes('href="/ada/settings/profile"'), overview.includes('href="/ada/settings/location"')],
+			change,
+		}).toEqual({
+			location: [403, false],
+			overview: [true, false],
+			change: { problem: "forbidden", permission: "user:edit-location" },
 		});
 	});
 });

@@ -10,12 +10,12 @@ import { maxZoom, minZoom, viewport } from "@src/map/viewport";
 import { parseMapView } from "@src/validation/map-view";
 
 const session = Astro.locals.session;
-if (!session) {
-	return Astro.redirect("/login");
-}
 
-const { latitude, longitude } = session.user;
-const home: Coordinates | undefined = latitude !== null && longitude !== null ? { latitude, longitude } : undefined;
+// A Visitor has no location of their own, so their map starts at the default center.
+const home: Coordinates | undefined =
+	session && session.user.latitude !== null && session.user.longitude !== null
+		? { latitude: session.user.latitude, longitude: session.user.longitude }
+		: undefined;
 const view = parseMapView(Astro.url.searchParams, { center: home ?? defaultMapCenter, zoom: defaultMapZoom });
 const map = viewport(view.center, view.zoom, exploreMapSize);
 
@@ -45,7 +45,7 @@ const nearby = nearest.map((pin) => ({
 	details: [formatDistance(distanceInMeters(map.center, pin)), pin.city],
 }));
 const isAtHome = home !== undefined && distanceInMeters(home, map.center) < 1;
-const showsLocationLink = !home || !isAtHome;
+const showsLocationLink = session !== null && !isAtHome;
 ---
 
 <BaseLayout
@@ -58,7 +58,7 @@ const showsLocationLink = !home || !isAtHome;
 		{home && !isAtHome && (
 			<a class="t-body-sm link ms-auto" href={exploreHref({ center: home, zoom: map.zoom })}>Back to your location</a>
 		)}
-		{!home && (
+		{session && !home && (
 			<a class="t-body-sm link ms-auto" href={settingsHref(session.user.username, "location")}>Set your location</a>
 		)}
 	</div>

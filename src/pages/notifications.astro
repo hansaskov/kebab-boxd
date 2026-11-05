@@ -2,16 +2,17 @@
 import { Check, MapPinned, TriangleAlert, X } from "@lucide/astro";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import Avatar from "@src/components/Avatar.astro";
+import FollowRequestButtons from "@src/components/FollowRequestButtons.astro";
 import PagedSection from "@src/components/PagedSection.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
 import { plural } from "@src/format/plural";
-import { notificationHref } from "@src/hrefs";
+import { notificationHref, signInHref } from "@src/hrefs";
 import { isSpeculative, refuseSpeculation } from "@src/middleware/speculations";
 import { parsePageRequest } from "@src/pagination";
 
 const session = Astro.locals.session;
 if (!session) {
-  return Astro.redirect("/login");
+  return Astro.redirect(signInHref(Astro.url));
 }
 
 // Showing the notifications marks them read, which a page the user may never open must not do.
@@ -38,7 +39,7 @@ const prefetchUrls = [...new Set(unreadHrefs)].slice(0, 3);
     <ol class="list">
       {page.items.map((notification) => (
         <li class="list-row">
-          {notification.kind === "follow" || notification.kind === "like" ? (
+          {"actor" in notification ? (
             <Avatar class="size-10 text-sm" name={notification.actor.fullname} picture={notification.actor.profilePicture} />
           ) : (
             <span class="grid size-10 shrink-0 place-items-center rounded-full bg-subtle" aria-hidden="true">
@@ -49,30 +50,39 @@ const prefetchUrls = [...new Set(unreadHrefs)].slice(0, 3);
                 : <MapPinned class="text-brand-text" size={20} />)}
             </span>
           )}
-          <a class="list-row-link t-body-sm min-w-0 flex-1" href={notificationHref(notification)}>
-            {notification.kind === "follow" && (
-              <><strong class="font-semibold">{notification.actor.fullname}</strong> followed you.</>
-            )}
-            {notification.kind === "like" && (
-              <>
-                <strong class="font-semibold">{notification.actor.fullname}</strong> liked your review of{" "}
-                <strong class="font-semibold">{notification.review.restaurant.name}</strong>.
-              </>
-            )}
-            {notification.kind === "suggestion-approved" && (
-              <>An admin approved <strong class="font-semibold">{notification.restaurant.name}</strong>.</>
-            )}
-            {notification.kind === "suggestion-rejected" && (
-              <>An admin rejected <strong class="font-semibold">{notification.restaurant.name}</strong>.</>
-            )}
-            {notification.kind === "city-search-finished" && (() => {
-              const { name, status, restaurantCount } = notification.citySearch;
-              const city = <strong class="font-semibold">{name}</strong>;
-              if (status === "failed") return <>The search for restaurants in {city} failed.</>;
-              if (restaurantCount === 0) return <>Found no new restaurants in {city}.</>;
-              return <>Found {plural(restaurantCount, "new restaurant")} in {city}.</>;
-            })()}
-          </a>
+          <div class="min-w-0 flex-1 sm:flex sm:items-center sm:gap-4">
+            <a class="list-row-link t-body-sm block sm:min-w-0 sm:flex-1" href={notificationHref(notification)}>
+              {notification.kind === "follow" && (
+                <><strong class="font-semibold">{notification.actor.fullname}</strong> followed you.</>
+              )}
+              {notification.kind === "follow-request" && (
+                <><strong class="font-semibold">{notification.actor.fullname}</strong> asked to follow you.</>
+              )}
+              {notification.kind === "follow-accepted" && (
+                <><strong class="font-semibold">{notification.actor.fullname}</strong> approved your follow request.</>
+              )}
+              {notification.kind === "like" && (
+                <>
+                  <strong class="font-semibold">{notification.actor.fullname}</strong> liked your review of{" "}
+                  <strong class="font-semibold">{notification.review.restaurant.name}</strong>.
+                </>
+              )}
+              {notification.kind === "suggestion-approved" && (
+                <>An admin approved <strong class="font-semibold">{notification.restaurant.name}</strong>.</>
+              )}
+              {notification.kind === "suggestion-rejected" && (
+                <>An admin rejected <strong class="font-semibold">{notification.restaurant.name}</strong>.</>
+              )}
+              {notification.kind === "city-search-finished" && (() => {
+                const { name, status, restaurantCount } = notification.citySearch;
+                const city = <strong class="font-semibold">{name}</strong>;
+                if (status === "failed") return <>The search for restaurants in {city} failed.</>;
+                if (restaurantCount === 0) return <>Found no new restaurants in {city}.</>;
+                return <>Found {plural(restaurantCount, "new restaurant")} in {city}.</>;
+              })()}
+            </a>
+            {notification.kind === "follow-request" && <FollowRequestButtons class="mt-2 shrink-0 sm:mt-0" username={notification.actor.username} />}
+          </div>
           <RelativeTime class="t-body-sm shrink-0 text-fg-muted" date={notification.createdAt} narrow />
           <span class:list={["size-2 shrink-0 rounded-full", { "bg-brand-text": !notification.isRead }]}>
             {!notification.isRead && <span class="sr-only">New</span>}

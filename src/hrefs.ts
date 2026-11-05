@@ -3,6 +3,23 @@ import type { SettingsSection } from "@src/data/settings-sections";
 import type { Notification } from "@src/db/notifications";
 import type { SearchType } from "@src/validation/search-params";
 
+// Why the user is back on the sign-in page, which tells them.
+export const signInErrors = ["expired", "failed", "banned"] as const;
+export type SignInError = (typeof signInErrors)[number];
+
+// The sign-in page, which brings the user back to the page they came from once they are signed in.
+export function signInHref(from: URL | string | undefined = undefined, error: SignInError | undefined = undefined) {
+	const next = from instanceof URL ? `${from.pathname}${from.search}` : from;
+	const query = new URLSearchParams();
+	if (error) query.set("error", error);
+	if (next && next !== "/") query.set("next", next);
+	return query.size > 0 ? `/login?${query}` : "/login";
+}
+
+export function googleSignInHref(returnPath: string | undefined) {
+	return returnPath ? `/api/google?${new URLSearchParams({ next: returnPath })}` : "/api/google";
+}
+
 function userPath(username: string) {
 	return `/${encodeURIComponent(username)}`;
 }
@@ -80,6 +97,8 @@ export function exploreHref({ center, zoom }: { center: { latitude: number; long
 export function notificationHref(notification: Notification) {
 	switch (notification.kind) {
 		case "follow":
+		case "follow-request":
+		case "follow-accepted":
 			return profileHref(notification.actor.username);
 		case "like":
 			return reviewHref(notification.review.id);

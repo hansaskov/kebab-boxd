@@ -7,13 +7,13 @@ import FieldRating from "@src/components/FieldRating.astro";
 import FieldTextArea from "@src/components/FieldTextArea.astro";
 import { refusal } from "@src/auth/permissions";
 import { submittedForm } from "@src/actions/outcome";
-import { refusalPage, restaurantHref, reviewHref } from "@src/hrefs";
+import { refusalPage, restaurantHref, reviewHref, signInHref } from "@src/hrefs";
 import { parseId } from "@src/validation/id";
 import { maxPicturesPerReview, updateReviewSchema } from "@src/validation/review";
 
 const session = Astro.locals.session;
 if (!session) {
-  return Astro.redirect("/login");
+  return Astro.redirect(signInHref(Astro.url));
 }
 
 const id = parseId(Astro.params.id);

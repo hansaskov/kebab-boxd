@@ -10,25 +10,22 @@ import ReviewList from "@src/components/ReviewList.astro";
 import SuggestionDecision from "@src/components/SuggestionDecision.astro";
 import { canOn, refusal } from "@src/auth/permissions";
 import { restaurantMapSize, restaurantMapZoom } from "@src/data/map";
-import { exploreHref, newReviewHref, profileHref, refusalPage, searchHref } from "@src/hrefs";
+import { exploreHref, newReviewHref, profileHref, refusalPage, searchHref, signInHref } from "@src/hrefs";
 import { viewport } from "@src/map/viewport";
 import { parsePageRequest } from "@src/pagination";
 import { parseId } from "@src/validation/id";
 
-const session = Astro.locals.session;
-if (!session) {
-  return Astro.redirect("/login");
-}
+const viewer = Astro.locals.session?.user ?? null;
 
 const id = parseId(Astro.params.id);
 const { restaurants, reviews } = Astro.locals.db;
-const restaurant = id ? await restaurants.findById(id, session.user.id) : undefined;
-const refused = refusal(session.user, "restaurant:view", restaurant);
+const restaurant = id ? await restaurants.findById(id, viewer?.id ?? null) : undefined;
+const refused = refusal(viewer, "restaurant:view", restaurant);
 if (refused || !restaurant) {
   return Astro.rewrite(refusalPage[refused ?? "not-found"]);
 }
 
-const page = await reviews.listByRestaurant(restaurant.id, session.user.id, parsePageRequest(Astro.url));
+const page = await reviews.listByRestaurant(restaurant.id, viewer?.id ?? null, parsePageRequest(Astro.url));
 
 const { location } = restaurant;
 const map = viewport(location, restaurantMapZoom, restaurantMapSize);
@@ -36,15 +33,17 @@ const address = [location.addressLine1, location.addressLine2, [location.postalC
   .filter(Boolean)
   .join(", ");
 
-const canReview = canOn(session.user, "restaurant:review", restaurant);
-const canCollect = canOn(session.user, "restaurant:collect", restaurant);
-const canModerate = canOn(session.user, "restaurant:moderate", restaurant);
+const canReview = canOn(viewer, "restaurant:review", restaurant);
+const canCollect = canOn(viewer, "restaurant:collect", restaurant);
+const canModerate = canOn(viewer, "restaurant:moderate", restaurant);
+// A Visitor sees only approved restaurants, which a User may review and save, so they are asked to sign in for it.
+const signIn = viewer ? undefined : { toReview: signInHref(newReviewHref(restaurant.id)), toCollect: signInHref(Astro.url) };
 ---
 
 <BaseLayout
   title={restaurant.name}
   description={`Reviews of ${restaurant.name}${location.city ? ` in ${location.city}` : ""}`}
-  prefetchUrls={canReview ? [newReviewHref(restaurant.id), searchHref("restaurants")] : [searchHref("restaurants")]}
+  prefetchUrls={[...(canReview ? [newReviewHref(restaurant.id)] : signIn ? [signIn.toReview] : []), searchHref("restaurants")]}
 >
   <header class="flex flex-wrap items-start gap-4">
     <div class="min-w-0 flex-1">
@@ -58,14 +57,14 @@ const canModerate = canOn(session.user, "restaurant:moderate", restaurant);
         <span>{restaurant.reviewCount} {restaurant.reviewCount === 1 ? "review" : "reviews"}</span>
       </div>
     </div>
-    {canReview && (
-      <a class="btn btn-primary btn-md w-full sm:w-auto" href={newReviewHref(restaurant.id)}>
+    {(canReview || signIn) && (
+      <a class="btn btn-primary btn-md w-full sm:w-auto" href={signIn?.toReview ?? newReviewHref(restaurant.id)}>
         <SquarePen size={16} aria-hidden="true" />Write a review
       </a>
     )}
   </header>
 
-  {(canCollect || restaurant.isFavoriteOfViewer || restaurant.isInBucketListOfViewer) && (
+  {(canCollect || signIn || restaurant.isFavoriteOfViewer || restaurant.isInBucketListOfViewer) && (
     <div class="mt-4 flex gap-2">
       {[
         {
@@ -82,15 +81,22 @@ const canModerate = canOn(session.user, "restaurant:moderate", restaurant);
           remove: actions.restaurants.removeFromBucketList,
           icon: restaurant.isInBucketListOfViewer ? <BookmarkCheck size={16} aria-hidden="true" /> : <Bookmark size={16} aria-hidden="true" />,
         },
-      ].map(({ label, collected, add, remove, icon }) => (
-        <form class="flex flex-1 sm:flex-none" method="post" action={collected ? remove : add}>
-          <input type="hidden" name="restaurantId" value={restaurant.id} />
-          <button class="btn btn-secondary btn-md w-full" type="submit" aria-pressed={collected ? "true" : "false"}>
+      ].map(({ label, collected, add, remove, icon }) =>
+        signIn ? (
+          <a class="btn btn-secondary btn-md flex-1 sm:flex-none" href={signIn.toCollect}>
             {icon}
             {label}
-          </button>
-        </form>
-      ))}
+          </a>
+        ) : (
+          <form class="flex flex-1 sm:flex-none" method="post" action={collected ? remove : add}>
+            <input type="hidden" name="restaurantId" value={restaurant.id} />
+            <button class="btn btn-secondary btn-md w-full" type="submit" aria-pressed={collected ? "true" : "false"}>
+              {icon}
+              {label}
+            </button>
+          </form>
+        ),
+      )}
     </div>
   )}
 
@@ -112,6 +118,6 @@ const canModerate = canOn(session.user, "restaurant:moderate", restaurant);
 
   <PagedSection class="mt-8 space-y-3" aria-label="Reviews" page={page} empty="No reviews yet.">
     <h2 slot="heading">Reviews</h2>
-    <ReviewList reviews={page.items} viewer={session.user} showRestaurant={false} />
+    <ReviewList reviews={page.items} viewer={viewer} showRestaurant={false} />
   </PagedSection>
 </BaseLayout>

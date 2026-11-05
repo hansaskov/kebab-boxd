@@ -12,15 +12,25 @@ import { renderPage } from "@src/tests/container";
 import { createTestDatabase, insertUser, signIn } from "@src/tests/database";
 
 describe("the navigation", () => {
-	it("is given to a signed-in User and not to a visitor", async () => {
+	it("leads a signed-in User to their account, and a Visitor to sign in and back to the page they are on", async () => {
 		const { client, db } = createTestDatabase();
 		const ada = insertUser(client, "ada");
+		const shows = (html: string) => ({
+			navigation: html.includes('aria-label="Main"'),
+			account: html.includes('popovertarget="account-menu"'),
+			notifications: html.includes('href="/notifications"'),
+			signIn: html.includes('href="/login?next=%2Fsearch%3Fq%3Dkebab"'),
+		});
 
-		const signedIn = (await renderPage(SearchPage, { db, session: await signIn(db, ada.id) }, "/search")).html;
-		const visitor = (await renderPage(LoginPage, { db, session: null }, "/login")).html;
+		const signedIn = (await renderPage(SearchPage, { db, session: await signIn(db, ada.id) }, "/search?q=kebab")).html;
+		const visitor = (await renderPage(SearchPage, { db, session: null }, "/search?q=kebab")).html;
+		const onSignIn = (await renderPage(LoginPage, { db, session: null }, "/login")).html;
 
-		expect(signedIn).toContain('aria-label="Main"');
-		expect(visitor).not.toContain('aria-label="Main"');
+		expect({ signedIn: shows(signedIn), visitor: shows(visitor), onSignIn: [shows(onSignIn).navigation, onSignIn.includes('href="/login')] }).toEqual({
+			signedIn: { navigation: true, account: true, notifications: true, signIn: false },
+			visitor: { navigation: true, account: false, notifications: false, signIn: true },
+			onSignIn: [true, false],
+		});
 	});
 
 	it("marks the page it is on and tells how many Notifications are unread", async () => {
@@ -83,7 +93,7 @@ describe("the settings", () => {
 
 		expect({ owner: await sectionsFor(ada.id), admin: await sectionsFor(admin.id) }).toEqual({
 			owner: ["profile", "location", "notifications", "security", "data"],
-			admin: ["profile", "location", "notifications", "security"],
+			admin: ["profile", "notifications", "security"],
 		});
 	});
 

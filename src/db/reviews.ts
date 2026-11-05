@@ -5,11 +5,11 @@ import { refreshLikeCounts, refreshRestaurantStats } from "@src/db/cached-stats"
 import type { Client, Transaction } from "@src/db/client";
 import { notify, withdraw } from "@src/db/notifications";
 import { cursorList, type Filter } from "@src/db/pagination";
-import { writeWithPictures, type PictureChanges } from "@src/db/pictures";
+import { authorizedWriteWithPictures, type PictureChanges } from "@src/db/pictures";
 import { problem } from "@src/db/problem";
 import * as s from "@src/db/schema";
 import type { Review } from "@src/db/schema";
-import { isListedReview, isPublicReview } from "@src/db/visibility";
+import { isListedReview, isListedReviewFor, isPublicReview, ofViewer, reviewAuthor } from "@src/db/visibility";
 import type { PageItem, PageRequest } from "@src/pagination";
 import type { PictureStore } from "@src/pictures/store";
 import { maxPicturesPerReview } from "@src/validation/review";
@@ -27,29 +27,39 @@ export interface ReviewChanges extends ReviewContent {
 const qb = new QueryBuilder();
 const pages = cursorList("reviews", ["createdAt", "id"], "desc");
 
-// Everything a review shows wherever it is listed, and what decides what the viewer may do with it.
-function reviewCard(viewerId: number) {
+// Everything a review shows wherever it is listed, and what decides what the viewer, null for a Visitor, may do with it.
+function reviewCard(viewerId: number | null) {
+	const author = reviewAuthor(viewerId);
 	return {
 		columns: { id: true, authorId: true, rating: true, description: true, likeCount: true, createdAt: true },
 		with: {
-			author: { columns: { username: true, fullname: true }, with: { profilePicture: { columns: { url: true } } } },
+			author: {
+				...author,
+				columns: { ...author.columns, username: true, fullname: true },
+				with: { profilePicture: { columns: { url: true } } },
+			},
 			restaurant: { columns: { id: true, name: true } },
 			pictures: { columns: { id: true, url: true }, orderBy: { id: "asc" } },
 		},
 		extras: {
 			isListed: (review: typeof s.reviews) => isListedReview(review).mapWith(Boolean),
 			isLikedByViewer: (review: typeof s.reviews) =>
-				exists(
-					qb
-						.select({ row: sql`1` })
-						.from(s.likes)
-						.where(and(eq(s.likes.reviewId, review.id), eq(s.likes.userId, viewerId))),
-				).mapWith(Boolean),
+				ofViewer(viewerId, (id) =>
+					exists(
+						qb
+							.select({ row: sql`1` })
+							.from(s.likes)
+							.where(and(eq(s.likes.reviewId, review.id), eq(s.likes.userId, id))),
+					),
+				),
 		},
 	} as const;
 }
 
-const listed: Filter<"reviews"> = { RAW: (review) => isListedReview(review) };
+// The Reviews listed to the viewer, who is null for a Visitor.
+function listedTo(viewerId: number | null): Filter<"reviews"> {
+	return { RAW: (review) => isListedReviewFor(review, viewerId) };
+}
 
 function attachAddedPictures(tx: Transaction, changes: PictureChanges, reviewId: number) {
 	const pictureIds = changes.insertAdded(tx);
@@ -59,26 +69,28 @@ function attachAddedPictures(tx: Transaction, changes: PictureChanges, reviewId:
 		.run();
 }
 
-const byFeed = {
-	everyone: () => listed,
-	following: (viewerId: number) => ({ ...listed, author: { followers: { followerId: viewerId } } }),
-} satisfies Record<Feed, (viewerId: number) => Filter<"reviews">>;
-
 export function createReviews(client: Client, pictures: PictureStore) {
-	const list = (viewerId: number, where: Filter<"reviews">, page: PageRequest) =>
+	const list = (viewerId: number | null, where: Filter<"reviews">, page: PageRequest) =>
 		pages(page, (seek) => client.query.reviews.findMany({ ...reviewCard(viewerId), ...seek(where) }));
 
 	return {
-		async findById(id: number, viewerId: number) {
+		// Whether the viewer may see it is for the permission review:view to decide.
+		async findById(id: number, viewerId: number | null) {
 			return client.query.reviews.findFirst({ ...reviewCard(viewerId), where: { id } });
 		},
 
-		async listFeed(viewerId: number, feed: Feed, page: PageRequest) {
-			return list(viewerId, byFeed[feed](viewerId), page);
+		// The Feed called Everyone, which a Visitor sees too.
+		async listEveryone(viewerId: number | null, page: PageRequest) {
+			return list(viewerId, listedTo(viewerId), page);
 		},
 
-		async listByRestaurant(restaurantId: number, viewerId: number, page: PageRequest) {
-			return list(viewerId, { ...listed, restaurantId }, page);
+		// The Feed of the people the viewer follows.
+		async listFollowed(viewerId: number, page: PageRequest) {
+			return list(viewerId, { ...listedTo(viewerId), author: { followers: { followerId: viewerId } } }, page);
+		},
+
+		async listByRestaurant(restaurantId: number, viewerId: number | null, page: PageRequest) {
+			return list(viewerId, { ...listedTo(viewerId), restaurantId }, page);
 		},
 
 		// Includes the reviews that are not public, so it is only for a viewer with the permission user:view-hidden-reviews.
@@ -86,59 +98,64 @@ export function createReviews(client: Client, pictures: PictureStore) {
 			return list(viewerId, { authorId }, page);
 		},
 
-		async listPublicByAuthor(authorId: number, viewerId: number, page: PageRequest) {
+		// Only for a viewer with the permission user:view-reviews on the author.
+		async listPublicByAuthor(authorId: number, viewerId: number | null, page: PageRequest) {
 			return list(viewerId, { authorId, RAW: (review) => isPublicReview(review) }, page);
 		},
 
 		async create(authorId: number, restaurantId: number, content: ReviewContent, files: File[]) {
 			if (files.length > maxPicturesPerReview) return problem("too-many-pictures");
 
-			return writeWithPictures(
+			return authorizedWriteWithPictures(
+				client,
 				pictures,
-				(changes) =>
-					authorizedWrite(client, authorId, "restaurant:review", (tx) => findTargetRestaurant(tx, restaurantId), (tx) => {
-						const review = tx.insert(s.reviews).values({ authorId, restaurantId, ...content }).returning({ id: s.reviews.id }).get();
-						attachAddedPictures(tx, changes, review.id);
-						refreshRestaurantStats(tx, [restaurantId]);
-						return review;
-					}),
+				authorId,
+				"restaurant:review",
+				(tx) => findTargetRestaurant(tx, restaurantId),
+				(tx, _restaurant, changes) => {
+					const review = tx.insert(s.reviews).values({ authorId, restaurantId, ...content }).returning({ id: s.reviews.id }).get();
+					attachAddedPictures(tx, changes, review.id);
+					refreshRestaurantStats(tx, [restaurantId]);
+					return review;
+				},
 				{ files, kind: "review" },
 			);
 		},
 
 		async update(actorId: number, id: number, { addPictures, removePictureIds, ...content }: ReviewChanges) {
-			return writeWithPictures(
+			return authorizedWriteWithPictures(
+				client,
 				pictures,
-				(changes) =>
-					authorizedWrite(client, actorId, "review:edit", (tx) => findTargetReview(tx, id), (tx, review) => {
-						const removed = review.pictures.filter((picture) => removePictureIds.includes(picture.id));
-						if (review.pictures.length - removed.length + addPictures.length > maxPicturesPerReview) {
-							return problem("too-many-pictures");
-						}
-						tx.update(s.reviews).set(content).where(eq(s.reviews.id, id)).run();
-						changes.remove(tx, removed);
-						attachAddedPictures(tx, changes, id);
-						refreshRestaurantStats(tx, [review.restaurantId]);
-						return "updated" as const;
-					}),
+				actorId,
+				"review:edit",
+				(tx) => findTargetReview(tx, id, actorId),
+				(tx, review, changes) => {
+					const removed = review.pictures.filter((picture) => removePictureIds.includes(picture.id));
+					if (review.pictures.length - removed.length + addPictures.length > maxPicturesPerReview) {
+						return problem("too-many-pictures");
+					}
+					tx.update(s.reviews).set(content).where(eq(s.reviews.id, id)).run();
+					changes.remove(tx, removed);
+					attachAddedPictures(tx, changes, id);
+					refreshRestaurantStats(tx, [review.restaurantId]);
+					return "updated" as const;
+				},
 				{ files: addPictures, kind: "review" },
 			);
 		},
 
 		// Returns the review it deleted, so the action knows where to go back to.
 		async delete(actorId: number, id: number) {
-			return writeWithPictures(pictures, (changes) =>
-				authorizedWrite(client, actorId, "review:delete", (tx) => findTargetReview(tx, id), (tx, review) => {
-					tx.delete(s.reviews).where(eq(s.reviews.id, id)).run();
-					changes.remove(tx, review.pictures);
-					refreshRestaurantStats(tx, [review.restaurantId]);
-					return { authorId: review.authorId, restaurantId: review.restaurantId };
-				}),
-			);
+			return authorizedWriteWithPictures(client, pictures, actorId, "review:delete", (tx) => findTargetReview(tx, id, actorId), (tx, review, changes) => {
+				tx.delete(s.reviews).where(eq(s.reviews.id, id)).run();
+				changes.remove(tx, review.pictures);
+				refreshRestaurantStats(tx, [review.restaurantId]);
+				return { authorId: review.authorId, restaurantId: review.restaurantId };
+			});
 		},
 
 		async like(userId: number, reviewId: number) {
-			return authorizedWrite(client, userId, "review:like", (tx) => findTargetReview(tx, reviewId), (tx, review) => {
+			return authorizedWrite(client, userId, "review:like", (tx) => findTargetReview(tx, reviewId, userId), (tx, review) => {
 				const inserted = tx.insert(s.likes).values({ userId, reviewId }).onConflictDoNothing().returning({ userId: s.likes.userId }).all();
 				refreshLikeCounts(tx, [reviewId]);
 				if (inserted.length > 0) notify(tx, { kind: "like", recipientId: review.authorId, actorId: userId, reviewId });
@@ -147,7 +164,7 @@ export function createReviews(client: Client, pictures: PictureStore) {
 		},
 
 		async unlike(userId: number, reviewId: number) {
-			return authorizedWrite(client, userId, "review:unlike", (tx) => findTargetReview(tx, reviewId), (tx, review) => {
+			return authorizedWrite(client, userId, "review:unlike", (tx) => findTargetReview(tx, reviewId, userId), (tx, review) => {
 				tx.delete(s.likes).where(and(eq(s.likes.userId, userId), eq(s.likes.reviewId, reviewId))).run();
 				refreshLikeCounts(tx, [reviewId]);
 				withdraw(tx, { kind: "like", recipientId: review.authorId, actorId: userId, reviewId });
@@ -157,4 +174,4 @@ export function createReviews(client: Client, pictures: PictureStore) {
 	};
 }
 
-export type ReviewCard = PageItem<Awaited<ReturnType<ReturnType<typeof createReviews>["listFeed"]>>>;
+export type ReviewCard = PageItem<Awaited<ReturnType<ReturnType<typeof createReviews>["listEveryone"]>>>;

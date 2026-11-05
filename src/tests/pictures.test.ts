@@ -42,6 +42,26 @@ describe("Pictures", () => {
 		expect(metadata.orientation).toBeUndefined();
 	});
 
+	it("are not read when the write they belong to is refused", async () => {
+		const { client, db, ada, grill } = setUp();
+		const bob = insertUser(client, "bob");
+		const pending = insertRestaurant(client, "Pending Grill");
+		const review = await writeReview(db, ada.id, grill.id, 8);
+
+		// The file is no picture, so a write that reads it is refused for that instead.
+		const results = [
+			await db.reviews.create(bob.id, pending.id, { rating: 8, description: null }, [textFile()]),
+			await db.reviews.update(bob.id, review, { rating: 4, description: null, addPictures: [textFile()], removePictureIds: [] }),
+			await db.users.setProfilePicture(bob.id, ada.username, textFile()),
+		];
+
+		expect(results).toEqual([
+			{ problem: "not-found", permission: "restaurant:review" },
+			{ problem: "forbidden", permission: "review:edit" },
+			{ problem: "forbidden", permission: "user:edit-settings" },
+		]);
+	});
+
 	it("are refused together with the review when one file is not a picture, and leave no files behind", async () => {
 		const { client, db, ada, grill } = setUp();
 

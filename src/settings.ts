@@ -1,7 +1,7 @@
 import type { AstroGlobal } from "astro";
 import { can, type UserPermission } from "@src/auth/permissions";
 import { settingsSectionDetails, settingsSections, type SettingsSection } from "@src/data/settings-sections";
-import { settingsHref } from "@src/hrefs";
+import { settingsHref, signInHref } from "@src/hrefs";
 
 type Session = NonNullable<App.Locals["session"]>;
 type User = NonNullable<Awaited<ReturnType<App.Locals["db"]["users"]["findByUsername"]>>>;
@@ -29,7 +29,7 @@ export async function openSettings(
 	if (!username) return Astro.rewrite("/404");
 
 	const { session } = Astro.locals;
-	if (!session) return Astro.redirect("/login");
+	if (!session) return Astro.redirect(signInHref(Astro.url));
 
 	const user = await Astro.locals.db.users.findByUsername(username);
 	if (!user) return Astro.rewrite("/404");

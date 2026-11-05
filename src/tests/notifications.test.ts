@@ -10,6 +10,10 @@ function summary(notification: Notification) {
 	switch (notification.kind) {
 		case "follow":
 			return `${notification.actor.username} followed${read}`;
+		case "follow-request":
+			return `${notification.actor.username} asked to follow${read}`;
+		case "follow-accepted":
+			return `${notification.actor.username} approved${read}`;
 		case "like":
 			return `${notification.actor.username} liked ${notification.review.restaurant.name}${read}`;
 		case "suggestion-approved":

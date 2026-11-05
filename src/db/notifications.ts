@@ -3,12 +3,12 @@ import type { Client, Transaction } from "@src/db/client";
 import { cursorList, type Seek } from "@src/db/pagination";
 import { enteredRestaurantCount } from "@src/db/pending-restaurants";
 import * as s from "@src/db/schema";
-import type { NotificationKind, SuggestionDecision, User } from "@src/db/schema";
+import type { FollowKind, NotificationKind, SuggestionDecision, User } from "@src/db/schema";
 import { isVisibleNotification } from "@src/db/visibility";
 import type { Page, PageRequest } from "@src/pagination";
 
 export type NotificationEvent =
-	| { kind: "follow"; recipientId: number; actorId: number }
+	| { kind: FollowKind; recipientId: number; actorId: number }
 	| { kind: "like"; recipientId: number; actorId: number; reviewId: number }
 	| { kind: SuggestionDecision; recipientId: number; restaurantId: number }
 	| { kind: "city-search-finished"; recipientId: number; citySearchId: number };
@@ -19,6 +19,8 @@ export type NotificationPreferences = Pick<User, "followNotifications" | "likeNo
 // kind has none.
 const preferenceOf = {
 	follow: "followNotifications",
+	"follow-request": "followNotifications",
+	"follow-accepted": "followNotifications",
 	like: "likeNotifications",
 	"suggestion-approved": "suggestionNotifications",
 	"suggestion-rejected": "suggestionNotifications",
@@ -66,7 +68,7 @@ export function notify(tx: Transaction, event: NotificationEvent) {
 // Undoing the event removes its notification.
 export function withdraw(tx: Transaction, event: Extract<NotificationEvent, { actorId: number }>) {
 	const n = s.notifications;
-	const sameTarget = event.kind === "follow" ? eq(n.recipientId, event.recipientId) : eq(n.reviewId, event.reviewId);
+	const sameTarget = event.kind === "like" ? eq(n.reviewId, event.reviewId) : eq(n.recipientId, event.recipientId);
 	tx.delete(n).where(and(eq(n.kind, event.kind), eq(n.actorId, event.actorId), sameTarget)).run();
 }
 
@@ -108,7 +110,7 @@ type Row = Awaited<ReturnType<ReturnType<typeof listRows>>>[number];
 type Present<Key extends "actor" | "review" | "restaurant" | "citySearch"> = NonNullable<Row[Key]>;
 
 export type Notification = Pick<Row, "id" | "createdAt"> & { isRead: boolean } & (
-		| { kind: "follow"; actor: Present<"actor"> }
+		| { kind: FollowKind; actor: Present<"actor"> }
 		| { kind: "like"; actor: Present<"actor">; review: Present<"review"> }
 		| { kind: SuggestionDecision; restaurant: Present<"restaurant"> }
 		| { kind: "city-search-finished"; citySearch: Present<"citySearch"> }
@@ -132,6 +134,8 @@ function toNotification(row: Row): Notification {
 	const common = { id: row.id, createdAt: row.createdAt, isRead: row.readAt !== null };
 	switch (row.kind) {
 		case "follow":
+		case "follow-request":
+		case "follow-accepted":
 			return { ...common, kind: row.kind, actor: present(row.actor, row) };
 		case "like":
 			return { ...common, kind: row.kind, actor: present(row.actor, row), review: present(row.review, row) };

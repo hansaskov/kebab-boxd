@@ -1,6 +1,6 @@
 ---
 import "@src/styles.css";
-import { Bell, CircleUser, Compass, DoorOpen, Lightbulb, Moon, Rss, Search, Settings, Shield, Sun } from "@lucide/astro";
+import { Bell, CircleUser, Compass, DoorOpen, Lightbulb, LogIn, Moon, Rss, Search, Settings, Shield, Sun } from "@lucide/astro";
 import { actions } from "astro:actions";
 import type { ComponentProps } from "astro/types";
 import Avatar from "@src/components/Avatar.astro";
@@ -8,7 +8,7 @@ import Toast from "@src/components/Toast.astro";
 import SpeculationsAPI from "@src/components/SpeculationsAPI.astro";
 import { can } from "@src/auth/permissions";
 import { failureToast } from "@src/format/action-toast";
-import { profileHref, searchHref, settingsHref } from "@src/hrefs";
+import { profileHref, searchHref, settingsHref, signInHref } from "@src/hrefs";
 
 interface Props extends ComponentProps<typeof SpeculationsAPI> {
   title: string;
@@ -61,6 +61,8 @@ const accountMenu = user && {
 // The account button stands for the pages in its menu, since they have no place of their own in the navigation.
 const isOnAccountPage =
   accountMenu !== undefined && [accountMenu.profile, accountMenu.settings, accountMenu.suggest, accountMenu.admin].some((href) => href && isUnder(href));
+// A Visitor signs in where the account would be, and comes back to the page they are on. The sign-in page needs no link to itself.
+const signIn = !user && pathname !== "/login" ? signInHref(Astro.url) : undefined;
 ---
 
 <!doctype html>
@@ -91,18 +93,26 @@ const isOnAccountPage =
     <slot name="head" />
   </head>
   <body class="flex min-h-dvh flex-col">
-    {
-      session && user && accountMenu && (
-        <nav class="site-nav" aria-label="Main">
-          <ul class="site-nav-list">
-            {links.map(({ name, href, icon: Icon, startsRightGroup, hasIconInBar }) => (
-              <li class:list={{ "sm:ms-auto": startsRightGroup }}>
-                <a class="nav-link" href={href} aria-current={current(href)}>
-                  <Icon class:list={{ "sm:hidden": !hasIconInBar }} size={20} aria-hidden="true" />
-                  <span class="max-sm:sr-only">{name}</span>
-                </a>
-              </li>
-            ))}
+    <nav class="site-nav" aria-label="Main">
+      <ul class="site-nav-list">
+        {links.map(({ name, href, icon: Icon, startsRightGroup, hasIconInBar }) => (
+          <li class:list={{ "sm:ms-auto": startsRightGroup }}>
+            <a class="nav-link" href={href} aria-current={current(href)}>
+              <Icon class:list={{ "sm:hidden": !hasIconInBar }} size={20} aria-hidden="true" />
+              <span class="max-sm:sr-only">{name}</span>
+            </a>
+          </li>
+        ))}
+        {signIn && (
+          <li>
+            <a class="nav-link" href={signIn}>
+              <LogIn class="sm:hidden" size={20} aria-hidden="true" />
+              <span class="max-sm:sr-only">Sign in</span>
+            </a>
+          </li>
+        )}
+        {session && user && accountMenu && (
+          <>
             <li>
               <a class="nav-link" href="/notifications" aria-current={current("/notifications")}>
                 <span class="relative">
@@ -177,10 +187,10 @@ const isOnAccountPage =
                 </li>
               </ul>
             </li>
-          </ul>
-        </nav>
-      )
-    }
+          </>
+        )}
+      </ul>
+    </nav>
 
     <main id="main-content" class:list={["mx-auto w-full max-w-page px-gutter pt-5 pb-16", className]}>
       <slot />

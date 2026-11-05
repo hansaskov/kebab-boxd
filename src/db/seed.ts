@@ -100,6 +100,10 @@ export async function seedDatabase(client: Client, pictures: PictureStore) {
         pronoun: funcs.valuesFromArray({ values: [...pronouns] }),
         latitude: funcs.number({ minValue: area.minLatitude, maxValue: area.maxLatitude, precision: 10000 }),
         longitude: funcs.number({ minValue: area.minLongitude, maxValue: area.maxLongitude, precision: 10000 }),
+        isPrivate: funcs.weightedRandom([
+          { weight: 0.2, value: funcs.default({ defaultValue: true }) },
+          { weight: 0.8, value: funcs.default({ defaultValue: false }) },
+        ]),
         bannedAt: funcs.default({ defaultValue: null }),
       },
     },
@@ -199,6 +203,13 @@ export async function seedDatabase(client: Client, pictures: PictureStore) {
   const bannableUsers = await client.query.users.findMany({ columns: { username: true }, where: { role: "user" }, limit: 3 });
   for (const { username } of bannableUsers) {
     await db.users.ban(admin.id, username);
+  }
+
+  // Follows go through the write a User makes, so that a private Profile gets a follow request instead.
+  const usernames = new Map((await client.query.users.findMany({ columns: { id: true, username: true } })).map((user) => [user.id, user.username]));
+  for (const [followerId, followingId] of uniquePairs(150, userIds, userIds)) {
+    const username = usernames.get(followingId);
+    if (followerId !== followingId && username) await db.follows.follow(followerId, username);
   }
 
   const favoritesRows = uniquePairs(250, userIds, restaurantIds).map(([userId, restaurantId]) => ({

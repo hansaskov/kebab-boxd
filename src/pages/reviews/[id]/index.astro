@@ -8,20 +8,17 @@ import { successToast } from "@src/format/action-toast";
 import { profileHref, refusalPage, restaurantHref } from "@src/hrefs";
 import { parseId } from "@src/validation/id";
 
-const session = Astro.locals.session;
-if (!session) {
-  return Astro.redirect("/login");
-}
+const viewer = Astro.locals.session?.user ?? null;
 
 const id = parseId(Astro.params.id);
-const review = id ? await Astro.locals.db.reviews.findById(id, session.user.id) : undefined;
-const refused = refusal(session.user, "review:view", review);
+const review = id ? await Astro.locals.db.reviews.findById(id, viewer?.id ?? null) : undefined;
+const refused = refusal(viewer, "review:view", review);
 if (refused || !review) {
   return Astro.rewrite(refusalPage[refused ?? "not-found"]);
 }
 
-const canEdit = canOn(session.user, "review:edit", review);
-const canDelete = canOn(session.user, "review:delete", review);
+const canEdit = canOn(viewer, "review:edit", review);
+const canDelete = canOn(viewer, "review:delete", review);
 
 const toast =
   successToast(Astro.locals, actions.reviews.create, { title: "Review published", text: `Your review of ${review.restaurant.name} is up.` }) ??
@@ -34,7 +31,7 @@ const toast =
   prefetchUrls={[restaurantHref(review.restaurant.id), profileHref(review.author.username)]}
   toast={toast}
 >
-  <ReviewCard class="rounded-box border border-line bg-surface" review={review} viewer={session.user} />
+  <ReviewCard class="rounded-box border border-line bg-surface" review={review} viewer={viewer} />
 
   {canDelete && !canEdit && <DeleteReviewButton class="mt-6" reviewId={review.id} />}
 </BaseLayout>

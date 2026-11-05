@@ -10,13 +10,13 @@ import { maxAttempts } from "@src/db/city-searches";
 import { successToast } from "@src/format/action-toast";
 import { regionAndCountry } from "@src/format/country";
 import { plural } from "@src/format/plural";
-import { adminCitiesHref, adminRestaurantsHref, profileHref } from "@src/hrefs";
+import { adminCitiesHref, adminRestaurantsHref, profileHref, signInHref } from "@src/hrefs";
 import { parseId } from "@src/validation/id";
 
 const session = Astro.locals.session;
 
 if (!session) {
-  return Astro.redirect("/login");
+  return Astro.redirect(signInHref(Astro.url));
 }
 
 if (!can(session.user, "admin-console:view")) {

@@ -1,32 +1,42 @@
 ---
+import { actions } from "astro:actions";
 import type { HTMLAttributes } from "astro/types";
 import Avatar from "@src/components/Avatar.astro";
 import FollowButton from "@src/components/FollowButton.astro";
-import { can, type Subject } from "@src/auth/permissions";
+import FollowRequestButtons from "@src/components/FollowRequestButtons.astro";
+import { can, type Viewer } from "@src/auth/permissions";
 import type { Person } from "@src/db/follows";
 import { profileHref } from "@src/hrefs";
 
 interface Props extends HTMLAttributes<"ul"> {
   people: Person[];
-  viewer: Subject;
+  viewer: Viewer;
+  // The viewer looks at their own followers, whom they may remove, or at those who ask to follow them.
+  // Otherwise the viewer may follow each person.
+  manage?: "followers" | "requests" | undefined;
 }
 
-const { people, viewer, class: className, ...props } = Astro.props;
+const { people, viewer, manage, class: className, ...props } = Astro.props;
 ---
 
 <ul class:list={["list", className]} {...props}>
-  {people.map((person) => {
-    const isFollowing = person.isFollowedByViewer && can(viewer, "user:unfollow", person);
-    const canFollow = !person.isFollowedByViewer && can(viewer, "user:follow", person);
-    return (
-      <li class="list-row">
-        <Avatar class="size-10 text-sm" name={person.fullname} picture={person.profilePicture} />
-        <div class="min-w-0 flex-1">
-          <a class="list-row-link field-label block truncate" href={profileHref(person.username)}>{person.fullname}</a>
-          <p class="t-body-sm truncate text-fg-muted">@{person.username}</p>
-        </div>
-        {(isFollowing || canFollow) && <FollowButton class="shrink-0" username={person.username} following={isFollowing} />}
-      </li>
-    );
-  })}
+  {people.map((person) => (
+    <li class="list-row">
+      <Avatar class="size-10 text-sm" name={person.fullname} picture={person.profilePicture} />
+      <div class="min-w-0 flex-1">
+        <a class="list-row-link field-label block truncate" href={profileHref(person.username)}>{person.fullname}</a>
+        <p class="t-body-sm truncate text-fg-muted">@{person.username}</p>
+      </div>
+      {manage === "requests" && can(viewer, "user:approve-follow-request", person) && (
+        <FollowRequestButtons class="shrink-0" username={person.username} />
+      )}
+      {manage === "followers" && can(viewer, "user:remove-follower", person) && (
+        <form class="flex shrink-0" method="post" action={actions.profile.removeFollower}>
+          <input type="hidden" name="username" value={person.username} />
+          <button class="btn btn-secondary btn-md" type="submit">Remove</button>
+        </form>
+      )}
+      {!manage && <FollowButton class="shrink-0" viewer={viewer} user={person} />}
+    </li>
+  ))}
 </ul>

@@ -14,6 +14,14 @@ export const relations = defineRelations(s, (r) => ({
       from: r.users.id,
       to: r.followers.followingId,
     }),
+    sentFollowRequests: r.many.followRequests({
+      from: r.users.id,
+      to: r.followRequests.followerId,
+    }),
+    receivedFollowRequests: r.many.followRequests({
+      from: r.users.id,
+      to: r.followRequests.followingId,
+    }),
     favorites: r.many.favorites(),
     bucketList: r.many.bucketList(),
     likes: r.many.likes(),
@@ -111,6 +119,19 @@ export const relations = defineRelations(s, (r) => ({
     }),
     following: r.one.users({
       from: r.followers.followingId,
+      to: r.users.id,
+      optional: false,
+    }),
+  },
+
+  followRequests: {
+    follower: r.one.users({
+      from: r.followRequests.followerId,
+      to: r.users.id,
+      optional: false,
+    }),
+    following: r.one.users({
+      from: r.followRequests.followingId,
       to: r.users.id,
       optional: false,
     }),

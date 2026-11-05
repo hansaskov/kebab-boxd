@@ -27,6 +27,10 @@ export const updateLocationSchema = currentUserSchema.extend({
   location: coordinatesSchema.nullable(),
 });
 
+export const updatePrivacySchema = currentUserSchema.extend({
+  isPrivate: z.boolean(),
+});
+
 export const updateNotificationsSchema = currentUserSchema.extend({
   followNotifications: z.boolean(),
   likeNotifications: z.boolean(),
@@ -72,6 +76,14 @@ export const settingsActions = {
     handler: async ({ currentUsername, location }, { locals }) => {
       const user = orThrow(await locals.db.users.setLocation(requireSession(locals).user.id, currentUsername, location));
       return { redirect: settingsHref(user.username, "location") };
+    },
+  }),
+  updatePrivacy: defineAction({
+    accept: "form",
+    input: updatePrivacySchema,
+    handler: async ({ currentUsername, isPrivate }, { locals }) => {
+      const user = orThrow(await locals.db.users.setPrivacy(requireSession(locals).user.id, currentUsername, isPrivate));
+      return { redirect: settingsHref(user.username, "profile") };
     },
   }),
   updateNotifications: defineAction({

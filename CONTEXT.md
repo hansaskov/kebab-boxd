@@ -33,7 +33,7 @@ The id of a place in a Google Maps link, such as `0x464cdf40a60240ff:0x42ef3a5ea
 _Avoid_: PlaceId, CID
 
 **Review**:
-A user's written verdict on a Restaurant, tied to one experience or visit, with up to 4 Pictures. A user may write unlimited Reviews for a Restaurant, but only their 3 most recent (the ReviewWindow) are publicly visible and count toward RatingAvg. Only the author can edit a Review; the author or an Admin can delete it. A Review is listed (in Feeds, on its Restaurant and to Like) when it is in the ReviewWindow, its Restaurant is approved, and its author is not banned.
+A user's written verdict on a Restaurant, tied to one experience or visit, with up to 4 Pictures. A user may write unlimited Reviews for a Restaurant, but only their 3 most recent (the ReviewWindow) are publicly visible and count toward RatingAvg. Only the author can edit a Review; the author or an Admin can delete it. A Review is listed (in Feeds, on its Restaurant and to Like) when it is in the ReviewWindow, its Restaurant is approved, and its author is not banned. The listed Reviews of a PrivateProfile are listed only to their author and the author's Followers.
 _Avoid_: Post, Entry, Diary
 
 **ReviewWindow**:
@@ -57,11 +57,15 @@ A user's collection of Restaurants they want to visit. Kept separate from Favori
 _Avoid_: WishList, WantToGo, Queue
 
 **Follow**:
-A directed relationship between two users: a Follower follows a Following. The Follower sees the Following's Reviews in their Feed. Self-follow is prevented.
+A directed relationship between two users: a Follower follows a Following. The Follower sees the Following's Reviews in their Feed. Self-follow is prevented. A User with a PrivateProfile is not followed at once: a FollowRequest asks them first. Either side can end a Follow: the Follower unfollows, or the Following removes the Follower.
 _Avoid_: Subscribe, Friend, Buddy
 
+**FollowRequest**:
+A User's request to follow a User with a PrivateProfile. It waits until that User approves it, which makes it a Follow, or declines it, which removes it. The User who asked can take it back. When the Profile becomes public, every FollowRequest that waits for it is approved. A FollowRequest from a banned User is hidden until the ban is lifted.
+_Avoid_: Invite, Pending follow
+
 **Feed**:
-The chronological timeline of listed Reviews from users the current user Follows. The user's personal stream of social activity. A second Feed, Everyone, shows the listed Reviews of all users.
+The chronological timeline of listed Reviews from users the current user Follows. The user's personal stream of social activity. A second Feed, Everyone, shows the listed Reviews of all users. A Visitor follows no one, so they see only Everyone.
 _Avoid_: Timeline, Wall, Stream
 
 **Like**:
@@ -69,12 +73,20 @@ A social signal from one user on another user's listed Review. Counted in LikeCo
 _Avoid_: Upvote, ThumbsUp, Heart
 
 **User**:
-A person with a Kebab-Boxd account. Signs in through one or more Accounts. Has a profile (picture, bio, pronouns) and optional coordinates for the nearby-Restaurants feature. May have the Admin role.
+A person with a Kebab-Boxd account. Signs in through one or more Accounts. Has a profile (picture, bio, pronouns) and optional coordinates for the nearby-Restaurants feature. May have the Admin role. Only a User can change anything: write, like, follow, save or suggest.
 _Avoid_: Member, Account, Person
 
+**Visitor**:
+A person who is not signed in. A Visitor reads what is public: approved Restaurants, the listed Reviews of public Profiles, Profiles and the Everyone Feed. Each change a User could make asks them to sign in, and brings them back to the page they were on.
+_Avoid_: Guest, Anonymous, Logged-out user
+
 **Profile**:
-The public page of a User. Shows their Picture, name, Username, pronouns, bio and Follow counts, and lists their public Reviews, Favorites and BucketList. On their own Profile, a User also sees their Reviews that are not public, marked as hidden, so it is where they find everything they have written. The Profile of a banned User is visible only to Admins.
+The public page of a User, which Visitors see too. Shows their Picture, name, Username, pronouns, bio and Follow counts, and lists their public Reviews, Favorites and BucketList. On their own Profile, a User also sees their Reviews that are not public, marked as hidden, so it is where they find everything they have written, and the FollowRequests that wait for them. The Profile of a banned User is visible only to Admins.
 _Avoid_: Account page, UserPage, Wall
+
+**PrivateProfile**:
+A Profile whose User shares their Reviews only with their Followers. Everyone else, Visitors too, sees the rest of the Profile, but not its Reviews, wherever they would be listed. Admins see them on the Profile and on the page of each Review, to decide whether to ban the User, but not in their Feeds. Following such a User takes a FollowRequest. Its Reviews still count toward RatingAvg and ReviewCount, which name no one.
+_Avoid_: Locked account, Hidden profile, Protected
 
 **Account**:
 One authentication method linked to a User, identified by the Provider and the Provider's stable subject id rather than by email. Holds the Provider's tokens once the app needs them, and the password hash once local sign-in exists. A User may have several.
@@ -93,7 +105,7 @@ A role on a User. Admins can approve or reject suggested Restaurants, several at
 _Avoid_: Moderator, Staff, Manager
 
 **Permission**:
-A named operation on a kind of resource, written `resource:operation`, such as `user:edit-settings`. A Policy decides whether a User has a Permission from attributes of the User (such as their id and role) and of the resource (such as the User it belongs to). Every access check names a Permission. No check reads the role directly, so each rule is written once, in `src/auth/permissions.ts`.
+A named operation on a kind of resource, written `resource:operation`, such as `user:edit-settings`. A Policy decides whether a User has a Permission from attributes of the User (such as their id and role) and of the resource (such as the User it belongs to). Every access check names a Permission. No check reads the role directly, so each rule is written once, in `src/auth/permissions.ts`. A Visitor has only the Permissions to view.
 _Avoid_: Right, Privilege, Scope, Grant
 
 **Picture**:
@@ -101,7 +113,7 @@ A hosted image stored in blob storage (only the URL is in the database). Used fo
 _Avoid_: Image, Photo, Avatar
 
 **Location**:
-A structured physical address for a Restaurant: address lines, city, postal code, region, country, plus required latitude/longitude coordinates. Not used for Users, users store coordinates directly on their own record, and only they can see them. The map starts at the coordinates of the User.
+A structured physical address for a Restaurant: address lines, city, postal code, region, country, plus required latitude/longitude coordinates. Not used for Users, users store coordinates directly on their own record, and only they can see them, not even an Admin. The map starts at the coordinates of the User.
 _Avoid_: Address, Spot, Place
 
 **ReviewCount**:
@@ -112,5 +124,5 @@ The cached count of Likes a Review has received. A display field updated synchro
 _Avoid_: LikeAmount, LikeTotal
 
 **Notification**:
-A message sent to a User in response to a relevant event: someone Follows them, someone Likes their Review, an Admin approves or rejects the Restaurant they suggested, or a CitySearch they started is done. No one is notified of their own action, except of the end of their own CitySearch, which they asked to hear about. Undoing the event removes the Notification: an unfollow, an unlike, or a deleted Review. A new decision on the same Restaurant replaces the earlier Notification. A Notification is unread until its User sees it in their list of Notifications. The list shows it as new that one time and marks it read. A Notification on a page of the list the User has not opened stays unread. While the User who caused it is banned, a Notification is hidden. Each User can turn off each kind (follows, likes, suggestions) but the end of a CitySearch. This stops new Notifications of that kind and keeps the existing ones.
+A message sent to a User in response to a relevant event: someone Follows them or sends them a FollowRequest, someone approves their FollowRequest, someone Likes their Review, an Admin approves or rejects the Restaurant they suggested, or a CitySearch they started is done. No one is notified of their own action, except of the end of their own CitySearch, which they asked to hear about. Undoing the event removes the Notification: an unfollow, a removed Follower, a FollowRequest taken back, declined or approved, an unlike, or a deleted Review. A new decision on the same Restaurant replaces the earlier Notification. A Notification is unread until its User sees it in their list of Notifications. The list shows it as new that one time and marks it read. A Notification on a page of the list the User has not opened stays unread. While the User who caused it is banned, a Notification is hidden. Each User can turn off each kind (follows with FollowRequests, likes, suggestions) but the end of a CitySearch. This stops new Notifications of that kind and keeps the existing ones.
 _Avoid_: Alert, Update, Ping

@@ -11,7 +11,7 @@ import { can } from "@src/auth/permissions";
 import { adminTabs } from "@src/data/admin-tabs";
 import { restaurantStatuses, type RestaurantStatus } from "@src/db/schema";
 import { regionAndCountry } from "@src/format/country";
-import { adminCitiesHref, adminRestaurantsHref, googleMapsHref, openStreetMapHref, profileHref, restaurantHref } from "@src/hrefs";
+import { adminCitiesHref, adminRestaurantsHref, googleMapsHref, openStreetMapHref, profileHref, restaurantHref, signInHref } from "@src/hrefs";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
 import { parseId } from "@src/validation/id";
 import { parseOption } from "@src/validation/search-params";
@@ -19,7 +19,7 @@ import { parseOption } from "@src/validation/search-params";
 const session = Astro.locals.session;
 
 if (!session) {
-  return Astro.redirect("/login");
+  return Astro.redirect(signInHref(Astro.url));
 }
 
 if (!can(session.user, "admin-console:view")) {

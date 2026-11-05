@@ -4,7 +4,7 @@ import { authorizedWrite, findTargetRestaurant } from "@src/db/authorize";
 import type { Client } from "@src/db/client";
 import { cursorList } from "@src/db/pagination";
 import * as s from "@src/db/schema";
-import { isApprovedRestaurant } from "@src/db/visibility";
+import { isApprovedRestaurant, ofViewer } from "@src/db/visibility";
 import type { PageRequest } from "@src/pagination";
 
 // The Favorites and the BucketList of a user. They are alike today but kept apart, as CONTEXT.md explains.
@@ -17,16 +17,18 @@ const bucketListPages = cursorList("bucketList", ["createdAt", "restaurantId"], 
 
 const qb = new QueryBuilder();
 
-// Whether the restaurant is in the collection of the viewer, as an extra of a query on restaurants.
-export function isInCollectionOf(collection: Collection, viewerId: number) {
+// Whether the restaurant is in the collection of the viewer, as an extra of a query on restaurants. A Visitor has none.
+export function isInCollectionOf(collection: Collection, viewerId: number | null) {
 	const table = tables[collection];
 	return (restaurant: typeof s.restaurants) =>
-		exists(
-			qb
-				.select({ row: sql`1` })
-				.from(table)
-				.where(and(eq(table.restaurantId, restaurant.id), eq(table.userId, viewerId))),
-		).mapWith(Boolean);
+		ofViewer(viewerId, (id) =>
+			exists(
+				qb
+					.select({ row: sql`1` })
+					.from(table)
+					.where(and(eq(table.restaurantId, restaurant.id), eq(table.userId, id))),
+			),
+		);
 }
 
 // How many approved restaurants are in the collection of the user, as an extra of a query on users.

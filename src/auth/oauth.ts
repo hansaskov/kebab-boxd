@@ -1,5 +1,6 @@
 import type { AstroCookies } from "astro";
 import { base64UrlEncode, generateBase64UrlRandomString, hashSecret } from "@src/auth/hash";
+import { parseReturnPath } from "@src/validation/return-path";
 
 // The authorization code flow with PKCE that every Provider signs in through. Between the redirect to the Provider
 // and its callback, the state and the code verifier wait in cookies that serve one attempt.
@@ -25,6 +26,22 @@ const cookieOptions = {
 
 export function authorizationCookieNames(providerId: string) {
 	return { state: `${providerId}_oauth_state`, codeVerifier: `${providerId}_code_verifier` };
+}
+
+// The page the user signs in from, whichever Provider they choose.
+export const returnPathCookieName = "sign_in_return_path";
+
+// Keeps the page to go back to for the attempt, or forgets the page of an earlier one.
+export function rememberReturnPath(cookies: AstroCookies, returnPath: string | undefined) {
+	if (returnPath) cookies.set(returnPathCookieName, returnPath, cookieOptions);
+	else cookies.delete(returnPathCookieName, { path: cookieOptions.path });
+}
+
+// The page to go back to at the callback, which ends the attempt whether it succeeded or not.
+export function takeReturnPath(cookies: AstroCookies): string | undefined {
+	const returnPath = parseReturnPath(cookies.get(returnPathCookieName)?.value);
+	cookies.delete(returnPathCookieName, { path: cookieOptions.path });
+	return returnPath;
 }
 
 // Starts an attempt to sign in with the Provider. Returns what its authorization URL must carry.

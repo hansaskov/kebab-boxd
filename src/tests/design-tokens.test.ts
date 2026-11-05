@@ -48,4 +48,21 @@ describe("the design tokens", () => {
 			.map((rule) => rule.selector);
 		expect(otherSizes).toEqual([]);
 	});
+
+	it("give the first and last rows of a list the corners of the list, so the focus ring of a row follows them", () => {
+		const declarations = (selector: string) => rules.find((rule) => rule.selector === selector)?.declarations ?? "";
+		expect(declarations(".list")).toMatch(/border:\s*1px solid/);
+		expect(tokenValue("--ds-radius-box-inner")).toBe("calc(var(--ds-radius-box) - 1px)");
+
+		for (const [selector, corners] of [
+			[".list > li:first-child", ["top-left", "top-right"]],
+			[".list > li:last-child", ["bottom-left", "bottom-right"]],
+		] as const) {
+			for (const corner of corners) {
+				expect(declarations(selector), `${selector} ${corner}`).toMatch(
+					new RegExp(`border-${corner}-radius:\\s*var\\(--ds-radius-box-inner\\);`),
+				);
+			}
+		}
+	});
 });

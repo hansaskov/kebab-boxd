@@ -8,28 +8,27 @@ const { prefetchUrls, eagerness = "immediate" } = Astro.props;
 
 // Opening the notifications marks them read, so the browser must not open them before the user does.
 const neverSpeculated = ["/api/*", "/notifications"];
+
+// JSON does not escape "<", so a URL holding "</script>" would end the script and let the rest run as HTML.
+const rules = JSON.stringify({
+    prefetch: [
+        {
+            urls: import.meta.env.PROD ? prefetchUrls : [],
+            eagerness: eagerness,
+        },
+    ],
+    prerender: [
+        {
+            where: {
+                and: [
+                    { href_matches: "/*" },
+                    { not: { href_matches: neverSpeculated } },
+                ],
+            },
+            eagerness: "eager",
+        },
+    ],
+}).replaceAll("<", "\\u003c");
 ---
 
-<script
-    type="speculationrules"
-    is:inline
-    set:html={JSON.stringify({
-        prefetch: [
-            {
-                urls: import.meta.env.PROD ? prefetchUrls : [],
-                eagerness: eagerness,
-            },
-        ],
-        prerender: [
-            {
-                where: {
-                    and: [
-                        { href_matches: "/*" },
-                        { not: { href_matches: neverSpeculated } },
-                    ],
-                },
-                eagerness: "eager",
-            },
-        ],
-    })}
-/>
+<script type="speculationrules" is:inline set:html={rules} />

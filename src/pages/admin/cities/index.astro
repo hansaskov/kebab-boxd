@@ -12,7 +12,7 @@ import type { CitySearchStatus } from "@src/db/schema";
 import { successToast } from "@src/format/action-toast";
 import { regionAndCountry } from "@src/format/country";
 import { plural } from "@src/format/plural";
-import { adminCitySearchHref, adminRestaurantsHref, profileHref } from "@src/hrefs";
+import { adminCitySearchHref, adminRestaurantsHref, profileHref, signInHref } from "@src/hrefs";
 import { isShortSearch } from "@src/map/geonames";
 import { parsePageRequest } from "@src/pagination";
 import { parseSearch } from "@src/validation/search-params";
@@ -20,7 +20,7 @@ import { parseSearch } from "@src/validation/search-params";
 const session = Astro.locals.session;
 
 if (!session) {
-  return Astro.redirect("/login");
+  return Astro.redirect(signInHref(Astro.url));
 }
 
 if (!can(session.user, "admin-console:view")) {

@@ -86,7 +86,7 @@ describe("the Feed", () => {
 		const cleos = insertReview(client, cleo.id, grill.id, 9, daysAgo(3));
 		await db.users.ban(admin.id, dan.username);
 
-		const feed = await db.reviews.listFeed(ada.id, "following", firstPage);
+		const feed = await db.reviews.listFollowed(ada.id, firstPage);
 
 		expect(feed.items.map((review) => review.id)).toEqual([bobs[2]!.id, cleos.id, bobs[1]!.id, bobs[0]!.id]);
 	});

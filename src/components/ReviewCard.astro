@@ -3,7 +3,7 @@ import { Heart, Pencil, Star, StarHalf } from "@lucide/astro";
 import { actions } from "astro:actions";
 import type { HTMLAttributes } from "astro/types";
 import Avatar from "@src/components/Avatar.astro";
-import { canOn, type Subject } from "@src/auth/permissions";
+import { canOn, type Viewer } from "@src/auth/permissions";
 import type { ReviewCard } from "@src/db/reviews";
 import RelativeTime from "@src/components/RelativeTime.astro";
 import { describeStars, splitStars, toStars } from "@src/format/rating";
@@ -11,7 +11,7 @@ import { editReviewHref, profileHref, restaurantHref, reviewHref } from "@src/hr
 
 interface Props extends HTMLAttributes<"article"> {
   review: ReviewCard;
-  viewer: Subject;
+  viewer: Viewer;
   showAuthor?: boolean;
   showRestaurant?: boolean;
 }

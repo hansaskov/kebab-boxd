@@ -15,10 +15,15 @@ export const targetUserSchema = z.object({
 
 const forbidden: Record<Permission, string> = {
   "user:view-profile": "You cannot see this profile.",
+  "user:view-reviews": "Only the followers of this user can see their reviews.",
   "user:view-hidden-reviews": "You cannot see the hidden reviews of this user.",
+  "user:view-follow-requests": "You cannot see the follow requests of this user.",
   "user:follow": "You cannot follow this user.",
   "user:unfollow": "You cannot unfollow this user.",
+  "user:approve-follow-request": "You cannot approve the request of this user.",
+  "user:remove-follower": "You cannot remove this follower.",
   "user:edit-settings": "You cannot change the settings of this account.",
+  "user:edit-location": "Only the owner of this account can see or change its location.",
   "user:manage-sessions": "You cannot manage the devices of this account.",
   "user:export-data": "You cannot download the data of this account.",
   "user:delete-account": "You cannot delete this account.",

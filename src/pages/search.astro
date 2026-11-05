@@ -10,10 +10,7 @@ import { personSorts, type PersonSort } from "@src/db/users";
 import { firstPageHref, parsePageRequest, type PageRequest } from "@src/pagination";
 import { parseOption, parseSearch, searchTypes, type SearchType } from "@src/validation/search-params";
 
-const session = Astro.locals.session;
-if (!session) {
-  return Astro.redirect("/login");
-}
+const viewer = Astro.locals.session?.user ?? null;
 
 const search = parseSearch(Astro.url.searchParams);
 const type = parseOption(Astro.url.searchParams, "type", searchTypes, "all");
@@ -28,7 +25,7 @@ const request = type === "all" ? previewRequest : parsePageRequest(Astro.url);
 const { restaurants, users } = Astro.locals.db;
 const [restaurantPage, personPage] = await Promise.all([
   type === "people" ? undefined : restaurants.list(search, restaurantSort, request),
-  type === "restaurants" ? undefined : users.search(search, personSort, session.user.id, request),
+  type === "restaurants" ? undefined : users.search(search, personSort, viewer?.id ?? null, request),
 ]);
 
 const noPeople = search ? `No one matches “${search}”.` : "There is no one here yet.";
@@ -106,7 +103,7 @@ const personSortTabs = sortTab(personSorts, personSort, {
       {personPage.items.length === 0 ? (
         <p class="t-body mt-2 text-fg-muted">{noPeople}</p>
       ) : (
-        <PersonList class="mt-3" people={personPage.items} viewer={session.user} />
+        <PersonList class="mt-3" people={personPage.items} viewer={viewer} />
       )}
     </section>
   )}
@@ -129,7 +126,7 @@ const personSortTabs = sortTab(personSorts, personSort, {
     <>
       <TabNav class="mt-4" aria-label="Sort people" tabs={personSortTabs} />
       <PagedSection class="mt-4" aria-label="People" page={personPage} empty={noPeople}>
-        <PersonList people={personPage.items} viewer={session.user} />
+        <PersonList people={personPage.items} viewer={viewer} />
       </PagedSection>
     </>
   )}

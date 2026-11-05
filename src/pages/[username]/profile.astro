@@ -11,7 +11,7 @@ import ReviewList from "@src/components/ReviewList.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { can } from "@src/auth/permissions";
 import { successToast } from "@src/format/action-toast";
-import { profileHref, searchHref, settingsHref } from "@src/hrefs";
+import { profileHref, searchHref, settingsHref, signInHref } from "@src/hrefs";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
 import { parseOption } from "@src/validation/search-params";
 
@@ -21,14 +21,9 @@ if (!username) {
   return Astro.rewrite("/404");
 }
 
-const session = Astro.locals.session;
-
-if (!session) {
-  return Astro.redirect("/login");
-}
-
+const viewer = Astro.locals.session?.user ?? null;
 const { users, reviews, collections, follows } = Astro.locals.db;
-const user = await users.findProfile(username, session.user.id);
+const user = await users.findProfile(username, viewer?.id ?? null);
 
 if (!user) {
   return Astro.rewrite("/404");
@@ -38,17 +33,18 @@ if (user.username !== username) {
   return Astro.redirect(`${profileHref(user.username)}${Astro.url.search}`, 301);
 }
 
-const isOwnProfile = session.user.id === user.id;
-const canEditProfile = can(session.user, "user:edit-settings", user);
-const canFollow = can(session.user, "user:follow", user);
-const isFollowing = user.isFollowedByViewer && can(session.user, "user:unfollow", user);
+const isOwnProfile = viewer?.id === user.id;
+const canEditProfile = can(viewer, "user:edit-settings", user);
+const canView = can(viewer, "user:view-profile", user);
+const canViewReviews = can(viewer, "user:view-reviews", user);
+const canViewHiddenReviews = can(viewer, "user:view-hidden-reviews", user);
+const canViewRequests = can(viewer, "user:view-follow-requests", user);
 
-const canView = can(session.user, "user:view-profile", user);
-const canViewHiddenReviews = can(session.user, "user:view-hidden-reviews", user);
-const profileTabs = ["reviews", "favorites", "bucket-list", "followers", "following"] as const;
+const profileTabs = ["reviews", "favorites", "bucket-list", "followers", "following", "requests"] as const;
 type ProfileTab = (typeof profileTabs)[number];
+const openTabs = profileTabs.filter((option) => option !== "requests" || canViewRequests);
 
-const tab = parseOption(Astro.url.searchParams, "tab", profileTabs, "reviews");
+const tab = parseOption(Astro.url.searchParams, "tab", openTabs, "reviews");
 const pageRequest = parsePageRequest(Astro.url);
 let reviewPage;
 let restaurantPage;
@@ -57,9 +53,8 @@ let personPage;
 if (canView) {
   switch (tab) {
     case "reviews":
-      reviewPage = canViewHiddenReviews
-        ? await reviews.listAllByAuthor(user.id, session.user.id, pageRequest)
-        : await reviews.listPublicByAuthor(user.id, session.user.id, pageRequest);
+      if (canViewHiddenReviews) reviewPage = await reviews.listAllByAuthor(user.id, user.id, pageRequest);
+      else if (canViewReviews) reviewPage = await reviews.listPublicByAuthor(user.id, viewer?.id ?? null, pageRequest);
       break;
     case "favorites":
       restaurantPage = await collections.list(user.id, "favorites", pageRequest);
@@ -68,10 +63,13 @@ if (canView) {
       restaurantPage = await collections.list(user.id, "bucketList", pageRequest);
       break;
     case "followers":
-      personPage = await follows.listFollowers(user.id, session.user.id, pageRequest);
+      personPage = await follows.listFollowers(user.id, viewer?.id ?? null, pageRequest);
       break;
     case "following":
-      personPage = await follows.listFollowing(user.id, session.user.id, pageRequest);
+      personPage = await follows.listFollowing(user.id, viewer?.id ?? null, pageRequest);
+      break;
+    case "requests":
+      personPage = await follows.listRequests(user.id, user.id, pageRequest);
       break;
   }
 }
@@ -82,6 +80,7 @@ const tabs: Record<ProfileTab, { label: string; total: number; empty: string }> 
   "bucket-list": { label: "Bucket list", total: user.bucketListCount, empty: "The bucket list is empty." },
   followers: { label: "Followers", total: user.followerCount, empty: "No followers yet." },
   following: { label: "Following", total: user.followingCount, empty: "Not following anyone yet." },
+  requests: { label: "Follow requests", total: user.followRequestCount, empty: "No one is waiting for you to approve them." },
 };
 const tabHref = (option: ProfileTab) => firstPageHref(Astro.url, { tab: option === "reviews" ? undefined : option });
 const listTabs = (["reviews", "favorites", "bucket-list"] as const).map((option) => ({
@@ -90,13 +89,17 @@ const listTabs = (["reviews", "favorites", "bucket-list"] as const).map((option)
   href: tabHref(option),
   current: option === tab,
 }));
+// The owner of a private Profile chooses who follows them, so they may remove a follower. On a public Profile, the
+// follower could follow again at once.
+const managedList = isOwnProfile && tab === "requests" ? "requests" : isOwnProfile && user.isPrivate && tab === "followers" ? "followers" : undefined;
+const showsRequests = canViewRequests && (user.followRequestCount > 0 || tab === "requests");
 
 const layout = canView
   ? {
       title: user.fullname,
       description: user.bio ?? `Reviews, favorites and bucket list of ${user.fullname}`,
       prefetchUrls: [
-        ...profileTabs.filter((option) => option !== tab).map(tabHref),
+        ...openTabs.filter((option) => option !== tab).map(tabHref),
         ...(canEditProfile ? [settingsHref(user.username, "profile")] : []),
         ...(isOwnProfile && reviewPage?.items.length === 0 ? [searchHref("restaurants")] : []),
         "/",
@@ -115,22 +118,23 @@ const layout = canView
         <div class="min-w-0 flex-1">
           <div class="flex flex-wrap items-center gap-2">
             <h1 class="t-subheading">{user.fullname}</h1>
+            {user.isPrivate && <span class="tag">Private</span>}
             {user.bannedAt && <span class="tag text-danger">Banned</span>}
           </div>
           <p class="t-body-sm text-fg-muted">
             @{user.username}{user.pronoun && <> · {user.pronoun}</>}
           </p>
         </div>
-        {(canEditProfile || canFollow || isFollowing) && (
-          <div class="flex w-full gap-2 sm:w-auto">
-            {canEditProfile && (
-              <a class="btn btn-secondary btn-md flex-1 sm:flex-none" href={settingsHref(user.username, "profile")}>Edit profile</a>
-            )}
-            {(isFollowing || canFollow) && (
-              <FollowButton class="flex-1 sm:flex-none" username={user.username} following={isFollowing} />
-            )}
-          </div>
-        )}
+        <div class="flex w-full gap-2 sm:w-auto">
+          {canEditProfile && (
+            <a class="btn btn-secondary btn-md flex-1 sm:flex-none" href={settingsHref(user.username, "profile")}>Edit profile</a>
+          )}
+          {viewer ? (
+            <FollowButton class="flex-1 sm:flex-none" viewer={viewer} user={user} />
+          ) : (
+            <a class="btn btn-primary btn-md flex-1 sm:flex-none" href={signInHref(Astro.url)}>Follow</a>
+          )}
+        </div>
       </header>
 
       {user.bio && <p class="t-body mt-4 max-w-prose whitespace-pre-line">{user.bio}</p>}
@@ -143,12 +147,23 @@ const layout = canView
         <a class="link-hover" href={tabHref("following")} aria-current={tab === "following" ? "page" : undefined}>
           <span class="font-semibold text-fg">{user.followingCount}</span> following
         </a>
+        {showsRequests && (
+          <>
+            {" · "}
+            <a class="link-hover" href={tabHref("requests")} aria-current={tab === "requests" ? "page" : undefined}>
+              <span class="font-semibold text-fg">{user.followRequestCount}</span> {user.followRequestCount === 1 ? "request" : "requests"}
+            </a>
+          </>
+        )}
         {" · "}
         Joined <RelativeTime date={user.createdAt} />
       </p>
 
       <TabNav class="mt-8" aria-label="Profile lists" tabs={listTabs} />
 
+      {tab === "reviews" && !reviewPage && (
+        <p class="t-body mt-4 text-fg-muted">Only the followers of {user.fullname} see their reviews.</p>
+      )}
       {reviewPage && (
         <PagedSection class="mt-4" aria-label={tabs[tab].label} page={reviewPage}>
           <Fragment slot="empty">
@@ -158,7 +173,7 @@ const layout = canView
               tabs[tab].empty
             )}
           </Fragment>
-          <ReviewList reviews={reviewPage.items} viewer={session.user} showAuthor={false} />
+          <ReviewList reviews={reviewPage.items} viewer={viewer} showAuthor={false} />
         </PagedSection>
       )}
       {restaurantPage && (
@@ -176,14 +191,14 @@ const layout = canView
       {personPage && (
         <PagedSection class="mt-4" aria-label={tabs[tab].label} page={personPage} empty={tabs[tab].empty}>
           <h2 slot="heading" class="mb-3">{tabs[tab].label}</h2>
-          <PersonList people={personPage.items} viewer={session.user} />
+          <PersonList people={personPage.items} viewer={viewer} manage={managedList} />
         </PagedSection>
       )}
     </>
   ) : (
     <div class="mt-16 flex flex-col items-center gap-6 text-center">
       <h1 class="t-subheading">This account has been suspended.</h1>
-      {isFollowing && <FollowButton username={user.username} following />}
+      <FollowButton viewer={viewer} user={user} />
     </div>
   )}
 </BaseLayout>

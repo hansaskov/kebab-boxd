@@ -10,7 +10,7 @@ import { submittedForm } from "@src/actions/outcome";
 import { can } from "@src/auth/permissions";
 import { successToast } from "@src/format/action-toast";
 import { adminTabs } from "@src/data/admin-tabs";
-import { adminUserHref, settingsHref } from "@src/hrefs";
+import { adminUserHref, settingsHref, signInHref } from "@src/hrefs";
 
 const { username } = Astro.params;
 
@@ -21,7 +21,7 @@ if (!username) {
 const session = Astro.locals.session;
 
 if (!session) {
-  return Astro.redirect("/login");
+  return Astro.redirect(signInHref(Astro.url));
 }
 
 if (!can(session.user, "admin-console:view")) {

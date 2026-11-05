@@ -1,23 +1,26 @@
 ---
 import { actions } from "astro:actions";
 import type { HTMLAttributes } from "astro/types";
+import { can, type TargetUser, type Viewer } from "@src/auth/permissions";
 
 interface Props extends HTMLAttributes<"form"> {
-  username: string;
-  following: boolean;
+  viewer: Viewer;
+  user: TargetUser & { username: string; isFollowedByViewer: boolean; isRequestedByViewer: boolean };
 }
 
-const { username, following, class: className, ...props } = Astro.props;
+const { viewer, user, class: className, ...props } = Astro.props;
+
+// Follows the user, or asks to when their Profile is private, or ends either. Shows nothing when the viewer may not.
+const relation = user.isFollowedByViewer ? "following" : user.isRequestedByViewer ? "requested" : undefined;
+const allowed = can(viewer, relation ? "user:unfollow" : "user:follow", user);
+const label = { following: "Unfollow", requested: "Cancel request" } as const;
 ---
 
-<form
-  class:list={["flex", className]}
-  method="post"
-  action={following ? actions.profile.unfollow : actions.profile.follow}
-  {...props}
->
-  <input type="hidden" name="username" value={username} />
-  <button class:list={["btn", following ? "btn-secondary" : "btn-primary", "btn-md w-full"]} type="submit">
-    {following ? "Unfollow" : "Follow"}
-  </button>
-</form>
+{allowed && (
+  <form class:list={["flex", className]} method="post" action={relation ? actions.profile.unfollow : actions.profile.follow} {...props}>
+    <input type="hidden" name="username" value={user.username} />
+    <button class:list={["btn", relation ? "btn-secondary" : "btn-primary", "btn-md w-full"]} type="submit">
+      {relation ? label[relation] : "Follow"}
+    </button>
+  </form>
+)}

@@ -72,7 +72,7 @@ export function createRestaurants(client: Client) {
 			}
 		},
 
-		async findById(id: number, viewerId: number) {
+		async findById(id: number, viewerId: number | null) {
 			return client.query.restaurants.findFirst({
 				columns: { id: true, name: true, status: true, suggestedBy: true, ratingAvg: true, reviewCount: true, createdAt: true },
 				with: {

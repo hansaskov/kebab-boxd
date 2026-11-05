@@ -17,6 +17,8 @@ export const users = p.snakeCase.table("users", {
   pronoun: p.text({ enum: pronouns }),
   latitude: p.real(),
   longitude: p.real(),
+  // A private Profile shows its Reviews only to the Followers of its User, who must ask to follow.
+  isPrivate: p.int({ mode: "boolean" }).notNull().default(false),
   followNotifications: p.int({ mode: "boolean" }).notNull().default(true),
   likeNotifications: p.int({ mode: "boolean" }).notNull().default(true),
   suggestionNotifications: p.int({ mode: "boolean" }).notNull().default(true),
@@ -259,6 +261,18 @@ export const followers = p.snakeCase.table("followers", {
   p.check("followers_no_self_follow", sql`${t.followerId} != ${t.followingId}`),
 ])
 
+// A request to follow a User whose Profile is private. It becomes a Follow when the User approves it.
+export const followRequests = p.snakeCase.table("follow_requests", {
+  followerId: p.int({ mode: "number" }).notNull().references(() => users.id, {onDelete: "cascade"}),
+  followingId: p.int({ mode: "number" }).notNull().references(() => users.id, {onDelete: "cascade"}),
+  updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(now),
+  createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
+}, (t) => [
+  p.primaryKey({ columns: [t.followerId, t.followingId] }),
+  p.index("follow_requests_following_id_created_at_follower_id_idx").on(t.followingId, t.createdAt, t.followerId),
+  p.check("follow_requests_no_self_follow", sql`${t.followerId} != ${t.followingId}`),
+])
+
 export const favorites = p.snakeCase.table("favorites", {
   userId: p.int({ mode: "number" }).notNull().references(() => users.id, {onDelete: "cascade"}),
   restaurantId: p.int({ mode: "number" }).notNull().references(() => restaurants.id, {onDelete: "cascade"}),
@@ -321,7 +335,7 @@ export type NewHistoryEntry = typeof history.$inferInsert
 export const notifications = p.snakeCase.table("notifications", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
   recipientId: p.int({ mode: "number" }).notNull().references(() => users.id, {onDelete: "cascade"}),
-  kind: p.text({ enum: ["follow", "like", "suggestion-approved", "suggestion-rejected", "city-search-finished"] }).notNull(),
+  kind: p.text({ enum: ["follow", "follow-request", "follow-accepted", "like", "suggestion-approved", "suggestion-rejected", "city-search-finished"] }).notNull(),
   actorId: p.int({ mode: "number" }).references(() => users.id, {onDelete: "cascade"}),
   reviewId: p.int({ mode: "number" }).references(() => reviews.id, {onDelete: "cascade"}),
   restaurantId: p.int({ mode: "number" }).references(() => restaurants.id, {onDelete: "cascade"}),
@@ -337,15 +351,17 @@ export const notifications = p.snakeCase.table("notifications", {
   p.uniqueIndex("notifications_review_id_actor_id_unique").on(t.reviewId, t.actorId),
   p.uniqueIndex("notifications_restaurant_id_unique").on(t.restaurantId),
   p.uniqueIndex("notifications_city_search_id_unique").on(t.citySearchId),
-  p.uniqueIndex("notifications_follow_unique").on(t.recipientId, t.actorId).where(sql`${t.kind} = 'follow'`),
+  // The kinds about a Follow have only an actor. Two Users who follow each other may each have one of every kind.
+  p.uniqueIndex("notifications_follow_kinds_unique").on(t.recipientId, t.actorId, t.kind).where(sql`${t.kind} IN ('follow', 'follow-request', 'follow-accepted')`),
   p.check("notifications_not_own_action", sql`${t.actorId} IS NULL OR ${t.actorId} != ${t.recipientId}`),
-  p.check("notifications_kind_columns", sql`CASE ${t.kind}
-    WHEN 'follow' THEN ${t.actorId} IS NOT NULL AND ${t.reviewId} IS NULL AND ${t.restaurantId} IS NULL AND ${t.citySearchId} IS NULL
-    WHEN 'like' THEN ${t.actorId} IS NOT NULL AND ${t.reviewId} IS NOT NULL AND ${t.restaurantId} IS NULL AND ${t.citySearchId} IS NULL
-    WHEN 'city-search-finished' THEN ${t.actorId} IS NULL AND ${t.reviewId} IS NULL AND ${t.restaurantId} IS NULL AND ${t.citySearchId} IS NOT NULL
+  p.check("notifications_kind_columns", sql`CASE
+    WHEN ${t.kind} IN ('follow', 'follow-request', 'follow-accepted') THEN ${t.actorId} IS NOT NULL AND ${t.reviewId} IS NULL AND ${t.restaurantId} IS NULL AND ${t.citySearchId} IS NULL
+    WHEN ${t.kind} = 'like' THEN ${t.actorId} IS NOT NULL AND ${t.reviewId} IS NOT NULL AND ${t.restaurantId} IS NULL AND ${t.citySearchId} IS NULL
+    WHEN ${t.kind} = 'city-search-finished' THEN ${t.actorId} IS NULL AND ${t.reviewId} IS NULL AND ${t.restaurantId} IS NULL AND ${t.citySearchId} IS NOT NULL
     ELSE ${t.actorId} IS NULL AND ${t.reviewId} IS NULL AND ${t.restaurantId} IS NOT NULL AND ${t.citySearchId} IS NULL
   END`),
 ])
 
 export type NotificationKind = (typeof notifications.$inferSelect)["kind"]
 export type SuggestionDecision = Extract<NotificationKind, `suggestion-${string}`>
+export type FollowKind = Extract<NotificationKind, "follow" | `follow-${string}`>

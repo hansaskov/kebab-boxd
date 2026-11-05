@@ -9,12 +9,16 @@ import { firstPageHref, parsePageRequest } from "@src/pagination";
 import { parseOption } from "@src/validation/search-params";
 
 const session = Astro.locals.session;
-if (!session) {
-  return Astro.redirect("/login");
-}
+const viewer = session?.user ?? null;
+const { reviews } = Astro.locals.db;
+const pageRequest = parsePageRequest(Astro.url);
 
-const feed = parseOption(Astro.url.searchParams, "feed", feeds, "following");
-const page = await Astro.locals.db.reviews.listFeed(session.user.id, feed, parsePageRequest(Astro.url));
+// A Visitor follows no one, so they see the Feed of everyone.
+const feed: Feed = session ? parseOption(Astro.url.searchParams, "feed", feeds, "following") : "everyone";
+const page =
+  session && feed === "following"
+    ? await reviews.listFollowed(session.user.id, pageRequest)
+    : await reviews.listEveryone(viewer?.id ?? null, pageRequest);
 
 const feedHref = (option: Feed) => firstPageHref(Astro.url, { feed: option === "following" ? undefined : option });
 const tabs = [
@@ -25,19 +29,19 @@ const tabs = [
 
 <BaseLayout
   title="Feed"
-  description="Reviews from the people you follow"
-  prefetchUrls={[feedHref(feed === "following" ? "everyone" : "following"), "/explore", searchHref()]}
+  description={session ? "Reviews from the people you follow" : "The latest reviews of kebab restaurants"}
+  prefetchUrls={[...(session ? [feedHref(feed === "following" ? "everyone" : "following")] : []), "/explore", searchHref()]}
 >
   <h1 class="sm:sr-only">Feed</h1>
 
-  <TabNav class="mt-4 sm:mt-0" aria-label="Feeds" tabs={tabs} />
+  {session && <TabNav class="mt-4 sm:mt-0" aria-label="Feeds" tabs={tabs} />}
 
-  <PagedSection class="mt-4" aria-label="Reviews" page={page}>
+  <PagedSection class:list={["mt-4", { "sm:mt-0": !session }]} aria-label="Reviews" page={page}>
     <Fragment slot="empty">
       {feed === "following"
         ? <>Reviews of the people you follow show up here. <a class="link" href={searchHref("people")}>Find people to follow</a>.</>
         : "No one has written a review yet."}
     </Fragment>
-    <ReviewList reviews={page.items} viewer={session.user} />
+    <ReviewList reviews={page.items} viewer={viewer} />
   </PagedSection>
 </BaseLayout>

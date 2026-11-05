@@ -1,19 +1,19 @@
 import { and, count, eq, isNotNull, isNull, max, or, sql, type SQL } from "drizzle-orm";
 import { QueryBuilder } from "drizzle-orm/sqlite-core";
-import { authorizedWrite, targetUserColumns, writeOnUser } from "@src/db/authorize";
+import { targetUserColumns, writeOnUser } from "@src/db/authorize";
 import { refreshLikeCounts, refreshRestaurantStats, restaurantsReviewedBy } from "@src/db/cached-stats";
 import type { Client, Transaction } from "@src/db/client";
 import { collectionCount } from "@src/db/collections";
-import { isFollowedBy, personCard } from "@src/db/follows";
+import { approveAllFollowRequests, followRequestCount, isRequestedBy, personCard } from "@src/db/follows";
 import type { NotificationPreferences } from "@src/db/notifications";
 import { cursorList, type Filter, type Seek } from "@src/db/pagination";
-import { writeWithPictures } from "@src/db/pictures";
+import { authorizedWriteWithPictures } from "@src/db/pictures";
 import { problem } from "@src/db/problem";
 import * as s from "@src/db/schema";
 import type { Role, User } from "@src/db/schema";
 import { deleteAllSessionsOf } from "@src/db/sessions";
 import { isUniqueConstraintError } from "@src/db/sqlite-errors";
-import { isPublicReview, isUnbannedUser } from "@src/db/visibility";
+import { isFollowedBy, isPublicReview, isUnbannedUser, sharesReviewsWith } from "@src/db/visibility";
 import type { Coordinates } from "@src/map/coordinates";
 import type { PageRequest } from "@src/pagination";
 import type { PictureStore } from "@src/pictures/store";
@@ -71,16 +71,23 @@ const reviewCount = {
 	value: (user: Users) => sql<number>`(${qb.select({ count: count() }).from(s.reviews).where(publicReviewsOf(user))})`,
 } as const;
 
-// When the user last wrote a public review, in seconds since 1970, or 0 when they have none.
-const latestReviewAt = {
-	name: "latestReviewAt",
-	value: (user: Users) =>
-		sql<number>`coalesce((${qb.select({ at: max(s.reviews.createdAt) }).from(s.reviews).where(publicReviewsOf(user))}), 0)`,
-} as const;
+// When the user last wrote a public review that they share with the viewer, null for a Visitor, in seconds since
+// 1970, or 0 when there is none. The time orders the people and shows in the address of the next page, so a
+// private Profile tells it only to its followers.
+function latestReviewAt(viewerId: number | null) {
+	return {
+		name: "latestReviewAt",
+		value: (user: Users) =>
+			sql<number>`coalesce((${qb
+				.select({ at: max(s.reviews.createdAt) })
+				.from(s.reviews)
+				.where(and(publicReviewsOf(user), sharesReviewsWith(user.id, viewerId)))}), 0)`,
+	} as const;
+}
 
 const newestPages = cursorList("users", ["id"], "desc");
 const mostReviewsPages = cursorList("users", [reviewCount, "id"], "desc");
-const latestReviewPages = cursorList("users", [latestReviewAt, "id"], "desc");
+const latestReviewPages = (viewerId: number | null) => cursorList("users", [latestReviewAt(viewerId), "id"], "desc");
 
 // Usernames are stored in lowercase, so a link with any letter case finds the user.
 function byUsername(username: string) {
@@ -153,10 +160,10 @@ export function createUsers(client: Client, pictures: PictureStore) {
 			return client.query.users.findFirst({ with: { profilePicture: { columns: { url: true } } }, where: byUsername(username) });
 		},
 
-		// What the Profile shows, with the counts of its lists.
-		async findProfile(username: string, viewerId: number) {
+		// What the Profile shows to the viewer, who is null for a Visitor, with the counts of its lists.
+		async findProfile(username: string, viewerId: number | null) {
 			return client.query.users.findFirst({
-				columns: { id: true, fullname: true, username: true, role: true, bio: true, pronoun: true, bannedAt: true, createdAt: true },
+				columns: { id: true, fullname: true, username: true, role: true, bio: true, pronoun: true, isPrivate: true, bannedAt: true, createdAt: true },
 				with: { profilePicture: { columns: { url: true } } },
 				extras: {
 					followerCount: followCount(client, "followers"),
@@ -166,26 +173,30 @@ export function createUsers(client: Client, pictures: PictureStore) {
 					allReviewCount: (user) => client.$count(s.reviews, eq(s.reviews.authorId, user.id)),
 					favoriteCount: collectionCount(client, "favorites"),
 					bucketListCount: collectionCount(client, "bucketList"),
+					// Only the User sees it, with the permission user:view-follow-requests.
+					followRequestCount: followRequestCount(client),
 					isFollowedByViewer: isFollowedBy(viewerId),
+					isRequestedByViewer: isRequestedBy(viewerId),
 				},
 				where: byUsername(username),
 			});
 		},
 
 		// The people whose name or username contains the text. Leaves out banned users.
-		async search(text: string, sort: PersonSort, viewerId: number, page: PageRequest) {
+		async search(text: string, sort: PersonSort, viewerId: number | null, page: PageRequest) {
 			const card = personCard(viewerId);
+			const latestReview = latestReviewAt(viewerId);
 			const read = (seek: Seek<"users">) =>
 				client.query.users.findMany({
 					...card,
-					extras: { ...card.extras, reviewCount: reviewCount.value, latestReviewAt: latestReviewAt.value },
+					extras: { ...card.extras, reviewCount: reviewCount.value, latestReviewAt: latestReview.value },
 					...seek({ AND: [{ bannedAt: { isNull: true } }, matchingName(text)] }),
 				});
 			switch (sort) {
 				case "most-reviews":
 					return mostReviewsPages(page, read);
 				case "latest-review":
-					return latestReviewPages(page, read);
+					return latestReviewPages(viewerId)(page, read);
 			}
 		},
 
@@ -225,11 +236,19 @@ export function createUsers(client: Client, pictures: PictureStore) {
 		},
 
 		async setLocation(actorId: number, username: string, location: Coordinates | null) {
-			return editSettings(actorId, username, (tx, { id }) => {
+			return writeOnUser(client, actorId, username, "user:edit-location", (tx, { id }) => {
 				tx.update(s.users)
 					.set({ latitude: location?.latitude ?? null, longitude: location?.longitude ?? null })
 					.where(eq(s.users.id, id))
 					.run();
+			});
+		},
+
+		// A Profile that becomes public lets everyone who asked to follow it follow it.
+		async setPrivacy(actorId: number, username: string, isPrivate: boolean) {
+			return editSettings(actorId, username, (tx, { id }) => {
+				tx.update(s.users).set({ isPrivate }).where(eq(s.users.id, id)).run();
+				if (!isPrivate) approveAllFollowRequests(tx, id);
 			});
 		},
 
@@ -240,25 +259,33 @@ export function createUsers(client: Client, pictures: PictureStore) {
 		},
 
 		async setProfilePicture(actorId: number, username: string, file: File) {
-			return writeWithPictures(
+			return authorizedWriteWithPictures(
+				client,
 				pictures,
-				(changes) =>
-					authorizedWrite(client, actorId, "user:edit-settings", (tx) => findWithProfilePicture(tx, username), (tx, { profilePicture, ...user }) => {
-						const [pictureId] = changes.insertAdded(tx);
-						tx.update(s.users).set({ profilePictureId: pictureId }).where(eq(s.users.id, user.id)).run();
-						changes.remove(tx, profilePicture ? [profilePicture] : []);
-						return user;
-					}),
+				actorId,
+				"user:edit-settings",
+				(tx) => findWithProfilePicture(tx, username),
+				(tx, { profilePicture, ...user }, changes) => {
+					const [pictureId] = changes.insertAdded(tx);
+					tx.update(s.users).set({ profilePictureId: pictureId }).where(eq(s.users.id, user.id)).run();
+					changes.remove(tx, profilePicture ? [profilePicture] : []);
+					return user;
+				},
 				{ files: [file], kind: "profile" },
 			);
 		},
 
 		async removeProfilePicture(actorId: number, username: string) {
-			return writeWithPictures(pictures, (changes) =>
-				authorizedWrite(client, actorId, "user:edit-settings", (tx) => findWithProfilePicture(tx, username), (tx, { profilePicture, ...user }) => {
+			return authorizedWriteWithPictures(
+				client,
+				pictures,
+				actorId,
+				"user:edit-settings",
+				(tx) => findWithProfilePicture(tx, username),
+				(tx, { profilePicture, ...user }, changes) => {
 					changes.remove(tx, profilePicture ? [profilePicture] : []);
 					return user;
-				}),
+				},
 			);
 		},
 
@@ -290,16 +317,14 @@ export function createUsers(client: Client, pictures: PictureStore) {
 
 		// The restaurants the user suggested stay, without a suggester.
 		async delete(actorId: number, username: string) {
-			return writeWithPictures(pictures, (changes) =>
-				authorizedWrite(client, actorId, "user:delete-account", (tx) => findWithDependents(tx, username), (tx, user) => {
-					tx.update(s.restaurants).set({ suggestedBy: null }).where(eq(s.restaurants.suggestedBy, user.id)).run();
-					tx.delete(s.users).where(eq(s.users.id, user.id)).run();
-					changes.remove(tx, user.pictures);
-					refreshLikeCounts(tx, user.likedReviewIds);
-					refreshRestaurantStats(tx, user.restaurantIds);
-					return { id: user.id, username: user.username };
-				}),
-			);
+			return authorizedWriteWithPictures(client, pictures, actorId, "user:delete-account", (tx) => findWithDependents(tx, username), (tx, user, changes) => {
+				tx.update(s.restaurants).set({ suggestedBy: null }).where(eq(s.restaurants.suggestedBy, user.id)).run();
+				tx.delete(s.users).where(eq(s.users.id, user.id)).run();
+				changes.remove(tx, user.pictures);
+				refreshLikeCounts(tx, user.likedReviewIds);
+				refreshRestaurantStats(tx, user.restaurantIds);
+				return { id: user.id, username: user.username };
+			});
 		},
 	};
 }
