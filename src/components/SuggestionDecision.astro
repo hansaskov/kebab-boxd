@@ -4,7 +4,7 @@ import { actions } from "astro:actions";
 import type { HTMLAttributes } from "astro/types";
 import type { RestaurantStatus } from "@src/db/schema";
 
-interface Props extends HTMLAttributes<"div"> {
+interface Props extends HTMLAttributes<"form"> {
   restaurantId: number;
   status: RestaurantStatus;
 }
@@ -12,17 +12,12 @@ interface Props extends HTMLAttributes<"div"> {
 const { restaurantId, status, class: className, ...props } = Astro.props;
 ---
 
-<div class:list={["flex gap-2", className]} {...props}>
+<form class:list={["flex gap-2", className]} method="post" action={actions.admin.decideRestaurants} {...props}>
+  <input type="hidden" name="restaurantId" value={restaurantId} />
   {status !== "approved" && (
-    <form method="post" action={actions.admin.approveRestaurant}>
-      <input type="hidden" name="restaurantId" value={restaurantId} />
-      <button class="btn btn-primary btn-sm" type="submit"><Check size={16} aria-hidden="true" />Approve</button>
-    </form>
+    <button class="btn btn-primary btn-sm" type="submit" name="status" value="approved"><Check size={16} aria-hidden="true" />Approve</button>
   )}
   {status !== "rejected" && (
-    <form method="post" action={actions.admin.rejectRestaurant}>
-      <input type="hidden" name="restaurantId" value={restaurantId} />
-      <button class="btn btn-danger btn-sm" type="submit"><X size={16} aria-hidden="true" />Reject</button>
-    </form>
+    <button class="btn btn-danger btn-sm" type="submit" name="status" value="rejected"><X size={16} aria-hidden="true" />Reject</button>
   )}
-</div>
+</form>

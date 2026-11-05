@@ -36,7 +36,7 @@ function unpack(value: unknown): unknown {
 }
 
 // The Database of the Durable Object, as the website sees it. Each method call is one RPC call, so only the
-// asynchronous methods work: onQueued of the suggestion queue is for the Durable Object itself.
+// asynchronous methods work: onWork is for the Durable Object itself.
 export function connectDatabase(rpc: DatabaseRpc): Database {
 	const areaOf = (area: string) =>
 		new Proxy(

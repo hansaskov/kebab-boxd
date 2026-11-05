@@ -5,7 +5,7 @@ import { isProblem } from "@src/db/problem";
 import { maxAttempts, maxQueuedPerUser } from "@src/db/suggestion-queue";
 import type { Place } from "@src/map/google-maps";
 import type { Address } from "@src/map/nominatim";
-import { processNextSuggestion } from "@src/suggestion-queue";
+import { processNextSuggestion } from "@src/background-work";
 import { createTestDatabase, insertUser } from "@src/tests/database";
 
 const shareLink = "https://maps.app.goo.gl/XEqFEXq6aNBqJRFJA";
@@ -54,10 +54,10 @@ describe("the SuggestionQueue", () => {
 		expect(await finish({ ...shawarmaVillage, googleMapsId: "0x1:0x3", name: "Doner Village", latitude: 55.3962 })).toBe("suggested");
 		expect(await finish({ ...shawarmaVillage, googleMapsId: "0x1:0x4", name: "Døner Village", latitude: 56.1567, longitude: 10.2108 })).toBe("suggested");
 
-		await db.restaurants.decide(admin.id, first.id, "approved");
+		await db.restaurants.decide(admin.id, [first.id], "approved");
 		expect(await finish({ ...shawarmaVillage, name: "Døner Village" })).toBe("duplicate");
 
-		await db.restaurants.decide(admin.id, first.id, "rejected");
+		await db.restaurants.decide(admin.id, [first.id], "rejected");
 		expect(await finish({ ...shawarmaVillage, name: "Døner Village" })).toBe("suggested");
 	});
 
@@ -94,7 +94,7 @@ describe("the SuggestionQueue", () => {
 		const ada = insertUser(client, "ada");
 		await queue(db, ada.id, unreadableLink);
 
-		expect(await processNextSuggestion(db)).toEqual({ processed: true });
+		expect(await processNextSuggestion(db)).toMatchObject({ processed: true });
 		expect(client.query.suggestionQueue.findFirst().sync()).toMatchObject({ status: "not-a-place", attempts: 0 });
 
 		const waiting = await queue(db, ada.id);

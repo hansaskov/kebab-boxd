@@ -1,5 +1,7 @@
 import type { NewLocation } from "@src/db/schema";
+import { countryName } from "@src/format/country";
 import type { Coordinates } from "@src/map/coordinates";
+import { userAgent } from "@src/map/user-agent";
 
 export type Address = Pick<NewLocation, "addressLine1" | "postalCode" | "city" | "country">;
 
@@ -17,11 +19,7 @@ interface NominatimAddress {
 
 const reverseUrl = "https://nominatim.openstreetmap.org/reverse";
 const searchUrl = "https://nominatim.openstreetmap.org/search";
-// Nominatim refuses requests that do not name the app sending them.
-const userAgent = "Kebab Boxd (https://kebab.hjemmet.net)";
 const lookupTimeoutMs = 10_000;
-
-const countryNames = new Intl.DisplayNames("en", { type: "region", fallback: "none" });
 
 export function toAddress(address: NominatimAddress): Address {
 	const street = [address.road, address.house_number].filter(Boolean).join(" ");
@@ -29,8 +27,7 @@ export function toAddress(address: NominatimAddress): Address {
 		addressLine1: street || null,
 		postalCode: address.postcode ?? null,
 		city: address.city ?? address.town ?? address.village ?? address.hamlet ?? address.municipality ?? null,
-		// Intl throws on a code that is not two letters.
-		country: (address.country_code?.match(/^[a-z]{2}$/i) && countryNames.of(address.country_code.toUpperCase())) || null,
+		country: countryName(address.country_code),
 	};
 }
 

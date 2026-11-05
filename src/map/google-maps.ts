@@ -1,5 +1,6 @@
 import type { Coordinates } from "@src/map/coordinates";
 import { type Address, findAddress, searchAddress } from "@src/map/nominatim";
+import { cleanPlaceName } from "@src/map/place-name";
 
 export interface Place extends Coordinates {
 	name: string;
@@ -26,9 +27,6 @@ const placePathPattern = /^\/maps\/place\/([^/]+)\//;
 const pinPattern = /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/;
 const featureIdPattern = /!1s(0x[0-9a-f]+:0x[0-9a-f]+)/;
 const featureIdParamPattern = /^0x[0-9a-f]+:0x[0-9a-f]+$/;
-
-// A longer name is shortened, not refused: it is still the place the user shared.
-const nameMaxLength = 80;
 
 const lookupTimeoutMs = 10_000;
 const maxRedirects = 5;
@@ -78,7 +76,7 @@ export function parseQueryLink(link: string): UnpinnedPlace | undefined {
 
 	const query = url.searchParams.get("q") ?? "";
 	const comma = query.indexOf(",");
-	const name = comma > 0 ? cleanName(query.slice(0, comma)) : undefined;
+	const name = comma > 0 ? cleanPlaceName(query.slice(0, comma)) : undefined;
 	const address = query.slice(comma + 1).trim();
 	const googleMapsId = url.searchParams.get("ftid") ?? "";
 	if (!name || !address || !featureIdParamPattern.test(googleMapsId)) return undefined;
@@ -93,19 +91,10 @@ function parseLink(link: string) {
 function decodeName(encoded: string | undefined) {
 	if (!encoded) return undefined;
 	try {
-		return cleanName(decodeURIComponent(encoded.replaceAll("+", " ")));
+		return cleanPlaceName(decodeURIComponent(encoded.replaceAll("+", " ")));
 	} catch {
 		return undefined;
 	}
-}
-
-// Cut at the last word that fits, without the comma or dash before it.
-function cleanName(text: string) {
-	const name = text.trim();
-	if (name.length <= nameMaxLength) return name || undefined;
-	const words = name.slice(0, nameMaxLength + 1);
-	const lastSpace = words.lastIndexOf(" ");
-	return (lastSpace > 0 ? words.slice(0, lastSpace) : name.slice(0, nameMaxLength)).replace(/[\s,;:&|·–—-]+$/u, "");
 }
 
 // Where a redirect from `from` leads: the next link to open, or the place it ends at.

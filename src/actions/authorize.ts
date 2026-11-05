@@ -1,6 +1,6 @@
 import { ActionError } from "astro:actions";
 import { z } from "astro/zod";
-import { can, resourceOf, type ResourceName, type ResourcePermission, type Subject } from "@src/auth/permissions";
+import { can, resourceOf, type Permission, type ResourceName, type Subject } from "@src/auth/permissions";
 import { isProblem, type Problem } from "@src/db/problem";
 import { maxQueuedPerUser } from "@src/db/suggestion-queue";
 import { pictureFormatNames } from "@src/validation/picture";
@@ -13,7 +13,7 @@ export const targetUserSchema = z.object({
   username: usernameSchema,
 });
 
-const forbidden: Record<ResourcePermission | "restaurant:suggest", string> = {
+const forbidden: Record<Permission, string> = {
   "user:view-profile": "You cannot see this profile.",
   "user:view-hidden-reviews": "You cannot see the hidden reviews of this user.",
   "user:follow": "You cannot follow this user.",
@@ -34,6 +34,9 @@ const forbidden: Record<ResourcePermission | "restaurant:suggest", string> = {
   "restaurant:collect": "You can only save a restaurant after an admin approves it.",
   "restaurant:moderate": "You cannot approve or reject restaurants.",
   "restaurant:suggest": "You cannot suggest restaurants.",
+  "admin-console:view": "You cannot open the admin console.",
+  "city-search:start": "You cannot search cities for restaurants.",
+  "city-list:update": "You cannot update the city list.",
 };
 
 const notFound: Record<ResourceName, string> = {
@@ -48,6 +51,10 @@ const problems: Record<Exclude<Problem["problem"], "not-found" | "forbidden">, [
   "username-taken": ["CONFLICT", "Username is already taken."],
   "queue-full": ["TOO_MANY_REQUESTS", `You have ${maxQueuedPerUser} links waiting. Suggest more when they are done.`],
   "account-gone": ["UNAUTHORIZED", "Your account no longer exists."],
+  "city-not-found": ["NOT_FOUND", "The city is no longer in the city list. Search for it again."],
+  "city-search-running": ["CONFLICT", "The restaurants of this city are already being searched for."],
+  "city-search-not-found": ["NOT_FOUND", "The search does not exist."],
+  "city-search-finished": ["CONFLICT", "The search is done. Start a new one to search the city again."],
 };
 
 function toActionError(result: Problem) {

@@ -3,6 +3,9 @@ import { eq } from "drizzle-orm";
 import { createSession } from "@src/auth/session";
 import * as s from "@src/db/schema";
 import AdminPage from "@src/pages/admin/index.astro";
+import AdminCitiesPage from "@src/pages/admin/cities/index.astro";
+import AdminCitySearchPage from "@src/pages/admin/cities/searches/[id].astro";
+import NotificationsPage from "@src/pages/notifications.astro";
 import AdminRestaurantsPage from "@src/pages/admin/restaurants/index.astro";
 import AdminUsersPage from "@src/pages/admin/users/index.astro";
 import AdminUserPage from "@src/pages/admin/users/[username].astro";
@@ -12,6 +15,7 @@ import SessionPage from "@src/pages/[username]/settings/sessions/[sessionId].ast
 import RestaurantPage from "@src/pages/restaurants/[id].astro";
 import SearchPage from "@src/pages/search.astro";
 import * as ExportEndpoint from "@src/pages/api/users/[username]/export";
+import { loadSampleCityList } from "@src/tests/cities";
 import { renderPage, requestEndpoint } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertReview, insertUser, signIn } from "@src/tests/database";
 
@@ -39,6 +43,8 @@ describe("pages", () => {
 	it.each([
 		["/admin", AdminPage, {}],
 		["/admin/restaurants", AdminRestaurantsPage, {}],
+		["/admin/cities", AdminCitiesPage, {}],
+		["/admin/cities/searches/1", AdminCitySearchPage, { id: "1" }],
 		["/admin/users", AdminUsersPage, {}],
 		["/admin/users/ada", AdminUserPage, { username: "ada" }],
 	] as const)("forbid %s to a User who is not an Admin", async (path, page, params) => {
@@ -181,5 +187,104 @@ describe("pages", () => {
 		expect(underTheirName.html).not.toContain("/secret");
 		expect(exportedByAdmin.status).toBe(403);
 		expect(await exportedByAdmin.text()).not.toContain(bob.email);
+	});
+
+	it("let an Admin find a City, start a CitySearch for it, and review the Restaurants it found", async () => {
+		const { client, db } = createTestDatabase();
+		const admin = insertUser(client, "root_admin", "admin");
+		const session = await signIn(db, admin.id);
+		const empty = (await renderPage(AdminCitiesPage, { db, session }, "/admin/cities")).html;
+		await loadSampleCityList(db, admin.id);
+		const found = (await renderPage(AdminCitiesPage, { db, session }, "/admin/cities?q=pari")).html;
+		const short = (await renderPage(AdminCitiesPage, { db, session }, "/admin/cities?q=p")).html;
+		const started = await db.citySearches.start(admin.id, 2988507, "Paris");
+		if ("problem" in started) throw new Error(`The search did not start: ${started.problem}.`);
+		const searching = (await renderPage(AdminCitiesPage, { db, session }, "/admin/cities?q=pari")).html;
+		const { id: restaurantId } = insertRestaurant(client, "Paris Kebab");
+		client.update(s.restaurants).set({ citySearchId: started.id, osmId: "node/7" }).where(eq(s.restaurants.id, restaurantId)).run();
+		insertRestaurant(client, "Odense Kebab");
+		const review = (await renderPage(AdminRestaurantsPage, { db, session }, `/admin/restaurants?search=${started.id}`)).html;
+
+		expect({
+			empty: [empty.includes("No cities yet"), empty.includes('name="q"')],
+			found: [found.includes("Île-de-France, France"), found.includes("Texas, United States"), found.split("Find restaurants").length - 1],
+			short: [short.includes("Type at least two letters."), short.includes("No city starts with")],
+			// A reload would wipe what the Admin types in the search form.
+			searching: [
+				searching.split("Find restaurants").length - 1,
+				searching.includes("Searching"),
+				searching.includes(`href="/admin/cities/searches/${started.id}"`),
+				searching.includes('http-equiv="refresh"'),
+			],
+			review: [review.includes("Restaurants in Paris"), review.includes("Paris Kebab"), review.includes("Odense Kebab"), review.includes("https://www.openstreetmap.org/node/7")],
+		}).toEqual({
+			empty: [true, false],
+			found: [true, true, 2],
+			short: [true, false],
+			searching: [1, true, true, false],
+			review: [true, true, false, true],
+		});
+	});
+
+	it("tell an Admin how many Restaurants their CitySearch found", async () => {
+		const { client, db } = createTestDatabase();
+		const admin = insertUser(client, "root_admin", "admin");
+		await loadSampleCityList(db, admin.id);
+		const started = await db.citySearches.start(admin.id, 2615876, "Odense");
+		if ("problem" in started) throw new Error(`The search did not start: ${started.problem}.`);
+		await db.citySearches.saveCandidates(started.id, {
+			places: [{ osmId: "node/1", name: "Kebab Huset", latitude: 55.4, longitude: 10.39, address: { addressLine1: "Vestergade 1", postalCode: null, city: "Odense", country: "Denmark" } }],
+			server: "overpass.example",
+			failures: [],
+		});
+		const candidate = await db.citySearches.nextCandidate();
+		await db.citySearches.addCandidate(candidate!.id, { addressLine1: "Vestergade 1", postalCode: null, city: "Odense", country: "Denmark" });
+
+		const { html } = await renderPage(NotificationsPage, { db, session: await signIn(db, admin.id) }, "/notifications");
+
+		expect(html).toContain("Found 1 new restaurant in <strong");
+		expect(html).toContain(`href="/admin/restaurants?search=${started.id}"`);
+	});
+
+	it("lead an Admin to the log of their CitySearch when it found nothing or failed", async () => {
+		const { client, db } = createTestDatabase();
+		const admin = insertUser(client, "root_admin", "admin");
+		await loadSampleCityList(db, admin.id);
+		const empty = await db.citySearches.start(admin.id, 2615876, "Odense");
+		const failed = await db.citySearches.start(admin.id, 2618425, "Copenhagen");
+		if ("problem" in empty || "problem" in failed) throw new Error("The searches did not start.");
+		await db.citySearches.saveCandidates(empty.id, { places: [], server: "overpass.example", failures: [] });
+		for (let attempt = 0; attempt < 5; attempt++) {
+			await db.citySearches.retrySearchLater(failed.id, new Date(), [{ server: "overpass-api.de", reason: "answered 521" }]);
+		}
+
+		const { html } = await renderPage(NotificationsPage, { db, session: await signIn(db, admin.id) }, "/notifications");
+
+		expect(html).toContain(`href="/admin/cities/searches/${empty.id}"`);
+		expect(html).toContain(`href="/admin/cities/searches/${failed.id}"`);
+		expect(html).not.toContain("/admin/restaurants?search=");
+	});
+
+	it("show an Admin what a CitySearch did, refresh while it runs, and offer to try again once it failed", async () => {
+		const { client, db } = createTestDatabase();
+		const admin = insertUser(client, "root_admin", "admin");
+		const session = await signIn(db, admin.id);
+		await loadSampleCityList(db, admin.id);
+		const started = await db.citySearches.start(admin.id, 2615876, "Odense");
+		if ("problem" in started) throw new Error(`The search did not start: ${started.problem}.`);
+		const page = async () => (await renderPage(AdminCitySearchPage, { db, session }, `/admin/cities/searches/${started.id}`, { id: String(started.id) })).html;
+		const searching = await page();
+		for (let attempt = 0; attempt < 5; attempt++) {
+			await db.citySearches.retrySearchLater(started.id, new Date(), [{ server: "overpass-api.de", reason: "answered 521" }]);
+		}
+		const failed = await page();
+
+		expect({
+			searching: [searching.includes("Searching OpenStreetMap"), searching.includes('http-equiv="refresh"'), searching.includes("Try again now")],
+			failed: [failed.includes("Failed"), failed.includes('http-equiv="refresh"'), failed.includes("Try again now"), failed.includes("overpass-api.de answered 521.")],
+		}).toEqual({
+			searching: [true, true, false],
+			failed: [true, false, true, true],
+		});
 	});
 });

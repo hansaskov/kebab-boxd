@@ -1,5 +1,5 @@
-import { eq, sql } from "drizzle-orm";
-import { authorizedWrite, findTargetRestaurant } from "@src/db/authorize";
+import { and, eq, sql } from "drizzle-orm";
+import { authorizedWriteAll, findTargetRestaurants } from "@src/db/authorize";
 import type { Client } from "@src/db/client";
 import { isInCollectionOf } from "@src/db/collections";
 import { notify, withdrawDecision } from "@src/db/notifications";
@@ -117,12 +117,13 @@ export function createRestaurants(client: Client) {
 		},
 
 		// The queue of suggestions is worked through oldest first; decided suggestions show the latest first.
-		async listByStatus(status: RestaurantStatus, page: PageRequest) {
+		// With a CitySearch, only the restaurants it found.
+		async listByStatus(status: RestaurantStatus, page: PageRequest, citySearchId: number | undefined = undefined) {
 			const read = (seek: Seek<"restaurants">) =>
 				client.query.restaurants.findMany({
-					...summary,
+					columns: { ...summary.columns, googleMapsId: true, osmId: true },
 					with: { ...summary.with, suggester: { columns: { username: true, fullname: true } } },
-					...seek({ status }),
+					...seek({ status, ...(citySearchId !== undefined && { citySearchId }) }),
 				});
 			return status === "pending" ? oldestPages(page, read) : newestPages(page, read);
 		},
@@ -136,30 +137,33 @@ export function createRestaurants(client: Client) {
 			);
 		},
 
-		async countByStatus(): Promise<Record<RestaurantStatus, number>> {
+		// With a CitySearch, only the restaurants it found.
+		async countByStatus(citySearchId: number | undefined = undefined): Promise<Record<RestaurantStatus, number>> {
+			const found = citySearchId === undefined ? undefined : eq(s.restaurants.citySearchId, citySearchId);
+			const count = (status: RestaurantStatus) => client.$count(s.restaurants, and(eq(s.restaurants.status, status), found));
 			const counts = await client.query.restaurants.findFirst({
 				columns: {},
-				extras: {
-					approved: client.$count(s.restaurants, eq(s.restaurants.status, "approved")),
-					pending: client.$count(s.restaurants, eq(s.restaurants.status, "pending")),
-					rejected: client.$count(s.restaurants, eq(s.restaurants.status, "rejected")),
-				},
+				extras: { approved: count("approved"), pending: count("pending"), rejected: count("rejected") },
 			});
 			// Without a restaurant there is no row to read the counts from, and every count is 0.
 			return counts ?? { approved: 0, pending: 0, rejected: 0 };
 		},
 
-		// Approves or rejects a suggestion, and tells the suggester.
-		async decide(actorId: number, id: number, status: "approved" | "rejected") {
-			return authorizedWrite(client, actorId, "restaurant:moderate", (tx) => findTargetRestaurant(tx, id), (tx, restaurant) => {
-				if (restaurant.status === status) return "updated" as const;
-				tx.update(s.restaurants).set({ status }).where(eq(s.restaurants.id, id)).run();
-				// The decision replaces the earlier one with a new notification, so the suggester sees it as unread.
-				withdrawDecision(tx, id);
-				if (restaurant.suggestedBy !== null && restaurant.suggestedBy !== actorId) {
-					notify(tx, { kind: `suggestion-${status}`, recipientId: restaurant.suggestedBy, restaurantId: id });
+		// Approves or rejects restaurants, and tells each suggester. Decides all of them or, when one cannot be
+		// decided, none.
+		async decide(actorId: number, ids: number[], status: "approved" | "rejected") {
+			const unique = [...new Set(ids)];
+			return authorizedWriteAll(client, actorId, "restaurant:moderate", (tx) => findTargetRestaurants(tx, unique), (tx, restaurants) => {
+				for (const restaurant of restaurants) {
+					if (restaurant.status === status) continue;
+					tx.update(s.restaurants).set({ status }).where(eq(s.restaurants.id, restaurant.id)).run();
+					// The decision replaces the earlier one with a new notification, so the suggester sees it as unread.
+					withdrawDecision(tx, restaurant.id);
+					if (restaurant.suggestedBy !== null && restaurant.suggestedBy !== actorId) {
+						notify(tx, { kind: `suggestion-${status}`, recipientId: restaurant.suggestedBy, restaurantId: restaurant.id });
+					}
 				}
-				return "updated" as const;
+				return { decided: restaurants.length };
 			});
 		},
 	};

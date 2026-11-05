@@ -5,7 +5,7 @@ A Letterboxd-style social app where users review kebab restaurants, follow each 
 ## Language
 
 **Restaurant**:
-A kebab-serving establishment that users review, rate, favorite, and add to their bucket list. Entered by a user suggesting it (goes through pending → approved | rejected). The canonical reviewed subject of the app.
+A kebab-serving establishment that users review, rate, favorite, and add to their bucket list. Entered by a user suggesting it or by a CitySearch finding it, and either way goes through pending → approved | rejected. The canonical reviewed subject of the app.
 _Avoid_: Kebab, KebabShop, Place, Venue
 
 **Suggest**:
@@ -15,6 +15,18 @@ _Avoid_: Propose, Request, Submit
 **SuggestionQueue**:
 The Google Maps links users have suggested that have not become Restaurants. A user may have 5 links waiting at a time. A link is tried up to 5 times while Google or OpenStreetMap cannot be reached. A link that becomes a Restaurant leaves the queue; one that is a duplicate, does not point to a place, or could not be read stays for 30 days so the user can see why.
 _Avoid_: Jobs, Imports, Backlog
+
+**City**:
+A populated place on the CityList, with its name, region, country, coordinates and population. A CitySearch looks for Restaurants around one.
+_Avoid_: Town, Municipality, Place
+
+**CityList**:
+The cities with at least 1,000 people, about 170,000 of them, from GeoNames. Empty until an Admin downloads it, and replaced only when an Admin updates it, all at once. A city is found by the start of its name, without regard to letter case or accents, so `zurich` finds Zürich; the most populous cities come first.
+_Avoid_: Cities table, Gazetteer
+
+**CitySearch**:
+An Admin's request to find the kebab Restaurants of a City in OpenStreetMap. It looks for fast food places and restaurants whose cuisine or name says kebab, döner, shawarma, gyros or the like, within a circle around the City that grows with its population. Each place it finds becomes a Restaurant with Status:pending, without a User who suggested it, unless it already is a Restaurant: one with the same OpenStreetMap id, or the same name, ignoring letter case, within 150 m, whatever its status. So a Restaurant an Admin rejected is not found again. Only one CitySearch for a City runs at a time. It asks the public Overpass servers in turn until one answers, and tries again later, up to 5 times, when none does. Its log tells the Admins each server it asked and what it answered, and each place it could not look up. An Admin may try a CitySearch again at once, while it waits or after it failed. When it is done, the Admin who started it is notified, and is led to the Restaurants it found, to approve or reject several at once.
+_Avoid_: Import, Crawl, Scan
 
 **GoogleMapsId**:
 The id of a place in a Google Maps link, such as `0x464cdf40a60240ff:0x42ef3a5ea295d42e`.
@@ -77,7 +89,7 @@ The unique handle identifying a User. 3–30 characters from `A–Z`, `a–z`, `
 _Avoid_: Handle, DisplayName, Nickname
 
 **Admin**:
-A role on a User. Admins can approve or reject suggested Restaurants. Not a separate entity type. An Admin is able to manage all users and content, this entails banning users, suspending reviews, and restaurants. An Admin can give the role to another User or take it away, but cannot change their own role, so there is always at least one Admin. A banned User cannot be given the role or have it taken away until the ban is lifted, and an Admin cannot be banned, so a banned Admin cannot exist. While a stage has no Admin, the User who signs in with its bootstrap email address, verified by the Provider, becomes the first one.
+A role on a User. Admins can approve or reject suggested Restaurants, several at once, start CitySearches and update the CityList. Not a separate entity type. An Admin is able to manage all users and content, this entails banning users, suspending reviews, and restaurants. An Admin can give the role to another User or take it away, but cannot change their own role, so there is always at least one Admin. A banned User cannot be given the role or have it taken away until the ban is lifted, and an Admin cannot be banned, so a banned Admin cannot exist. While a stage has no Admin, the User who signs in with its bootstrap email address, verified by the Provider, becomes the first one.
 _Avoid_: Moderator, Staff, Manager
 
 **Permission**:
@@ -100,5 +112,5 @@ The cached count of Likes a Review has received. A display field updated synchro
 _Avoid_: LikeAmount, LikeTotal
 
 **Notification**:
-A message sent to a User in response to a relevant event: someone Follows them, someone Likes their Review, or an Admin approves or rejects the Restaurant they suggested. No one is notified of their own action. Undoing the event removes the Notification: an unfollow, an unlike, or a deleted Review. A new decision on the same Restaurant replaces the earlier Notification. A Notification is unread until its User sees it in their list of Notifications. The list shows it as new that one time and marks it read. A Notification on a page of the list the User has not opened stays unread. While the User who caused it is banned, a Notification is hidden. Each User can turn off each kind (follows, likes, suggestions). This stops new Notifications of that kind and keeps the existing ones.
+A message sent to a User in response to a relevant event: someone Follows them, someone Likes their Review, an Admin approves or rejects the Restaurant they suggested, or a CitySearch they started is done. No one is notified of their own action, except of the end of their own CitySearch, which they asked to hear about. Undoing the event removes the Notification: an unfollow, an unlike, or a deleted Review. A new decision on the same Restaurant replaces the earlier Notification. A Notification is unread until its User sees it in their list of Notifications. The list shows it as new that one time and marks it read. A Notification on a page of the list the User has not opened stays unread. While the User who caused it is banned, a Notification is hidden. Each User can turn off each kind (follows, likes, suggestions) but the end of a CitySearch. This stops new Notifications of that kind and keeps the existing ones.
 _Avoid_: Alert, Update, Ping

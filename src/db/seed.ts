@@ -125,6 +125,9 @@ export async function seedDatabase(client: Client, pictures: PictureStore) {
       count: 30,
       columns: {
         name: funcs.valuesFromArray({ values: kebabNames }),
+        googleMapsId: funcs.default({ defaultValue: null }),
+        osmId: funcs.default({ defaultValue: null }),
+        citySearchId: funcs.default({ defaultValue: null }),
         status: funcs.valuesFromArray({
           values: [
             { weight: 0.65, values: ["approved"] },

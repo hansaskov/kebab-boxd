@@ -1,14 +1,19 @@
 ---
+import { Check, X } from "@lucide/astro";
+import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import PagedSection from "@src/components/PagedSection.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
 import SuggestionDecision from "@src/components/SuggestionDecision.astro";
 import TabNav from "@src/components/TabNav.astro";
+import { submittedForm } from "@src/actions/outcome";
 import { can } from "@src/auth/permissions";
 import { adminTabs } from "@src/data/admin-tabs";
 import { restaurantStatuses, type RestaurantStatus } from "@src/db/schema";
-import { profileHref, restaurantHref } from "@src/hrefs";
+import { regionAndCountry } from "@src/format/country";
+import { adminCitiesHref, adminRestaurantsHref, googleMapsHref, openStreetMapHref, profileHref, restaurantHref } from "@src/hrefs";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
+import { parseId } from "@src/validation/id";
 import { parseOption } from "@src/validation/search-params";
 
 const session = Astro.locals.session;
@@ -22,10 +27,12 @@ if (!can(session.user, "admin-console:view")) {
 }
 
 const status = parseOption(Astro.url.searchParams, "status", restaurantStatuses, "pending");
-const { restaurants } = Astro.locals.db;
+const { restaurants, citySearches } = Astro.locals.db;
+const searchId = parseId(Astro.url.searchParams.get("search") ?? undefined);
+const citySearch = searchId ? await citySearches.findById(searchId) : undefined;
 const [page, counts] = await Promise.all([
-  restaurants.listByStatus(status, parsePageRequest(Astro.url)),
-  restaurants.countByStatus(),
+  restaurants.listByStatus(status, parsePageRequest(Astro.url), citySearch?.id),
+  restaurants.countByStatus(citySearch?.id),
 ]);
 
 const statusLabels: Record<RestaurantStatus, string> = { pending: "Waiting", approved: "Approved", rejected: "Rejected" };
@@ -40,41 +47,83 @@ const emptyMessages: Record<RestaurantStatus, string> = {
   approved: "No restaurants are approved.",
   rejected: "No suggestions are rejected.",
 };
+
+// The checkboxes belong to this form through their form attribute, so each row can keep its own form.
+const selectionForm = "decide-selected";
+// The toast would show what was wrong with the form as Astro writes it, so it gets the message itself.
+const selectionError = submittedForm(Astro.locals, actions.admin.decideRestaurants)?.errors("restaurantId")?.[0];
 ---
 
 <BaseLayout
   title="Restaurants"
-  description="Approve or reject the restaurants that users suggest"
-  prefetchUrls={["/admin", "/admin/users"]}
+  description="Approve or reject the restaurants that users suggest and city searches find"
+  prefetchUrls={["/admin", adminCitiesHref]}
+  toast={selectionError ? { variant: "error", title: "Decision failed", text: selectionError } : undefined}
 >
   <TabNav aria-label="Admin console" tabs={adminTabs(Astro.url.pathname)} />
 
-  <h1 class="mt-6">Restaurants</h1>
+  <h1 class="mt-6">
+    {citySearch ? (
+      <>
+        Restaurants in {citySearch.name}
+        <span class="t-body block text-fg-muted">{regionAndCountry(citySearch)}</span>
+      </>
+    ) : "Restaurants"}
+  </h1>
+  {citySearch && <a class="link t-body-sm mt-1 inline-block" href={adminRestaurantsHref()}>Show all restaurants</a>}
 
   <TabNav class="mt-4" aria-label="Filter restaurants" tabs={statusTabs} />
 
+  {page.items.length > 0 && (
+    <form id={selectionForm} class="mt-4 flex gap-2" method="post" action={actions.admin.decideRestaurants}>
+      {status !== "approved" && (
+        <button class="btn btn-primary btn-sm" type="submit" name="status" value="approved"><Check size={16} aria-hidden="true" />Approve selected</button>
+      )}
+      {status !== "rejected" && (
+        <button class="btn btn-danger btn-sm" type="submit" name="status" value="rejected"><X size={16} aria-hidden="true" />Reject selected</button>
+      )}
+    </form>
+  )}
+
   <PagedSection class="mt-4" aria-label="Restaurants" page={page} empty={emptyMessages[status]}>
     <ul class="list">
-      {page.items.map((restaurant) => (
-        <li class="list-row max-sm:flex-col max-sm:items-stretch">
-          <div class="min-w-0 flex-1">
-            <a class="list-row-link field-label block truncate" href={restaurantHref(restaurant.id)}>{restaurant.name}</a>
-            <p class="t-body-sm truncate text-fg-muted">
-              {[restaurant.location.addressLine1, restaurant.location.city, restaurant.location.country].filter(Boolean).join(", ")}
-            </p>
-            <p class="t-body-sm text-fg-muted">
-              {restaurant.suggester && (
-                <>
-                  <a class="link-hover" href={profileHref(restaurant.suggester.username)}>{restaurant.suggester.fullname}</a>
-                  {" · "}
-                </>
-              )}
-              <RelativeTime date={restaurant.createdAt} />
-            </p>
-          </div>
-          <SuggestionDecision class="shrink-0" restaurantId={restaurant.id} status={restaurant.status} />
-        </li>
-      ))}
+      {page.items.map((restaurant) => {
+        const address = [restaurant.location.addressLine1, restaurant.location.city, restaurant.location.country].filter(Boolean).join(", ");
+        return (
+          <li class="list-row max-sm:flex-col max-sm:items-stretch">
+            <input
+              class="checkbox shrink-0 max-sm:self-start"
+              type="checkbox"
+              form={selectionForm}
+              name="restaurantId"
+              value={restaurant.id}
+              aria-label={`Select ${restaurant.name}`}
+            />
+            <div class="min-w-0 flex-1">
+              <a class="list-row-link field-label block truncate" href={restaurantHref(restaurant.id)}>{restaurant.name}</a>
+              <p class="t-body-sm truncate text-fg-muted">{address}</p>
+              <p class="t-body-sm text-fg-muted">
+                {restaurant.suggester && (
+                  <>
+                    <a class="link link-hover" href={profileHref(restaurant.suggester.username)}>{restaurant.suggester.fullname}</a>
+                    {" · "}
+                  </>
+                )}
+                <RelativeTime date={restaurant.createdAt} />
+                {" · "}
+                <a class="link link-hover" href={googleMapsHref({ name: restaurant.name, googleMapsId: restaurant.googleMapsId, address })} target="_blank" rel="noopener noreferrer">Google Maps</a>
+                {restaurant.osmId && (
+                  <>
+                    {" · "}
+                    <a class="link link-hover" href={openStreetMapHref(restaurant.osmId)} target="_blank" rel="noopener noreferrer">OpenStreetMap</a>
+                  </>
+                )}
+              </p>
+            </div>
+            <SuggestionDecision class="shrink-0" restaurantId={restaurant.id} status={restaurant.status} />
+          </li>
+        );
+      })}
     </ul>
   </PagedSection>
 </BaseLayout>

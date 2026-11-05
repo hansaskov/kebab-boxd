@@ -1,9 +1,10 @@
 ---
-import { Check, X } from "@lucide/astro";
+import { Check, MapPinned, TriangleAlert, X } from "@lucide/astro";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import Avatar from "@src/components/Avatar.astro";
 import PagedSection from "@src/components/PagedSection.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
+import { plural } from "@src/format/plural";
 import { notificationHref } from "@src/hrefs";
 import { isSpeculative, refuseSpeculation } from "@src/middleware/speculations";
 import { parsePageRequest } from "@src/pagination";
@@ -41,9 +42,11 @@ const prefetchUrls = [...new Set(unreadHrefs)].slice(0, 3);
             <Avatar class="size-10 text-sm" name={notification.actor.fullname} picture={notification.actor.profilePicture} />
           ) : (
             <span class="grid size-10 shrink-0 place-items-center rounded-full bg-subtle" aria-hidden="true">
-              {notification.kind === "suggestion-approved"
-                ? <Check class="text-brand-text" size={20} />
-                : <X class="text-danger" size={20} />}
+              {notification.kind === "suggestion-approved" && <Check class="text-brand-text" size={20} />}
+              {notification.kind === "suggestion-rejected" && <X class="text-danger" size={20} />}
+              {notification.kind === "city-search-finished" && (notification.citySearch.status === "failed"
+                ? <TriangleAlert class="text-danger" size={20} />
+                : <MapPinned class="text-brand-text" size={20} />)}
             </span>
           )}
           <a class="list-row-link t-body-sm min-w-0 flex-1" href={notificationHref(notification)}>
@@ -62,6 +65,13 @@ const prefetchUrls = [...new Set(unreadHrefs)].slice(0, 3);
             {notification.kind === "suggestion-rejected" && (
               <>An admin rejected <strong class="font-semibold">{notification.restaurant.name}</strong>.</>
             )}
+            {notification.kind === "city-search-finished" && (() => {
+              const { name, status, restaurantCount } = notification.citySearch;
+              const city = <strong class="font-semibold">{name}</strong>;
+              if (status === "failed") return <>The search for restaurants in {city} failed.</>;
+              if (restaurantCount === 0) return <>Found no new restaurants in {city}.</>;
+              return <>Found {plural(restaurantCount, "new restaurant")} in {city}.</>;
+            })()}
           </a>
           <RelativeTime class="t-body-sm shrink-0 text-fg-muted" date={notification.createdAt} narrow />
           <span class:list={["size-2 shrink-0 rounded-full", { "bg-brand-text": !notification.isRead }]}>

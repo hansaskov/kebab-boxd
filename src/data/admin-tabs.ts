@@ -4,6 +4,7 @@ const adminPages = [
 	{ label: "Overview", href: "/admin" },
 	{ label: "Users", href: "/admin/users" },
 	{ label: "Restaurants", href: "/admin/restaurants" },
+	{ label: "Cities", href: "/admin/cities" },
 ];
 
 // The pages of the admin console, with the one the path is on, or under, as the current tab.

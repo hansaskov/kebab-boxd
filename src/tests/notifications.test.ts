@@ -15,6 +15,8 @@ function summary(notification: Notification) {
 		case "suggestion-approved":
 		case "suggestion-rejected":
 			return `${notification.kind} ${notification.restaurant.name}${read}`;
+		case "city-search-finished":
+			return `${notification.citySearch.status} search of ${notification.citySearch.name} with ${notification.citySearch.restaurantCount}${read}`;
 	}
 }
 
@@ -52,15 +54,15 @@ describe("Notifications", () => {
 		const ada = insertUser(client, "ada");
 		const grill = insertRestaurant(client, "Bosporus Grill", { suggestedBy: ada.id });
 
-		await db.restaurants.decide(admin.id, grill.id, "approved");
+		await db.restaurants.decide(admin.id, [grill.id], "approved");
 
 		expect(await inbox(db, ada.id)).toEqual(["suggestion-approved Bosporus Grill"]);
 
-		await db.restaurants.decide(admin.id, grill.id, "approved");
+		await db.restaurants.decide(admin.id, [grill.id], "approved");
 
 		expect(await inbox(db, ada.id)).toEqual(["suggestion-approved Bosporus Grill (read)"]);
 
-		await db.restaurants.decide(admin.id, grill.id, "rejected");
+		await db.restaurants.decide(admin.id, [grill.id], "rejected");
 
 		expect(await inbox(db, ada.id)).toEqual(["suggestion-rejected Bosporus Grill"]);
 	});

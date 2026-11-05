@@ -6,6 +6,7 @@ import { createDatabase } from "@src/db";
 import type { Database } from "@src/db";
 import type { Client } from "@src/db/client";
 import { relations } from "@src/db/relations";
+import { durableSqliteLimits } from "@src/db/limits";
 import { isProblem } from "@src/db/problem";
 import * as s from "@src/db/schema";
 import type { PageRequest } from "@src/pagination";
@@ -14,9 +15,11 @@ import { images, picturesBucket, removeAllPictures } from "@src/tests/cloudflare
 
 export const firstPage: PageRequest = { limit: 10, cursor: undefined };
 
-// A new, empty database for one test, in memory. The pictures it stores are removed when the test ends.
+// A new, empty database for one test, in memory, with the limits of SQLite in a Durable Object. The pictures
+// it stores are removed when the test ends.
 export function createTestDatabase() {
 	const client = drizzle(":memory:", { relations });
+	Object.assign(client.$client.limits, durableSqliteLimits);
 	migrate(client, { migrationsFolder: ".drizzle" });
 	onTestFinished(removeAllPictures);
 	return { client, db: createDatabase(client, createPictureStore(picturesBucket, images)) };

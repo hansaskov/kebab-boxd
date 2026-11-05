@@ -30,6 +30,8 @@ interface Permissions {
 	"restaurant:moderate": TargetRestaurant;
 	"restaurant:suggest": undefined;
 	"admin-console:view": undefined;
+	"city-search:start": undefined;
+	"city-list:update": undefined;
 }
 
 export type Permission = keyof Permissions;
@@ -42,6 +44,8 @@ export type UserPermission = PermissionOn<TargetUser>;
 export type ReviewPermission = PermissionOn<TargetReview>;
 export type RestaurantPermission = PermissionOn<TargetRestaurant>;
 export type ResourcePermission = UserPermission | ReviewPermission | RestaurantPermission;
+// The permissions on no resource, which depend only on the user.
+export type SubjectPermission = Exclude<Permission, ResourcePermission>;
 
 type ResourceArgs<P extends Permission> = Permissions[P] extends undefined ? [] : [resource: Permissions[P]];
 
@@ -78,6 +82,8 @@ const policies: { [P in Permission]: Policy<P> } = {
 	"restaurant:moderate": (subject) => isAdmin(subject),
 	"restaurant:suggest": () => true,
 	"admin-console:view": (subject) => isAdmin(subject),
+	"city-search:start": (subject) => isAdmin(subject),
+	"city-list:update": (subject) => isAdmin(subject),
 };
 
 export function can<P extends Permission>(subject: Subject, permission: P, ...resource: ResourceArgs<P>): boolean {

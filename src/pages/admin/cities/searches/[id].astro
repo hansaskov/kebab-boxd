@@ -1,0 +1,123 @@
+---
+import { RotateCw } from "@lucide/astro";
+import { actions } from "astro:actions";
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+import RelativeTime from "@src/components/RelativeTime.astro";
+import TabNav from "@src/components/TabNav.astro";
+import { can } from "@src/auth/permissions";
+import { adminTabs } from "@src/data/admin-tabs";
+import { maxAttempts } from "@src/db/city-searches";
+import { successToast } from "@src/format/action-toast";
+import { regionAndCountry } from "@src/format/country";
+import { plural } from "@src/format/plural";
+import { adminCitiesHref, adminRestaurantsHref, profileHref } from "@src/hrefs";
+import { parseId } from "@src/validation/id";
+
+const session = Astro.locals.session;
+
+if (!session) {
+  return Astro.redirect("/login");
+}
+
+if (!can(session.user, "admin-console:view")) {
+  return Astro.rewrite("/403");
+}
+
+const id = parseId(Astro.params.id);
+const search = id ? await Astro.locals.db.citySearches.findById(id) : undefined;
+if (!search) {
+  return Astro.rewrite("/404");
+}
+
+const now = new Date();
+const isWaitingToRetry = search.status === "queued" && search.attempts > 0;
+const isRunning = search.status === "queued" || search.status === "adding";
+const canRetry = search.status === "failed" || isWaitingToRetry || (search.status === "adding" && search.retryingCandidateCount > 0);
+const restaurants = plural(search.restaurantCount, "restaurant");
+---
+
+<BaseLayout
+  title={`Search of ${search.name}`}
+  description={`The search for kebab restaurants in ${search.name}`}
+  prefetchUrls={[adminRestaurantsHref(search.id), adminCitiesHref]}
+  refreshSeconds={isRunning ? 15 : undefined}
+  toast={successToast(Astro.locals, actions.admin.retryCitySearch, { title: "Trying again", text: "The search runs again now." })}
+>
+  <TabNav aria-label="Admin console" tabs={adminTabs(Astro.url.pathname)} />
+
+  <h1 class="mt-6">
+    {search.name}
+    <span class="t-body block text-fg-muted">{regionAndCountry(search)}</span>
+  </h1>
+  <p class="t-body-sm mt-1 text-fg-muted">
+    {search.starter && (
+      <>
+        <a class="link link-hover" href={profileHref(search.starter.username)}>{search.starter.fullname}</a>
+        {" · "}
+      </>
+    )}
+    <RelativeTime date={search.createdAt} />
+  </p>
+
+  <div class="settings-card mt-6">
+    <div class="settings-row">
+      <div class="settings-row-text">
+        <p class:list={["field-label", { "text-danger": search.status === "failed" || isWaitingToRetry }]}>
+          {search.status === "queued" && !isWaitingToRetry && "Searching OpenStreetMap"}
+          {isWaitingToRetry && "No server answered"}
+          {search.status === "adding" && `Adding restaurants, ${search.candidateCount} left`}
+          {search.status === "finished" && `Done, ${restaurants} added`}
+          {search.status === "failed" && "Failed"}
+        </p>
+        <p class="t-body-sm text-fg-muted">
+          {search.status === "queued" && !isWaitingToRetry && "The places are added one at a time once OpenStreetMap answers."}
+          {isWaitingToRetry && (
+            <>
+              Attempt {search.attempts + 1} of {maxAttempts}{" "}
+              {search.runAfter > now ? <RelativeTime date={search.runAfter} /> : "now"}.
+            </>
+          )}
+          {search.status === "adding" && (
+            <>
+              {restaurants} added so far.
+              {search.retryingCandidateCount > 0 && ` ${search.retryingCandidateCount} wait to look up their address again.`}
+            </>
+          )}
+          {search.status === "finished" && "Places that were restaurants already are left out."}
+          {search.status === "failed" && `No server answered in ${maxAttempts} attempts.`}
+        </p>
+      </div>
+      {canRetry && (
+        <form class="settings-row-action" method="post" action={actions.admin.retryCitySearch}>
+          <input type="hidden" name="citySearchId" value={search.id} />
+          <button class="btn btn-secondary btn-md w-full" type="submit"><RotateCw size={16} aria-hidden="true" />Try again now</button>
+        </form>
+      )}
+    </div>
+    {search.restaurantCount > 0 && (
+      <div class="settings-row">
+        <div class="settings-row-text">
+          <p class="field-label">{restaurants}</p>
+          <p class="t-body-sm text-fg-muted">Approve or reject what the search found.</p>
+        </div>
+        <a class="btn btn-primary btn-md settings-row-action" href={adminRestaurantsHref(search.id)}>Review</a>
+      </div>
+    )}
+  </div>
+
+  <section class="mt-8" aria-labelledby="log-heading">
+    <h2 id="log-heading">Log</h2>
+    {search.events.length === 0 ? (
+      <p class="t-body mt-3 text-fg-muted">Nothing has happened yet.</p>
+    ) : (
+      <ol class="list mt-3">
+        {search.events.map((event) => (
+          <li class="list-row items-start">
+            <RelativeTime class="t-body-sm w-20 shrink-0 text-fg-muted" date={event.createdAt} narrow />
+            <p class:list={["t-body-sm min-w-0 flex-1 break-words", { "text-danger": event.isError }]}>{event.message}</p>
+          </li>
+        ))}
+      </ol>
+    )}
+  </section>
+</BaseLayout>

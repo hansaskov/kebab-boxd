@@ -3,21 +3,12 @@ import { z } from "astro/zod";
 import { orThrow, requireSession, targetUserSchema } from "@src/actions/authorize";
 import { roles } from "@src/db/schema";
 import { adminUserHref } from "@src/hrefs";
-import { restaurantTargetSchema } from "@src/validation/restaurant";
+import { citySearchSchema, citySearchTargetSchema } from "@src/validation/city-search";
+import { decisionSchema } from "@src/validation/restaurant";
 
 export const changeUserRoleSchema = targetUserSchema.extend({
   role: z.enum(roles),
 });
-
-function decideSuggestionAction(status: "approved" | "rejected") {
-  return defineAction({
-    accept: "form",
-    input: restaurantTargetSchema,
-    handler: async ({ restaurantId }, { locals }) => {
-      orThrow(await locals.db.restaurants.decide(requireSession(locals).user.id, restaurantId, status));
-    },
-  });
-}
 
 function banAction(write: "ban" | "unban") {
   return defineAction({
@@ -31,8 +22,34 @@ function banAction(write: "ban" | "unban") {
 }
 
 export const adminActions = {
-  approveRestaurant: decideSuggestionAction("approved"),
-  rejectRestaurant: decideSuggestionAction("rejected"),
+  // The submit button sends the status, so one form can approve or reject.
+  decideRestaurants: defineAction({
+    accept: "form",
+    input: decisionSchema,
+    handler: async ({ restaurantId, status }, { locals }) => {
+      return orThrow(await locals.db.restaurants.decide(requireSession(locals).user.id, restaurantId, status));
+    },
+  }),
+  startCitySearch: defineAction({
+    accept: "form",
+    input: citySearchSchema,
+    handler: async ({ cityId, cityName }, { locals }) => {
+      orThrow(await locals.db.citySearches.start(requireSession(locals).user.id, cityId, cityName));
+    },
+  }),
+  retryCitySearch: defineAction({
+    accept: "form",
+    input: citySearchTargetSchema,
+    handler: async ({ citySearchId }, { locals }) => {
+      orThrow(await locals.db.citySearches.retry(requireSession(locals).user.id, citySearchId));
+    },
+  }),
+  updateCityList: defineAction({
+    accept: "form",
+    handler: async (_input, { locals }) => {
+      orThrow(await locals.db.cities.requestUpdate(requireSession(locals).user.id));
+    },
+  }),
   banUser: banAction("ban"),
   unbanUser: banAction("unban"),
   changeUserRole: defineAction({

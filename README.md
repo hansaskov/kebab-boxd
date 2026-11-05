@@ -32,9 +32,11 @@ pnpm sst:deploy
 | Website | Worker made by `sst.cloudflare.Astro` |
 | Database | SQLite in a Durable Object, in the `Backend` Worker |
 | Pictures | R2 bucket, made into WebP by Cloudflare Images |
-| Suggestion queue and data purge | Alarms of the Durable Object |
+| Suggestion queue, city searches, city list downloads and data purge | Alarms of the Durable Object |
 
 After a change to `src/db/schema.ts`, run `pnpm db:generate`. The Durable Object applies new migrations when it starts.
+
+`pnpm test` runs without the network. `pnpm test:e2e` runs a city search from start to end against the real GeoNames, Overpass and Nominatim, and takes a few minutes.
 
 ## Tech Stack
 
@@ -65,7 +67,9 @@ After a change to `src/db/schema.ts`, run `pnpm db:generate`. The Durable Object
 - A user can update their settings and profile picture.
 - A user can delete their account.
 - A user can download all their data. (GDPR)
-- An admin can approve or reject restaurant suggestions.
+- An admin can approve or reject restaurant suggestions, several at once.
+- An admin can search a city for kebab restaurants in OpenStreetMap, and is notified when the search is done.
+- An admin can download the list of cities from GeoNames, and update it later.
 - An admin can find any user, change their role, and ban them.
 
 ## Roadmap

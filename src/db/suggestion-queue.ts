@@ -1,22 +1,17 @@
 import { and, eq, sql } from "drizzle-orm";
-import type { Client, Transaction } from "@src/db/client";
+import type { Client } from "@src/db/client";
+import { findExisting, insertPendingRestaurant } from "@src/db/pending-restaurants";
 import { isProblem, problem, type Problem } from "@src/db/problem";
 import * as s from "@src/db/schema";
-import { boundsAround } from "@src/map/coordinates";
 import type { Place } from "@src/map/google-maps";
 import type { Address } from "@src/map/nominatim";
 
 // Finished links are kept for weeks, so only the latest are shown.
 const maxListed = 20;
-// Two suggestions with the same name this close to each other are taken to be the same restaurant.
-const duplicateDistanceMeters = 150;
 // Enough to suggest a few restaurants in a row, too few to flood the queue.
 export const maxQueuedPerUser = 5;
 export const maxAttempts = 5;
 const retryDelaySeconds = 60;
-
-// The names are compared without case in every alphabet. SQLite's lower() only knows A to Z.
-const sameName = new Intl.Collator(undefined, { sensitivity: "accent" });
 
 export type FinishResult =
 	| { status: "suggested"; id: number }
@@ -25,23 +20,9 @@ export type FinishResult =
 	| { status: "gone" };
 
 // A rejected restaurant is no duplicate: it may be suggested again, for example with a corrected address.
-function findDuplicate(tx: Transaction, { name, googleMapsId, latitude, longitude }: Place) {
-	const { north, south, east, west } = boundsAround({ latitude, longitude }, duplicateDistanceMeters);
-	const candidates = tx.query.restaurants
-		.findMany({
-			columns: { id: true, name: true, googleMapsId: true },
-			where: {
-				status: { in: ["approved", "pending"] },
-				OR: [{ googleMapsId }, { location: { latitude: { gte: south, lte: north }, longitude: { gte: west, lte: east } } }],
-			},
-		})
-		.sync();
-	return candidates.find((restaurant) => restaurant.googleMapsId === googleMapsId || sameName.compare(restaurant.name, name) === 0);
-}
+const duplicateStatuses = ["approved", "pending"] as const;
 
-export function createSuggestionQueue(client: Client) {
-	const queuedListeners = new Set<() => void>();
-
+export function createSuggestionQueue(client: Client, wake: () => void) {
 	return {
 		// A duplicate of a restaurant that was rejected or deleted is left out: the place may be suggested again.
 		async listBy(userId: number) {
@@ -66,12 +47,6 @@ export function createSuggestionQueue(client: Client) {
 			});
 		},
 
-		// Lets the worker sleep while the queue is empty. Returns the function that stops listening.
-		onQueued(listener: () => void) {
-			queuedListeners.add(listener);
-			return () => queuedListeners.delete(listener);
-		},
-
 		async queue(userId: number, link: string): Promise<{ id: number } | Problem> {
 			const result = client.transaction(
 				(tx) => {
@@ -93,7 +68,7 @@ export function createSuggestionQueue(client: Client) {
 					return tx.insert(s.suggestionQueue).values({ userId, link }).returning({ id: s.suggestionQueue.id }).get();
 				},
 			);
-			if (!isProblem(result)) for (const listener of queuedListeners) listener();
+			if (!isProblem(result)) wake();
 			return result;
 		},
 
@@ -103,7 +78,7 @@ export function createSuggestionQueue(client: Client) {
 					const row = tx.query.suggestionQueue.findFirst({ columns: { userId: true }, where: { id, status: "queued" } }).sync();
 					if (!row) return { status: "gone" };
 
-					const duplicate = findDuplicate(tx, place);
+					const duplicate = findExisting(tx, place, duplicateStatuses);
 					if (duplicate) {
 						tx.update(s.suggestionQueue)
 							.set({ status: "duplicate", name: place.name, duplicateId: duplicate.id })
@@ -112,13 +87,7 @@ export function createSuggestionQueue(client: Client) {
 						return { status: "duplicate", id: duplicate.id };
 					}
 
-					const { name, googleMapsId, latitude, longitude } = place;
-					const location = tx.insert(s.locations).values({ ...address, latitude, longitude }).returning({ id: s.locations.id }).get();
-					const restaurant = tx
-						.insert(s.restaurants)
-						.values({ name, googleMapsId, locationId: location.id, suggestedBy: row.userId, status: "pending" })
-						.returning({ id: s.restaurants.id })
-						.get();
+					const restaurant = insertPendingRestaurant(tx, place, address, { suggestedBy: row.userId });
 					tx.delete(s.suggestionQueue).where(eq(s.suggestionQueue.id, id)).run();
 					return { status: "suggested", id: restaurant.id };
 				},

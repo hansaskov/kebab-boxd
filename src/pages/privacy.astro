@@ -63,8 +63,12 @@ const rights: { text: string; section: SettingsSection }[] = [
         We remove the camera details from every picture you upload, such as the place where it was taken.
       </li>
       <li>
+        <strong>What you do as an admin:</strong> the cities you search for restaurants and when you update the city list.
+        Other admins can see who searched each city.
+      </li>
+      <li>
         <strong>Your notifications:</strong> who followed you or liked your reviews, the decisions on the restaurants you suggest,
-        whether you have read them, and which kinds you want. Only you can see them.
+        the city searches you started, whether you have read them, and which kinds you want. Only you can see them.
       </li>
       <li>
         <strong>Your devices:</strong> when each device signed in, and which pages it opened and when.
@@ -104,7 +108,8 @@ const rights: { text: string; section: SettingsSection }[] = [
       so the OpenStreetMap Foundation gets your IP address when you open a map. Read the
       <a class="link" href="https://osmfoundation.org/wiki/Privacy_Policy">OpenStreetMap privacy policy</a>.
       When you suggest a restaurant, our server opens the Google Maps link you send and asks OpenStreetMap for the address of the restaurant.
-      Neither gets to know who sent it.
+      When an admin searches a city, our server asks OpenStreetMap for the kebab restaurants around it.
+      OpenStreetMap and Google never get to know who asked.
       We do not sell your data or share it with advertisers.
     </p>
   </section>
@@ -114,11 +119,23 @@ const rights: { text: string; section: SettingsSection }[] = [
     <ul class="t-body mt-2 list-disc space-y-2 pl-5">
       <li>Your account and everything you post: until you delete your account.</li>
       <li>A notification: until the follow, like, review or decision it is about is undone, or until you delete your account.</li>
+      <li>Who started a city search or a city list update: until you delete your account. The search itself stays.</li>
       <li>A Google Maps link you suggest: until it becomes a restaurant, or {days(finishedSuggestionRetentionSeconds)} after we could not use it.</li>
       <li>A signed-in device: {days(inactivityTimeoutSeconds)} after its last use, or when you sign it out.</li>
       <li>The page history of a device: {days(historyRetentionSeconds)}, or less if the device is signed out first.</li>
       <li>A banned account: as long as the ban lasts, so that the person cannot sign up again.</li>
     </ul>
+  </section>
+
+  <section class="mt-8">
+    <h2>Where the data comes from</h2>
+    <p class="t-body mt-2">
+      The maps, the addresses and the restaurants that city searches find come from
+      <a class="link" href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>,
+      under the <a class="link" href="https://opendatacommons.org/licenses/odbl/">Open Database License</a>.
+      The list of cities comes from <a class="link" href="https://www.geonames.org/">GeoNames</a>,
+      under the <a class="link" href="https://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 License</a>.
+    </p>
   </section>
 
   <section class="mt-8">

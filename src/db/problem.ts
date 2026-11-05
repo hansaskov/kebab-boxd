@@ -1,9 +1,21 @@
-import type { Refusal, ResourcePermission } from "@src/auth/permissions";
+import type { Refusal, ResourcePermission, SubjectPermission } from "@src/auth/permissions";
 
 // Why a write did not happen. The actions turn each one into the message the user sees.
 export type Problem =
 	| { problem: Refusal; permission: ResourcePermission }
-	| { problem: "invalid-picture" | "too-many-pictures" | "username-taken" | "queue-full" | "account-gone" };
+	| { problem: "forbidden"; permission: SubjectPermission }
+	| {
+			problem:
+				| "invalid-picture"
+				| "too-many-pictures"
+				| "username-taken"
+				| "queue-full"
+				| "account-gone"
+				| "city-not-found"
+				| "city-search-running"
+				| "city-search-not-found"
+				| "city-search-finished";
+	  };
 
 export function problem<P extends Exclude<Problem["problem"], Refusal>>(name: P) {
 	return { problem: name };

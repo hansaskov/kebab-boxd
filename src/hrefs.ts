@@ -29,6 +29,29 @@ export function adminUserHref(username: string) {
 	return `/admin/users/${encodeURIComponent(username)}`;
 }
 
+export const adminCitiesHref = "/admin/cities";
+
+export function adminCitySearchHref(id: number) {
+	return `${adminCitiesHref}/searches/${id}`;
+}
+
+// The restaurants waiting for approval, or those one CitySearch found.
+export function adminRestaurantsHref(citySearchId: number | undefined = undefined) {
+	return citySearchId === undefined ? "/admin/restaurants" : `/admin/restaurants?search=${citySearchId}`;
+}
+
+// The element on OpenStreetMap, such as node/123.
+export function openStreetMapHref(osmId: string) {
+	return `https://www.openstreetmap.org/${osmId}`;
+}
+
+// The place on Google Maps, by its id when a User suggested it and by its name and address otherwise.
+export function googleMapsHref({ name, googleMapsId, address }: { name: string; googleMapsId: string | null; address: string }) {
+	const query = new URLSearchParams({ q: [name, address].filter(Boolean).join(", ") });
+	if (googleMapsId) query.set("ftid", googleMapsId);
+	return `https://www.google.com/maps?${query}`;
+}
+
 export function restaurantHref(id: number) {
 	return `/restaurants/${id}`;
 }
@@ -63,6 +86,11 @@ export function notificationHref(notification: Notification) {
 		case "suggestion-approved":
 		case "suggestion-rejected":
 			return restaurantHref(notification.restaurant.id);
+		// To the restaurants the search found, or, when it found none or failed, to its log.
+		case "city-search-finished": {
+			const { id, status, restaurantCount } = notification.citySearch;
+			return status === "finished" && restaurantCount > 0 ? adminRestaurantsHref(id) : adminCitySearchHref(id);
+		}
 	}
 }
 

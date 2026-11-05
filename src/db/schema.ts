@@ -92,6 +92,9 @@ export const restaurants = p.snakeCase.table("restaurants", {
   suggestedBy: p.int({ mode: "number" }).references(() => users.id),
   status: p.text({ enum: ["approved", "pending", "rejected"] }).notNull().default("pending"),
   googleMapsId: p.text(),
+  // The OpenStreetMap element of a restaurant a CitySearch found, such as node/123.
+  osmId: p.text(),
+  citySearchId: p.int({ mode: "number" }).references(() => citySearches.id, {onDelete: "set null"}),
   ratingAvg: p.real().notNull().default(0),
   reviewCount: p.int().notNull().default(0),
   updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(now),
@@ -104,6 +107,8 @@ export const restaurants = p.snakeCase.table("restaurants", {
   p.index("restaurants_status_review_count_id_idx").on(t.status, t.reviewCount, t.id),
   // Not unique: a rejected restaurant may be suggested again.
   p.index("restaurants_google_maps_id_idx").on(t.googleMapsId),
+  p.index("restaurants_osm_id_idx").on(t.osmId),
+  p.index("restaurants_city_search_id_status_id_idx").on(t.citySearchId, t.status, t.id),
 ])
 
 export type Restaurant = typeof restaurants.$inferSelect
@@ -151,6 +156,90 @@ export const suggestionQueue = p.snakeCase.table("suggestion_queue", {
 
 export type QueuedSuggestion = typeof suggestionQueue.$inferSelect
 export type QueuedSuggestionStatus = QueuedSuggestion["status"]
+
+// The cities whose search key starts with the same two letters, in one row, the most populous first. One row
+// for each city would cost more writes than the free plan allows in a day. The cities are a JSON array of
+// CityGroupRow, written as text so that the 13 MB of the CityList are not turned into objects and back.
+export const cityGroups = p.snakeCase.table("city_groups", {
+  prefix: p.text().primaryKey(),
+  cities: p.text().notNull(),
+})
+
+// A city as GeoNames lists it: [id, name, region, country code, latitude, longitude, population, search keys].
+export type CityGroupRow = [number, string, string | null, string, number, number, number, string[]]
+
+// An Admin's request to download the CityList from GeoNames. The newest finished one is the list in use.
+export const cityListUpdates = p.snakeCase.table("city_list_updates", {
+  id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
+  requestedBy: p.int({ mode: "number" }).references(() => users.id, {onDelete: "set null"}),
+  status: p.text({ enum: ["queued", "finished", "failed"] }).notNull().default("queued"),
+  cityCount: p.int(),
+  // Why the download failed.
+  error: p.text(),
+  updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(now),
+  createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
+}, (t) => [
+  p.index("city_list_updates_status_id_idx").on(t.status, t.id),
+  p.index("city_list_updates_requested_by_idx").on(t.requestedBy),
+])
+
+export type CityListUpdateStatus = (typeof cityListUpdates.$inferSelect)["status"]
+
+// An Admin's request to find the kebab restaurants in a City. The City is copied, since the CityList may change.
+export const citySearches = p.snakeCase.table("city_searches", {
+  id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
+  startedBy: p.int({ mode: "number" }).references(() => users.id, {onDelete: "set null"}),
+  cityId: p.int({ mode: "number" }).notNull(),
+  name: p.text().notNull(),
+  region: p.text(),
+  countryCode: p.text().notNull(),
+  latitude: p.real().notNull(),
+  longitude: p.real().notNull(),
+  population: p.int().notNull(),
+  status: p.text({ enum: ["queued", "adding", "finished", "failed"] }).notNull().default("queued"),
+  attempts: p.int().notNull().default(0),
+  runAfter: p.int({ mode: "timestamp" }).notNull().$default(now),
+  updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(now),
+  createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
+}, (t) => [
+  p.index("city_searches_status_run_after_id_idx").on(t.status, t.runAfter, t.id),
+  p.index("city_searches_city_id_status_idx").on(t.cityId, t.status),
+  p.index("city_searches_started_by_idx").on(t.startedBy),
+])
+
+export type CitySearchStatus = (typeof citySearches.$inferSelect)["status"]
+
+// What happened while a CitySearch ran, as the Admin reads it: the servers it asked and what they answered,
+// and the places it could not look up.
+export const citySearchEvents = p.snakeCase.table("city_search_events", {
+  id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
+  citySearchId: p.int({ mode: "number" }).notNull().references(() => citySearches.id, {onDelete: "cascade"}),
+  isError: p.int({ mode: "boolean" }).notNull().default(false),
+  message: p.text().notNull(),
+  createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
+}, (t) => [
+  p.index("city_search_events_city_search_id_id_idx").on(t.citySearchId, t.id),
+])
+
+// A place OpenStreetMap found for a CitySearch, waiting for its address before it becomes a Restaurant.
+// The address is what OpenStreetMap knows of it.
+export const citySearchCandidates = p.snakeCase.table("city_search_candidates", {
+  id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
+  citySearchId: p.int({ mode: "number" }).notNull().references(() => citySearches.id, {onDelete: "cascade"}),
+  osmId: p.text().notNull(),
+  name: p.text().notNull(),
+  latitude: p.real().notNull(),
+  longitude: p.real().notNull(),
+  addressLine1: p.text(),
+  postalCode: p.text(),
+  city: p.text(),
+  country: p.text(),
+  attempts: p.int().notNull().default(0),
+  runAfter: p.int({ mode: "timestamp" }).notNull().$default(now),
+}, (t) => [
+  p.index("city_search_candidates_run_after_id_idx").on(t.runAfter, t.id),
+  p.uniqueIndex("city_search_candidates_city_search_id_osm_id_unique").on(t.citySearchId, t.osmId),
+])
 
 export const pictures = p.snakeCase.table("pictures", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
@@ -232,26 +321,29 @@ export type NewHistoryEntry = typeof history.$inferInsert
 export const notifications = p.snakeCase.table("notifications", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
   recipientId: p.int({ mode: "number" }).notNull().references(() => users.id, {onDelete: "cascade"}),
-  kind: p.text({ enum: ["follow", "like", "suggestion-approved", "suggestion-rejected"] }).notNull(),
+  kind: p.text({ enum: ["follow", "like", "suggestion-approved", "suggestion-rejected", "city-search-finished"] }).notNull(),
   actorId: p.int({ mode: "number" }).references(() => users.id, {onDelete: "cascade"}),
   reviewId: p.int({ mode: "number" }).references(() => reviews.id, {onDelete: "cascade"}),
   restaurantId: p.int({ mode: "number" }).references(() => restaurants.id, {onDelete: "cascade"}),
+  citySearchId: p.int({ mode: "number" }).references(() => citySearches.id, {onDelete: "cascade"}),
   readAt: p.int({ mode: "timestamp" }),
   updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(now),
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
 }, (t) => [
   p.index("notifications_recipient_id_created_at_id_idx").on(t.recipientId, t.createdAt, t.id),
   p.index("notifications_actor_id_idx").on(t.actorId),
-  // Only likes have a review and only decisions have a restaurant. The other kinds leave the column
-  // null, and nulls never collide, so these indexes need no condition on the kind.
+  // Only likes have a review, only decisions have a restaurant and only finished searches have a search. The
+  // other kinds leave the column null, and nulls never collide, so these indexes need no condition on the kind.
   p.uniqueIndex("notifications_review_id_actor_id_unique").on(t.reviewId, t.actorId),
   p.uniqueIndex("notifications_restaurant_id_unique").on(t.restaurantId),
+  p.uniqueIndex("notifications_city_search_id_unique").on(t.citySearchId),
   p.uniqueIndex("notifications_follow_unique").on(t.recipientId, t.actorId).where(sql`${t.kind} = 'follow'`),
   p.check("notifications_not_own_action", sql`${t.actorId} IS NULL OR ${t.actorId} != ${t.recipientId}`),
   p.check("notifications_kind_columns", sql`CASE ${t.kind}
-    WHEN 'follow' THEN ${t.actorId} IS NOT NULL AND ${t.reviewId} IS NULL AND ${t.restaurantId} IS NULL
-    WHEN 'like' THEN ${t.actorId} IS NOT NULL AND ${t.reviewId} IS NOT NULL AND ${t.restaurantId} IS NULL
-    ELSE ${t.actorId} IS NULL AND ${t.reviewId} IS NULL AND ${t.restaurantId} IS NOT NULL
+    WHEN 'follow' THEN ${t.actorId} IS NOT NULL AND ${t.reviewId} IS NULL AND ${t.restaurantId} IS NULL AND ${t.citySearchId} IS NULL
+    WHEN 'like' THEN ${t.actorId} IS NOT NULL AND ${t.reviewId} IS NOT NULL AND ${t.restaurantId} IS NULL AND ${t.citySearchId} IS NULL
+    WHEN 'city-search-finished' THEN ${t.actorId} IS NULL AND ${t.reviewId} IS NULL AND ${t.restaurantId} IS NULL AND ${t.citySearchId} IS NOT NULL
+    ELSE ${t.actorId} IS NULL AND ${t.reviewId} IS NULL AND ${t.restaurantId} IS NOT NULL AND ${t.citySearchId} IS NULL
   END`),
 ])
 

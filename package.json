@@ -13,6 +13,7 @@
     "db:generate": "drizzle-kit generate",
     "check": "astro check",
     "test": "vitest run",
+    "test:e2e": "E2E=1 vitest run src/tests/e2e",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix"
   },

@@ -1,5 +1,6 @@
-import { refusal, type Resource, type ResourcePermission, type UserPermission } from "@src/auth/permissions";
+import { can, refusal, type Resource, type ResourcePermission, type SubjectPermission, type UserPermission } from "@src/auth/permissions";
 import type { Client, Transaction } from "@src/db/client";
+import { chunks, durableSqliteLimits } from "@src/db/limits";
 import type { Problem } from "@src/db/problem";
 import { isListedReview } from "@src/db/visibility";
 
@@ -27,6 +28,36 @@ export function authorizedWrite<P extends ResourcePermission, R extends Resource
 	return client.transaction(run as (tx: Transaction) => Problem) as T | Problem;
 }
 
+// A write that needs a permission on no resource, checked against the actor as the transaction reads them.
+export function authorizedSubjectWrite<T>(client: Client, actorId: number, permission: SubjectPermission, write: (tx: Transaction) => T): T | Problem {
+	const run = (tx: Transaction): T | Problem => {
+		const actor = findActor(tx, actorId);
+		return actor && !actor.bannedAt && can(actor, permission) ? write(tx) : { problem: "forbidden", permission };
+	};
+	// As in authorizedWrite, the writes are synchronous, so the result is no promise.
+	return client.transaction(run as (tx: Transaction) => Problem) as T | Problem;
+}
+
+// A write on several resources at once. Every resource must exist and allow the permission, or nothing is written.
+export function authorizedWriteAll<P extends ResourcePermission, R extends Resource<P>, T>(
+	client: Client,
+	actorId: number,
+	permission: P,
+	findResources: (tx: Transaction) => (R | undefined)[],
+	write: (tx: Transaction, resources: R[]) => T,
+): T | Problem {
+	const run = (tx: Transaction): T | Problem => {
+		const actor = findActor(tx, actorId);
+		const resources = findResources(tx);
+		for (const resource of resources) {
+			const refused = !actor || actor.bannedAt ? "forbidden" : refusal(actor, permission, resource);
+			if (refused) return { problem: refused, permission };
+		}
+		return write(tx, resources as R[]);
+	};
+	return client.transaction(run as (tx: Transaction) => Problem) as T | Problem;
+}
+
 // The user a write is about, as the permissions need them and the action needs them to name the page it goes back to.
 export const targetUserColumns = { id: true, username: true, role: true, bannedAt: true } as const;
 
@@ -45,8 +76,20 @@ export function writeOnUser(
 	return authorizedWrite(client, actorId, permission, (tx) => findTargetUser(tx, username), (tx, user) => write(tx, user) ?? user);
 }
 
+const targetRestaurantColumns = { id: true, status: true, suggestedBy: true } as const;
+
 export function findTargetRestaurant(tx: Transaction, id: number) {
-	return tx.query.restaurants.findFirst({ columns: { status: true, suggestedBy: true }, where: { id } }).sync();
+	return tx.query.restaurants.findFirst({ columns: targetRestaurantColumns, where: { id } }).sync();
+}
+
+// One for each id, in the same order, with undefined for an id that has no restaurant.
+export function findTargetRestaurants(tx: Transaction, ids: number[]) {
+	const found = new Map(
+		chunks(ids, durableSqliteLimits.variableNumber)
+			.flatMap((chunk) => tx.query.restaurants.findMany({ columns: targetRestaurantColumns, where: { id: { in: chunk } } }).sync())
+			.map((restaurant) => [restaurant.id, restaurant]),
+	);
+	return ids.map((id) => found.get(id));
 }
 
 // With its pictures, whose files go when the write removes them.

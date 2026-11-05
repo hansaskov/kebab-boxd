@@ -30,6 +30,8 @@ export const relations = defineRelations(s, (r) => ({
       to: r.notifications.recipientId,
     }),
     queuedSuggestions: r.many.suggestionQueue(),
+    citySearches: r.many.citySearches(),
+    cityListUpdates: r.many.cityListUpdates(),
   },
 
   restaurants: {
@@ -44,6 +46,10 @@ export const relations = defineRelations(s, (r) => ({
     suggester: r.one.users({
       from: r.restaurants.suggestedBy,
       to: r.users.id,
+    }),
+    citySearch: r.one.citySearches({
+      from: r.restaurants.citySearchId,
+      to: r.citySearches.id,
     }),
   },
 
@@ -161,6 +167,39 @@ export const relations = defineRelations(s, (r) => ({
     }),
   },
 
+  citySearches: {
+    starter: r.one.users({
+      from: r.citySearches.startedBy,
+      to: r.users.id,
+    }),
+    restaurants: r.many.restaurants(),
+    candidates: r.many.citySearchCandidates(),
+    events: r.many.citySearchEvents(),
+  },
+
+  citySearchEvents: {
+    citySearch: r.one.citySearches({
+      from: r.citySearchEvents.citySearchId,
+      to: r.citySearches.id,
+      optional: false,
+    }),
+  },
+
+  citySearchCandidates: {
+    citySearch: r.one.citySearches({
+      from: r.citySearchCandidates.citySearchId,
+      to: r.citySearches.id,
+      optional: false,
+    }),
+  },
+
+  cityListUpdates: {
+    requester: r.one.users({
+      from: r.cityListUpdates.requestedBy,
+      to: r.users.id,
+    }),
+  },
+
   notifications: {
     recipient: r.one.users({
       from: r.notifications.recipientId,
@@ -178,6 +217,10 @@ export const relations = defineRelations(s, (r) => ({
     restaurant: r.one.restaurants({
       from: r.notifications.restaurantId,
       to: r.restaurants.id,
+    }),
+    citySearch: r.one.citySearches({
+      from: r.notifications.citySearchId,
+      to: r.citySearches.id,
     }),
   },
 }));

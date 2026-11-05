@@ -1,0 +1,7 @@
+CH.ZH	Zurich	Zurich	2657895
+DE.06	Lower Saxony	Lower Saxony	2862926
+DK.21	South Denmark	South Denmark	6418542
+DK.17	Capital Region	Capital Region	6418538
+FR.11	Île-de-France	Ile-de-France	3012874
+US.TX	Texas	Texas	4736286
+BE.VLG	Flanders	Flanders	3337388

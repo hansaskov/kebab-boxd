@@ -1,0 +1,157 @@
+---
+import { Download, MapPinned } from "@lucide/astro";
+import { actions } from "astro:actions";
+import BaseLayout from "@src/layouts/BaseLayout.astro";
+import PagedSection from "@src/components/PagedSection.astro";
+import RelativeTime from "@src/components/RelativeTime.astro";
+import SearchForm from "@src/components/SearchForm.astro";
+import TabNav from "@src/components/TabNav.astro";
+import { can } from "@src/auth/permissions";
+import { adminTabs } from "@src/data/admin-tabs";
+import type { CitySearchStatus } from "@src/db/schema";
+import { successToast } from "@src/format/action-toast";
+import { regionAndCountry } from "@src/format/country";
+import { plural } from "@src/format/plural";
+import { adminCitySearchHref, adminRestaurantsHref, profileHref } from "@src/hrefs";
+import { isShortSearch } from "@src/map/geonames";
+import { parsePageRequest } from "@src/pagination";
+import { parseSearch } from "@src/validation/search-params";
+
+const session = Astro.locals.session;
+
+if (!session) {
+  return Astro.redirect("/login");
+}
+
+if (!can(session.user, "admin-console:view")) {
+  return Astro.rewrite("/403");
+}
+
+const maxResults = 20;
+const query = parseSearch(Astro.url.searchParams);
+const { cities, citySearches } = Astro.locals.db;
+const [list, results, searches] = await Promise.all([
+  cities.status(),
+  query ? cities.search(query, maxResults) : [],
+  citySearches.list(parsePageRequest(Astro.url)),
+]);
+const running = new Set(await citySearches.listRunningCityIds(results.map((city) => city.id)));
+
+const people = new Intl.NumberFormat("en");
+type SearchRow = { status: CitySearchStatus; attempts: number; restaurantCount: number; candidateCount: number };
+
+function searchLabel({ status, attempts, restaurantCount, candidateCount }: SearchRow) {
+  switch (status) {
+    case "queued":
+      return attempts > 0 ? "Retrying" : "Searching";
+    case "adding":
+      return `${candidateCount} left`;
+    case "finished":
+      return plural(restaurantCount, "restaurant");
+    case "failed":
+      return "Failed";
+  }
+}
+
+// Reloads only while the first CityList downloads: a reload while the search form is shown would wipe what
+// the Admin is typing. A running search reloads its own page.
+const isDownloadingFirstList = list.isUpdating && !list.current;
+
+const toast =
+  successToast(Astro.locals, actions.admin.startCitySearch, { title: "Search started", text: "You get a notification when it is done." }) ??
+  successToast(Astro.locals, actions.admin.updateCityList, { title: "Download started", text: "The city list is downloaded in the background." });
+---
+
+<BaseLayout
+  title="Cities"
+  description="Find the kebab restaurants of a city"
+  prefetchUrls={[adminRestaurantsHref()]}
+  refreshSeconds={isDownloadingFirstList ? 15 : undefined}
+  toast={toast}
+>
+  <TabNav aria-label="Admin console" tabs={adminTabs(Astro.url.pathname)} />
+
+  <h1 class="mt-6">Cities</h1>
+
+  {list.current && (
+    <>
+      <SearchForm class="mt-4" id="city-query" label="Search cities" value={query} placeholder="City" />
+      {query && results.length === 0 && (
+        <p class="t-body mt-4 text-fg-muted">{isShortSearch(query) ? "Type at least two letters." : `No city starts with “${query}”.`}</p>
+      )}
+      {results.length > 0 && (
+        <ul class="list mt-4" aria-label="Cities">
+          {results.map((city) => (
+            <li class="list-row max-sm:flex-col max-sm:items-stretch">
+              <div class="min-w-0 flex-1">
+                <p class="field-label truncate">{city.name}</p>
+                <p class="t-body-sm truncate text-fg-muted">{regionAndCountry(city)} · {people.format(city.population)} people</p>
+              </div>
+              {running.has(city.id) ? (
+                <span class="tag shrink-0">Searching</span>
+              ) : (
+                <form class="shrink-0" method="post" action={actions.admin.startCitySearch}>
+                  <input type="hidden" name="cityId" value={city.id} />
+                  <input type="hidden" name="cityName" value={city.name} />
+                  <button class="btn btn-primary btn-sm" type="submit"><MapPinned size={16} aria-hidden="true" />Find restaurants</button>
+                </form>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  )}
+
+  <PagedSection class="mt-8" aria-label="Searches" page={searches} empty="No city has been searched yet.">
+    <h2 slot="heading" class="mb-3">Searches</h2>
+    <ul class="list">
+      {searches.items.map((search) => (
+        <li class="list-row">
+          <div class="min-w-0 flex-1">
+            <a class="list-row-link field-label block truncate" href={adminCitySearchHref(search.id)}>{search.name}</a>
+            <p class="t-body-sm truncate text-fg-muted">
+              {regionAndCountry(search)}
+              {" · "}
+              {search.starter && (
+                <>
+                  <a class="link link-hover" href={profileHref(search.starter.username)}>{search.starter.fullname}</a>
+                  {" · "}
+                </>
+              )}
+              <RelativeTime date={search.createdAt} />
+            </p>
+          </div>
+          <span class:list={["tag shrink-0 tabular-nums", { "text-danger": search.status === "failed" || (search.status === "queued" && search.attempts > 0) }]}>
+            {searchLabel(search)}
+          </span>
+        </li>
+      ))}
+    </ul>
+  </PagedSection>
+
+  <section class="mt-8" aria-labelledby="city-list-heading">
+    <h2 id="city-list-heading">City list</h2>
+    <form class="settings-card mt-3" method="post" action={actions.admin.updateCityList}>
+      <div class="settings-row">
+        <div class="settings-row-text">
+          <p class="field-label">
+            {list.current ? `${people.format(list.current.cityCount)} cities` : "No cities yet"}
+          </p>
+          <p class="t-body-sm text-fg-muted">
+            {list.isUpdating
+              ? "Downloading from GeoNames…"
+              : list.lastFailure
+                ? <span class="text-danger">The download failed <RelativeTime date={list.lastFailure.at} />{list.lastFailure.error && `: ${list.lastFailure.error}`}.</span>
+                : list.current
+                  ? <>From GeoNames, <RelativeTime date={list.current.updatedAt} /></>
+                  : "Download the list of cities from GeoNames to search them."}
+          </p>
+        </div>
+        <button class="btn btn-secondary btn-md settings-row-action" type="submit" disabled={list.isUpdating}>
+          <Download size={16} aria-hidden="true" />{list.current ? "Update" : "Download"}
+        </button>
+      </div>
+    </form>
+  </section>
+</BaseLayout>

@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull, sql, type SQLWrapper } from "drizzle-orm";
 import type { Client, Transaction } from "@src/db/client";
 import { cursorList, type Seek } from "@src/db/pagination";
+import { enteredRestaurantCount } from "@src/db/pending-restaurants";
 import * as s from "@src/db/schema";
 import type { NotificationKind, SuggestionDecision, User } from "@src/db/schema";
 import { isVisibleNotification } from "@src/db/visibility";
@@ -9,16 +10,20 @@ import type { Page, PageRequest } from "@src/pagination";
 export type NotificationEvent =
 	| { kind: "follow"; recipientId: number; actorId: number }
 	| { kind: "like"; recipientId: number; actorId: number; reviewId: number }
-	| { kind: SuggestionDecision; recipientId: number; restaurantId: number };
+	| { kind: SuggestionDecision; recipientId: number; restaurantId: number }
+	| { kind: "city-search-finished"; recipientId: number; citySearchId: number };
 
 export type NotificationPreferences = Pick<User, "followNotifications" | "likeNotifications" | "suggestionNotifications">;
 
+// The setting that turns each kind off. The Admin who starts a CitySearch asked to hear when it ends, so that
+// kind has none.
 const preferenceOf = {
 	follow: "followNotifications",
 	like: "likeNotifications",
 	"suggestion-approved": "suggestionNotifications",
 	"suggestion-rejected": "suggestionNotifications",
-} as const satisfies Record<NotificationKind, keyof NotificationPreferences>;
+	"city-search-finished": undefined,
+} as const satisfies Record<NotificationKind, keyof NotificationPreferences | undefined>;
 
 const suggestionDecisions = ["suggestion-approved", "suggestion-rejected"] as const satisfies SuggestionDecision[];
 
@@ -30,7 +35,13 @@ function aliased(name: string, value: unknown) {
 // Sending the same event twice leaves one notification. The statement inserts nothing when the recipient has
 // turned the kind off. An insert from a select sets no defaults, so the times are set here.
 export function notify(tx: Transaction, event: NotificationEvent) {
-	const { actorId = null, reviewId = null, restaurantId = null } = event as Partial<Record<"actorId" | "reviewId" | "restaurantId", number>>;
+	const {
+		actorId = null,
+		reviewId = null,
+		restaurantId = null,
+		citySearchId = null,
+	} = event as Partial<Record<"actorId" | "reviewId" | "restaurantId" | "citySearchId", number>>;
+	const preference = preferenceOf[event.kind];
 	const now = sql`unixepoch()`;
 	tx.insert(s.notifications)
 		.select((qb) =>
@@ -41,11 +52,12 @@ export function notify(tx: Transaction, event: NotificationEvent) {
 					actorId: aliased("actor_id", actorId),
 					reviewId: aliased("review_id", reviewId),
 					restaurantId: aliased("restaurant_id", restaurantId),
+					citySearchId: aliased("city_search_id", citySearchId),
 					createdAt: now.as("created_at"),
 					updatedAt: now.as("updated_at"),
 				})
 				.from(s.users)
-				.where(and(eq(s.users.id, event.recipientId), eq(s.users[preferenceOf[event.kind]], true))),
+				.where(and(eq(s.users.id, event.recipientId), preference && eq(s.users[preference], true))),
 		)
 		.onConflictDoNothing()
 		.run();
@@ -65,6 +77,12 @@ export function withdrawDecision(tx: Transaction, restaurantId: number) {
 	tx.delete(n).where(and(inArray(n.kind, suggestionDecisions), eq(n.restaurantId, restaurantId))).run();
 }
 
+// A CitySearch that is tried again ends again, and its Admin is told then, as unread.
+export function withdrawCitySearchNotification(tx: Transaction, citySearchId: number) {
+	const n = s.notifications;
+	tx.delete(n).where(and(eq(n.kind, "city-search-finished"), eq(n.citySearchId, citySearchId))).run();
+}
+
 // The notifications the recipient has not read and can see, as a condition on the notifications table.
 export function isUnreadOf(recipientId: number | SQLWrapper) {
 	const n = s.notifications;
@@ -79,16 +97,21 @@ const notificationRow = {
 		actor: { columns: { username: true, fullname: true }, with: { profilePicture: { columns: { url: true } } } },
 		review: { columns: { id: true }, with: { restaurant: { columns: { name: true } } } },
 		restaurant: { columns: { id: true, name: true } },
+		citySearch: {
+			columns: { id: true, name: true, status: true },
+			extras: { restaurantCount: enteredRestaurantCount },
+		},
 	},
 } as const;
 
 type Row = Awaited<ReturnType<ReturnType<typeof listRows>>>[number];
-type Present<Key extends "actor" | "review" | "restaurant"> = NonNullable<Row[Key]>;
+type Present<Key extends "actor" | "review" | "restaurant" | "citySearch"> = NonNullable<Row[Key]>;
 
 export type Notification = Pick<Row, "id" | "createdAt"> & { isRead: boolean } & (
 		| { kind: "follow"; actor: Present<"actor"> }
 		| { kind: "like"; actor: Present<"actor">; review: Present<"review"> }
 		| { kind: SuggestionDecision; restaurant: Present<"restaurant"> }
+		| { kind: "city-search-finished"; citySearch: Present<"citySearch"> }
 	);
 
 function listRows(client: Client, recipientId: number) {
@@ -115,6 +138,8 @@ function toNotification(row: Row): Notification {
 		case "suggestion-approved":
 		case "suggestion-rejected":
 			return { ...common, kind: row.kind, restaurant: present(row.restaurant, row) };
+		case "city-search-finished":
+			return { ...common, kind: row.kind, citySearch: present(row.citySearch, row) };
 	}
 }
 

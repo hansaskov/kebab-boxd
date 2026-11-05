@@ -69,12 +69,15 @@ export function createPersonalData(client: Client) {
 					bucketList: collectedRestaurant,
 					suggestions: { columns: { name: true, status: true, createdAt: true }, ...oldestFirst },
 					queuedSuggestions: { columns: { link: true, status: true, name: true, createdAt: true }, ...oldestFirst },
+					citySearches: { columns: { name: true, countryCode: true, status: true, createdAt: true }, ...oldestFirst },
+					cityListUpdates: { columns: { status: true, cityCount: true, createdAt: true }, ...oldestFirst },
 					notifications: {
 						columns: { kind: true, readAt: true, createdAt: true },
 						with: {
 							actor: { columns: { username: true } },
 							review: { columns: {}, with: { restaurant: { columns: { name: true } } } },
 							restaurant: { columns: { name: true } },
+							citySearch: { columns: { name: true } },
 						},
 						orderBy: { createdAt: "asc", id: "asc" },
 					},

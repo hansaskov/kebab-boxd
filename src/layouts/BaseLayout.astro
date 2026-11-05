@@ -18,6 +18,8 @@ interface Props extends ComponentProps<typeof SpeculationsAPI> {
   class?: string;
   // Without it, the page tells when the last action failed. A page that shows the failure itself passes null.
   toast?: ComponentProps<typeof Toast>["toast"] | null;
+  // Reloads the page after this many seconds, for a page that shows work still running.
+  refreshSeconds?: number | undefined;
 }
 
 const { session } = Astro.locals;
@@ -28,6 +30,7 @@ const {
   preview = "/preview.webp",
   ogType = "website",
   toast = failureToast(Astro.locals),
+  refreshSeconds,
   class: className,
   ...props
 } = Astro.props;
@@ -68,6 +71,7 @@ const isOnAccountPage =
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="generator" content={Astro.generator} />
 
+    {refreshSeconds !== undefined && <meta http-equiv="refresh" content={String(refreshSeconds)} />}
     <title>{title}</title>
     <meta name="title" content={title} />
     <meta name="description" content={description} />
