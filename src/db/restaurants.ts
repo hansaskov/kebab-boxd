@@ -1,6 +1,8 @@
 import { and, between, eq, sql } from "drizzle-orm";
 import { authorizedWriteAll, findTargetRestaurants } from "@src/db/authorize";
+import { authorsOfReviewsAt, refreshAuthorStats } from "@src/db/cached-stats";
 import type { Client } from "@src/db/client";
+import { chunks, durableSqliteLimits } from "@src/db/limits";
 import { isInCollectionOf } from "@src/db/collections";
 import { notify, withdrawDecision } from "@src/db/notifications";
 import { cursorList, type Filter, type Seek } from "@src/db/pagination";
@@ -103,6 +105,10 @@ export function createRestaurants(client: Client) {
 		// the cell of each restaurant once, which keeps the values bound to the statement few. Window functions over
 		// the restaurants of each cell then give every row the count, average position and bounds of its cluster,
 		// and rank the rows, so that the first row in the ranking stands for its cluster.
+		//
+		// SQLite would rather start from the approved restaurants, which reads every one of them, wherever it is.
+		// A cross join makes it start from the locations in the bounds, which their index finds, and look up the
+		// restaurant of each.
 		async listClusters(bounds: Bounds, grid: ClusterGrid | undefined): Promise<Cluster<ClusterRestaurant>[]> {
 			const cell = grid ? cellOf(grid) : { column: sql<number>`${s.restaurants.id}`, row: sql<number>`0` };
 			const located = client
@@ -116,10 +122,11 @@ export function createRestaurants(client: Client) {
 					column: cell.column.as("cell_column"),
 					row: cell.row.as("cell_row"),
 				})
-				.from(s.restaurants)
-				.innerJoin(s.locations, eq(s.locations.id, s.restaurants.locationId))
+				.from(s.locations)
+				.crossJoin(s.restaurants)
 				.where(
 					and(
+						eq(s.restaurants.locationId, s.locations.id),
 						eq(s.restaurants.status, "approved"),
 						between(s.locations.latitude, bounds.south, bounds.north),
 						between(s.locations.longitude, bounds.west, bounds.east),
@@ -195,14 +202,18 @@ export function createRestaurants(client: Client) {
 		async decide(actorId: number, ids: number[], status: "approved" | "rejected") {
 			const unique = [...new Set(ids)];
 			return authorizedWriteAll(client, actorId, "restaurant:moderate", (tx) => findTargetRestaurants(tx, unique), (tx, restaurants) => {
-				for (const restaurant of restaurants) {
-					if (restaurant.status === status) continue;
+				const changed = restaurants.filter((restaurant) => restaurant.status !== status);
+				for (const restaurant of changed) {
 					tx.update(s.restaurants).set({ status }).where(eq(s.restaurants.id, restaurant.id)).run();
 					// The decision replaces the earlier one with a new notification, so the suggester sees it as unread.
 					withdrawDecision(tx, restaurant.id);
 					if (restaurant.suggestedBy !== null && restaurant.suggestedBy !== actorId) {
 						notify(tx, { kind: `suggestion-${status}`, recipientId: restaurant.suggestedBy, restaurantId: restaurant.id });
 					}
+				}
+				// The reviews of a restaurant are public only while it is approved.
+				for (const chunk of chunks(changed.map((restaurant) => restaurant.id), durableSqliteLimits.variableNumber / 2)) {
+					refreshAuthorStats(tx, authorsOfReviewsAt(tx, chunk));
 				}
 				return { decided: restaurants.length };
 			});

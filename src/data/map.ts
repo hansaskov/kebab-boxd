@@ -15,6 +15,11 @@ export const exploreCityLimit = 5;
 // The cells of the explore map, which each move the map to their middle. They are square on its size.
 export const exploreMapCells = { columns: 6, rows: 4 };
 
+// The middle of a cell is an odd number of half cells from the middle of the map, so a map on a grid of half cells
+// stays on it when it moves, and when it zooms in. The map of a Visitor is kept on it, so that every way to a
+// place leads to the same address, which the cache keeps for every Visitor.
+export const exploreGridStep = exploreMapSize.width / exploreMapCells.columns / 2;
+
 // The sizes below are in the pixels of the map at its size above, which a small screen shows smaller.
 // Restaurants in the same square of this size are one cluster.
 export const clusterCellSize = 128;

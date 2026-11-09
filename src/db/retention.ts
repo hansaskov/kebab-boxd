@@ -1,7 +1,11 @@
-import { and, lt, lte, ne } from "drizzle-orm";
+import { and, inArray, lt, lte } from "drizzle-orm";
 import { finishedSuggestionRetentionSeconds, historyRetentionSeconds, inactivityTimeoutSeconds } from "@src/data/retention-periods";
 import type { Client } from "@src/db/client";
 import * as s from "@src/db/schema";
+
+// A link that left the queue, without becoming a Restaurant. Named, rather than "not queued", so that the index
+// on the status finds them.
+const finishedSuggestionStatuses = s.suggestionQueue.status.enumValues.filter((status) => status !== "queued");
 
 function secondsBefore(now: Date, seconds: number) {
 	return new Date(now.getTime() - seconds * 1000);
@@ -26,7 +30,7 @@ export function createRetention(client: Client) {
 						.delete(s.suggestionQueue)
 						.where(
 							and(
-								ne(s.suggestionQueue.status, "queued"),
+								inArray(s.suggestionQueue.status, finishedSuggestionStatuses),
 								lt(s.suggestionQueue.updatedAt, secondsBefore(now, finishedSuggestionRetentionSeconds)),
 							),
 						)

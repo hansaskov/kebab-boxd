@@ -6,7 +6,7 @@ import { pronouns } from "@src/data/pronouns";
 import { createSession } from "@src/auth/session";
 import { buildUsername } from "@src/db/accounts";
 import { eq } from "drizzle-orm";
-import { refreshLikeCounts, refreshRestaurantStats } from "@src/db/cached-stats";
+import { refreshAuthorStats, refreshLikeCounts, refreshRestaurantStats } from "@src/db/cached-stats";
 import type { PictureStore } from "@src/pictures/store";
 
 const imageUrls = [
@@ -263,6 +263,7 @@ export async function seedDatabase(client: Client, pictures: PictureStore) {
   client.transaction((tx) => {
     refreshLikeCounts(tx, reviewIds);
     refreshRestaurantStats(tx, restaurantIds);
+    refreshAuthorStats(tx, userIds);
   });
 }
 

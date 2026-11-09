@@ -3,6 +3,7 @@ import { migrate } from "drizzle-orm/node-sqlite/migrator";
 import { onTestFinished } from "vitest";
 import { createSession, findSession } from "@src/auth/session";
 import { createDatabase } from "@src/db";
+import { refreshAuthorStats } from "@src/db/cached-stats";
 import type { Database } from "@src/db";
 import type { Client } from "@src/db/client";
 import { relations } from "@src/db/relations";
@@ -58,9 +59,14 @@ export function restaurantRow(client: Client, id: number) {
 	return client.query.restaurants.findFirst({ where: { id } }).sync();
 }
 
-// Writes the row directly, so the test can choose when it was written. Leaves the cached rating alone.
+// Writes the row directly, so the test can choose when it was written. Leaves the cached stats alone.
 export function insertReview(client: Client, authorId: number, restaurantId: number, rating: number, createdAt = new Date()) {
 	return client.insert(s.reviews).values({ authorId, restaurantId, rating, createdAt }).returning().get();
+}
+
+// Brings the cached review stats of the users up to date, after insertReview has left them alone.
+export function refreshAuthorStatsOf(client: Client, userIds: number[]) {
+	client.transaction((tx) => refreshAuthorStats(tx, userIds));
 }
 
 // Publishes a review the way a user does, so the cached rating of the restaurant follows.

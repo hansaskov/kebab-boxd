@@ -40,7 +40,8 @@ const herePlacement = here && viewport.place(here);
 const isHereInView = herePlacement !== undefined && herePlacement.left >= 0 && herePlacement.left <= 100 && herePlacement.top >= 0 && herePlacement.top <= 100;
 const compact = new Intl.NumberFormat("en", { notation: "compact" });
 // A map has many links, and a user opens few of them, so each link has the browser load its page in advance
-// only when the user is about to open it.
+// only when the user is about to open it. The links that move the map lead to more of them, without end, so
+// crawlers are asked not to follow them.
 ---
 
 <div class:list={["map", className]} style={`aspect-ratio:${width}/${height}`} {...props}>
@@ -62,7 +63,7 @@ const compact = new Intl.NumberFormat("en", { notation: "compact" });
   <ul>
     {markers.map((marker) => (
       <li class={marker.count === undefined ? "map-pin" : "map-cluster"} style={position(viewport.place(marker.coordinates))}>
-        <a href={marker.href} title={marker.label} data-eagerness="moderate">
+        <a href={marker.href} title={marker.label} rel={marker.count === undefined ? undefined : "nofollow"} data-eagerness="moderate">
           {marker.count === undefined ? (
             <MapPin size={28} fill="currentColor" aria-hidden="true" />
           ) : (
@@ -77,10 +78,10 @@ const compact = new Intl.NumberFormat("en", { notation: "compact" });
   {navigation && (
     <>
       <div class="map-controls">
-        <a class="icon-btn" href={navigation.zoomIn} aria-disabled={navigation.zoomIn ? undefined : "true"} title="Zoom in" data-eagerness="moderate">
+        <a class="icon-btn" href={navigation.zoomIn} aria-disabled={navigation.zoomIn ? undefined : "true"} title="Zoom in" rel="nofollow" data-eagerness="moderate">
           <Plus size={18} aria-hidden="true" /><span class="sr-only">Zoom in</span>
         </a>
-        <a class="icon-btn" href={navigation.zoomOut} aria-disabled={navigation.zoomOut ? undefined : "true"} title="Zoom out" data-eagerness="moderate">
+        <a class="icon-btn" href={navigation.zoomOut} aria-disabled={navigation.zoomOut ? undefined : "true"} title="Zoom out" rel="nofollow" data-eagerness="moderate">
           <Minus size={18} aria-hidden="true" /><span class="sr-only">Zoom out</span>
         </a>
       </div>
@@ -90,7 +91,7 @@ const compact = new Intl.NumberFormat("en", { notation: "compact" });
         style={`--map-columns:${navigation.columns};--map-rows:${Math.ceil(navigation.cells.length / navigation.columns)}`}
       >
         {navigation.cells.map((cell) => (
-          <a class="map-cell" href={cell.href} data-eagerness="moderate"><span class="sr-only">{cell.label}</span></a>
+          <a class="map-cell" href={cell.href} rel="nofollow" data-eagerness="moderate"><span class="sr-only">{cell.label}</span></a>
         ))}
       </nav>
     </>

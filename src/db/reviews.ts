@@ -1,7 +1,7 @@
 import { and, eq, exists, sql } from "drizzle-orm";
 import { QueryBuilder } from "drizzle-orm/sqlite-core";
 import { authorizedWrite, findTargetRestaurant, findTargetReview } from "@src/db/authorize";
-import { refreshLikeCounts, refreshRestaurantStats } from "@src/db/cached-stats";
+import { refreshAuthorStats, refreshLikeCounts, refreshRestaurantStats } from "@src/db/cached-stats";
 import type { Client, Transaction } from "@src/db/client";
 import { notify, withdraw } from "@src/db/notifications";
 import { cursorList, type Filter } from "@src/db/pagination";
@@ -116,6 +116,7 @@ export function createReviews(client: Client, pictures: PictureStore) {
 					const review = tx.insert(s.reviews).values({ authorId, restaurantId, ...content }).returning({ id: s.reviews.id }).get();
 					attachAddedPictures(tx, changes, review.id);
 					refreshRestaurantStats(tx, [restaurantId]);
+					refreshAuthorStats(tx, [authorId]);
 					return review;
 				},
 				{ files, kind: "review" },
@@ -150,6 +151,7 @@ export function createReviews(client: Client, pictures: PictureStore) {
 				tx.delete(s.reviews).where(eq(s.reviews.id, id)).run();
 				changes.remove(tx, review.pictures);
 				refreshRestaurantStats(tx, [review.restaurantId]);
+				refreshAuthorStats(tx, [review.authorId]);
 				return { authorId: review.authorId, restaurantId: review.restaurantId };
 			});
 		},

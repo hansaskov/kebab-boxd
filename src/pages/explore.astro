@@ -7,7 +7,7 @@ import MapView from "@src/components/MapView.astro";
 import SearchForm from "@src/components/SearchForm.astro";
 import TabNav from "@src/components/TabNav.astro";
 import LoginDialog from "@src/components/LoginDialog.astro";
-import { defaultMapCenter, defaultMapZoom, exploreCityLimit, exploreMapCells, exploreMapSize } from "@src/data/map";
+import { defaultMapCenter, defaultMapZoom, exploreCityLimit, exploreGridStep, exploreMapCells, exploreMapSize } from "@src/data/map";
 import { successToast } from "@src/format/action-toast";
 import { regionAndCountry } from "@src/format/country";
 import { formatDistance } from "@src/format/distance";
@@ -18,7 +18,7 @@ import { clustersOn, openedView } from "@src/map/clusters";
 import { boundsAround, distanceInMeters, type Coordinates } from "@src/map/coordinates";
 import { isShortSearch } from "@src/map/geonames";
 import { searchRadiusMeters } from "@src/map/overpass";
-import { fitBounds, maxZoom, minZoom, viewport } from "@src/map/viewport";
+import { fitBounds, maxZoom, minZoom, snapToGrid, viewport, type MapView as View } from "@src/map/viewport";
 import { parseId } from "@src/validation/id";
 import { parseMapView } from "@src/validation/map-view";
 import { parseSearch } from "@src/validation/search-params";
@@ -38,9 +38,15 @@ const query = parseSearch(Astro.url.searchParams);
 const cities = query ? await Astro.locals.db.cities.search(query, exploreCityLimit) : [];
 const chosenCityId = parseId(Astro.url.searchParams.get("city") ?? undefined);
 const city = cities.find((match) => match.id === chosenCityId) ?? cities[0];
-const view = city
-	? fitBounds(boundsAround(city, searchRadiusMeters(city.population)), exploreMapSize, 0)
-	: parseMapView(Astro.url.searchParams, { center: home ?? defaultMapCenter, zoom: defaultMapZoom });
+// The map of a Visitor stays on the grid, and so do its links. A User's map is where they put it, since they set
+// their location to its middle.
+const onGrid = (requested: View) => (session ? requested : snapToGrid(requested, exploreGridStep));
+const mapHref = (to: View) => exploreHref(onGrid(to));
+const view = onGrid(
+	city
+		? fitBounds(boundsAround(city, searchRadiusMeters(city.population)), exploreMapSize, 0)
+		: parseMapView(Astro.url.searchParams, { center: home ?? defaultMapCenter, zoom: defaultMapZoom }),
+);
 const map = viewport(view.center, view.zoom, exploreMapSize);
 
 // Each Cluster is a marker on the map and a row of the list below it. A cluster of one restaurant leads to the
@@ -51,17 +57,17 @@ const clusters = (await clustersOn(map, Astro.locals.db.restaurants.listClusters
 		...cluster,
 		isRestaurant,
 		name: isRestaurant ? cluster.best.name : `${cluster.best.name} and ${cluster.count - 1} more`,
-		href: isRestaurant ? restaurantHref(cluster.best.id) : exploreHref(openedView(cluster, map)),
+		href: isRestaurant ? restaurantHref(cluster.best.id) : mapHref(openedView(cluster, map)),
 		details: [formatDistance(distanceInMeters(map.center, cluster.center)), cluster.best.city].filter(Boolean).join(" · "),
 	};
 });
 
 const navigation = {
-	zoomIn: map.zoom < maxZoom ? exploreHref({ center: map.center, zoom: map.zoom + 1 }) : undefined,
-	zoomOut: map.zoom > minZoom ? exploreHref({ center: map.center, zoom: map.zoom - 1 }) : undefined,
+	zoomIn: map.zoom < maxZoom ? mapHref({ center: map.center, zoom: map.zoom + 1 }) : undefined,
+	zoomOut: map.zoom > minZoom ? mapHref({ center: map.center, zoom: map.zoom - 1 }) : undefined,
 	columns: exploreMapCells.columns,
 	cells: map.cellCenters(exploreMapCells.columns, exploreMapCells.rows).map((center) => ({
-		href: exploreHref({ center, zoom: map.zoom }),
+		href: mapHref({ center, zoom: map.zoom }),
 		label: `Move ${formatOffset(map.center, center)}`,
 	})),
 };
@@ -131,6 +137,7 @@ const toast = successToast(Astro.locals, actions.updateLocation, { title: "Locat
 							<a
 								class="list-row-link field-label block truncate"
 								href={cluster.href}
+								rel={cluster.isRestaurant ? undefined : "nofollow"}
 								data-eagerness={cluster.isRestaurant ? undefined : "moderate"}
 							>
 								{cluster.name}

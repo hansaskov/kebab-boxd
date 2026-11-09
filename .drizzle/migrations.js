@@ -6,6 +6,7 @@ import m0004 from './20261027195821_suggestion_queue/migration.sql';
 import m0005 from './20261104200248_city_search/migration.sql';
 import m0006 from './20261104205600_city_search_log/migration.sql';
 import m0007 from './20261105145334_private_profiles/migration.sql';
+import m0008 from './20261109141655_user_review_stats/migration.sql';
 
   export default {
     migrations: {
@@ -16,7 +17,8 @@ import m0007 from './20261105145334_private_profiles/migration.sql';
 "20261027195821_suggestion_queue": m0004,
 "20261104200248_city_search": m0005,
 "20261104205600_city_search_log": m0006,
-"20261105145334_private_profiles": m0007
+"20261105145334_private_profiles": m0007,
+"20261109141655_user_review_stats": m0008
 }
   }
   

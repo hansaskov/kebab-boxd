@@ -27,12 +27,30 @@ pnpm sst secret set BootstrapAdminEmail <your Google email> --stage production
 pnpm sst:deploy
 ```
 
+The production stage also blocks AI crawlers. This is a setting of the whole zone, `hjemmet.net`, so the API token needs permission to edit its Bot Management. Bot Fight Mode stays off: it puts a script of Cloudflare on every page, which the site does without.
+
 | Part | Cloudflare service |
 | --- | --- |
 | Website | Worker made by `sst.cloudflare.Astro` |
 | Database | SQLite in a Durable Object, in the `Backend` Worker |
 | Pictures | R2 bucket, made into WebP by Cloudflare Images |
 | Suggestion queue, city searches, city list downloads and data purge | Alarms of the Durable Object |
+| Pages that Visitors see | Workers Cache of the Web Worker, for 60 seconds |
+| Rows each database call reads | Workers Logs of the Backend Worker |
+
+## Rows read
+
+The free plan stops the database for the rest of the day once it has read 5 million rows.
+
+- Each database call that reads or writes rows logs `Database call` with its `call`, `rowsRead` and `rowsWritten`. In Workers Logs of the Backend Worker, group by `call` and add up `rowsRead` to find the calls that cost most.
+- `src/tests/rows-read.test.ts` measures every call in a Durable Object run by Miniflare, which counts rows as Cloudflare does. A call must read the same rows when the rest of the site is four times as large, stay within its budget, and read no table from start to end, unless the test says why.
+- Every Visitor sees the same page at an address, so Cloudflare keeps it for 60 seconds and serves it without the database. A User never gets a kept page. `src/middleware/visitor-cache.ts` decides which pages are kept.
+
+To check the cache after a deploy, ask for a page twice without a cookie. The second answer has `cf-cache-status: HIT`:
+
+```bash
+curl -sI https://kebab.hjemmet.net/feed | grep -i cf-cache-status
+```
 
 After a change to `src/db/schema.ts`, run `pnpm db:generate`. The Durable Object applies new migrations when it starts.
 

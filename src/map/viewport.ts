@@ -89,6 +89,14 @@ export function clampZoom(zoom: number) {
 	return clamp(Math.round(zoom), minZoom, maxZoom);
 }
 
+// The view moved to the nearest point of a grid over the world, with squares of the step in the pixels of its zoom.
+// A map whose links move it by whole steps then leads only to points of the grid, whichever way it gets there.
+export function snapToGrid({ center, zoom }: MapView, step: number): MapView {
+	const rounded = clampZoom(zoom);
+	const { x, y } = project(center, rounded);
+	return { center: wrapped(unproject({ x: Math.round(x / step) * step, y: Math.round(y / step) * step }, rounded)), zoom: rounded };
+}
+
 // The view of a map of the size that shows all of the bounds with a margin, in pixels, around them, as near as it can.
 export function fitBounds(area: Bounds, { width, height }: ViewportSize, margin: number): MapView {
 	const topLeft = project({ latitude: area.north, longitude: area.west }, 0);

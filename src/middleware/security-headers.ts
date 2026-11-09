@@ -1,3 +1,5 @@
+import { withChangedHeaders } from "@src/middleware/headers";
+
 // What the browser may load and do on the pages of the site.
 //
 // The site sends no JavaScript, so the policy allows none but the speculation rules, which are data. Styles are
@@ -34,16 +36,9 @@ function securityHeaders(isDev: boolean) {
 	};
 }
 
-// The response with the headers that protect the user. A response whose headers cannot change, such as one
-// that Response.redirect makes, is copied.
+// The response with the headers that protect the user.
 export function withSecurityHeaders(response: Response, isDev: boolean = import.meta.env.DEV): Response {
-	const headers = Object.entries(securityHeaders(isDev));
-	try {
-		for (const [name, value] of headers) response.headers.set(name, value);
-		return response;
-	} catch {
-		const copy = new Response(response.body, response);
-		for (const [name, value] of headers) copy.headers.set(name, value);
-		return copy;
-	}
+	return withChangedHeaders(response, (headers) => {
+		for (const [name, value] of Object.entries(securityHeaders(isDev))) headers.set(name, value);
+	});
 }

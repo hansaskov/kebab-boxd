@@ -3,9 +3,11 @@ import { Resource } from "sst/resource";
 import { readSession } from "@src/auth/session";
 import { defineMiddleware, sequence } from "astro:middleware";
 import { getActionContext } from "astro:actions";
+import { withChangedHeaders } from "@src/middleware/headers";
 import { withSecurityHeaders } from "@src/middleware/security-headers";
 import { answerFormOfVisitor, formPage } from "@src/middleware/forms";
 import { isSpeculative, redirectClearingSpeculations } from "@src/middleware/speculations";
+import { visitorCacheOf } from "@src/middleware/visitor-cache";
 import { connectDatabase, type DatabaseRpc } from "@src/db/remote";
 import { picturePathPrefix } from "@src/pictures/store";
 import { toOutcome } from "@src/actions/outcome";
@@ -74,4 +76,13 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 
 const securityMiddleware = defineMiddleware(async (_context, next) => withSecurityHeaders(await next()));
 
-export const onRequest = sequence(securityMiddleware, sessionMiddleware);
+// Astro adds the headers of the cache after the middleware, from what it was told, and Cloudflare keeps a page only
+// while it says so. Every other response is never kept.
+const visitorCacheMiddleware = defineMiddleware(async (context, next) => {
+	const response = await next();
+	const cache = visitorCacheOf(context.request, response);
+	context.cache.set(cache);
+	return cache ? withChangedHeaders(response, (headers) => headers.append("Vary", "Cookie")) : response;
+});
+
+export const onRequest = sequence(securityMiddleware, visitorCacheMiddleware, sessionMiddleware);

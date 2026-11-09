@@ -1,7 +1,6 @@
-import { and, count, eq, isNotNull, isNull, max, or, sql, type SQL } from "drizzle-orm";
-import { QueryBuilder } from "drizzle-orm/sqlite-core";
+import { and, eq, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import { targetUserColumns, writeOnUser } from "@src/db/authorize";
-import { refreshLikeCounts, refreshRestaurantStats, restaurantsReviewedBy } from "@src/db/cached-stats";
+import { refreshAuthorStats, refreshLikeCounts, refreshRestaurantStats, restaurantsReviewedBy } from "@src/db/cached-stats";
 import type { Client, Transaction } from "@src/db/client";
 import { collectionCount } from "@src/db/collections";
 import { approveAllFollowRequests, followRequestCount, isRequestedBy, personCard } from "@src/db/follows";
@@ -13,7 +12,7 @@ import * as s from "@src/db/schema";
 import type { Role, User } from "@src/db/schema";
 import { deleteAllSessionsOf } from "@src/db/sessions";
 import { isUniqueConstraintError } from "@src/db/sqlite-errors";
-import { isFollowedBy, isPublicReview, isUnbannedUser, sharesReviewsWith } from "@src/db/visibility";
+import { isFollowedBy, isUnbannedUser } from "@src/db/visibility";
 import type { Coordinates } from "@src/map/coordinates";
 import type { PageRequest } from "@src/pagination";
 import type { PictureStore } from "@src/pictures/store";
@@ -59,35 +58,11 @@ function matchingName(text: string): Filter<"users"> {
 	};
 }
 
-const qb = new QueryBuilder();
-
-// The reviews of the user that others see on their Profile.
-function publicReviewsOf(user: Users) {
-	return and(eq(s.reviews.authorId, user.id), isPublicReview(s.reviews));
-}
-
-const reviewCount = {
-	name: "reviewCount",
-	value: (user: Users) => sql<number>`(${qb.select({ count: count() }).from(s.reviews).where(publicReviewsOf(user))})`,
-} as const;
-
-// When the user last wrote a public review that they share with the viewer, null for a Visitor, in seconds since
-// 1970, or 0 when there is none. The time orders the people and shows in the address of the next page, so a
-// private Profile tells it only to its followers.
-function latestReviewAt(viewerId: number | null) {
-	return {
-		name: "latestReviewAt",
-		value: (user: Users) =>
-			sql<number>`coalesce((${qb
-				.select({ at: max(s.reviews.createdAt) })
-				.from(s.reviews)
-				.where(and(publicReviewsOf(user), sharesReviewsWith(user.id, viewerId)))}), 0)`,
-	} as const;
-}
-
 const newestPages = cursorList("users", ["id"], "desc");
-const mostReviewsPages = cursorList("users", [reviewCount, "id"], "desc");
-const latestReviewPages = (viewerId: number | null) => cursorList("users", [latestReviewAt(viewerId), "id"], "desc");
+// The cached stats of the users order them, so their indexes give a page without reading every user. The time of
+// the latest review shows in the address of the next page, which is why it is 0 for a private Profile.
+const mostReviewsPages = cursorList("users", ["publicReviewCount", "id"], "desc");
+const latestReviewPages = cursorList("users", ["latestReviewAt", "id"], "desc");
 
 // Usernames are stored in lowercase, so a link with any letter case finds the user.
 function byUsername(username: string) {
@@ -163,12 +138,22 @@ export function createUsers(client: Client, pictures: PictureStore) {
 		// What the Profile shows to the viewer, who is null for a Visitor, with the counts of its lists.
 		async findProfile(username: string, viewerId: number | null) {
 			return client.query.users.findFirst({
-				columns: { id: true, fullname: true, username: true, role: true, bio: true, pronoun: true, isPrivate: true, bannedAt: true, createdAt: true },
+				columns: {
+					id: true,
+					fullname: true,
+					username: true,
+					role: true,
+					bio: true,
+					pronoun: true,
+					isPrivate: true,
+					publicReviewCount: true,
+					bannedAt: true,
+					createdAt: true,
+				},
 				with: { profilePicture: { columns: { url: true } } },
 				extras: {
 					followerCount: followCount(client, "followers"),
 					followingCount: followCount(client, "following"),
-					reviewCount: reviewCount.value,
 					// With the hidden ones, which only the user sees, so the count matches the list the page shows them.
 					allReviewCount: (user) => client.$count(s.reviews, eq(s.reviews.authorId, user.id)),
 					favoriteCount: collectionCount(client, "favorites"),
@@ -185,18 +170,17 @@ export function createUsers(client: Client, pictures: PictureStore) {
 		// The people whose name or username contains the text. Leaves out banned users.
 		async search(text: string, sort: PersonSort, viewerId: number | null, page: PageRequest) {
 			const card = personCard(viewerId);
-			const latestReview = latestReviewAt(viewerId);
 			const read = (seek: Seek<"users">) =>
 				client.query.users.findMany({
 					...card,
-					extras: { ...card.extras, reviewCount: reviewCount.value, latestReviewAt: latestReview.value },
+					columns: { ...card.columns, publicReviewCount: true, latestReviewAt: true },
 					...seek({ AND: [{ bannedAt: { isNull: true } }, matchingName(text)] }),
 				});
 			switch (sort) {
 				case "most-reviews":
 					return mostReviewsPages(page, read);
 				case "latest-review":
-					return latestReviewPages(viewerId)(page, read);
+					return latestReviewPages(page, read);
 			}
 		},
 
@@ -248,6 +232,7 @@ export function createUsers(client: Client, pictures: PictureStore) {
 		async setPrivacy(actorId: number, username: string, isPrivate: boolean) {
 			return editSettings(actorId, username, (tx, { id }) => {
 				tx.update(s.users).set({ isPrivate }).where(eq(s.users.id, id)).run();
+				refreshAuthorStats(tx, [id]);
 				if (!isPrivate) approveAllFollowRequests(tx, id);
 			});
 		},

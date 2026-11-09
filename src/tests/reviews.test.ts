@@ -7,6 +7,7 @@ import {
 	insertRestaurant,
 	insertReview,
 	insertUser,
+	refreshAuthorStatsOf,
 	restaurantRow,
 	writeReview,
 } from "@src/tests/database";
@@ -102,13 +103,14 @@ describe("the Profile", () => {
 		insertReview(client, bob.id, grill.id, 8, daysAgo(9));
 		const window = [6, 4, 2].map((age) => insertReview(client, bob.id, grill.id, 8, daysAgo(age)));
 		insertReview(client, bob.id, pending.id, 4, daysAgo(1));
+		refreshAuthorStatsOf(client, [bob.id]);
 		await db.users.ban(admin.id, bob.username);
 
 		const profile = await db.users.findProfile(bob.username, admin.id);
 		const listed = await db.reviews.listPublicByAuthor(bob.id, admin.id, firstPage);
 
 		expect(listed.items.map((review) => review.id)).toEqual(window.toReversed().map((review) => review.id));
-		expect(profile?.reviewCount).toBe(listed.items.length);
+		expect(profile?.publicReviewCount).toBe(listed.items.length);
 	});
 
 	it("lists and counts all Reviews of its own User, also the hidden ones", async () => {
@@ -187,6 +189,7 @@ describe("people search", () => {
 		insertReview(client, bob.id, grill.id, 8, daysAgo(2));
 		// Not public, so it neither counts for Cyd nor makes them the latest reviewer.
 		insertReview(client, cyd.id, pending.id, 8, daysAgo(0));
+		refreshAuthorStatsOf(client, [ada.id, bob.id, cyd.id]);
 		const usernames = async (sort: "most-reviews" | "latest-review") =>
 			(await db.users.search("", sort, ada.id, firstPage)).items.map((person) => person.username);
 
@@ -201,6 +204,7 @@ describe("people search", () => {
 		const people = Array.from({ length: 12 }, (_, i) => insertUser(client, `kebab_${i}`));
 		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
 		for (const person of people.slice(0, 6)) insertReview(client, person.id, grill.id, 8);
+		refreshAuthorStatsOf(client, people.map((person) => person.id));
 		const expected = [...people.slice(0, 6).toReversed(), ...people.slice(6).toReversed()].map((person) => person.id);
 		const search = async (cursor: (typeof firstPage)["cursor"]) => db.users.search("kebab", "most-reviews", people[0]!.id, { limit: 10, cursor });
 
@@ -212,5 +216,65 @@ describe("people search", () => {
 		expect(second.items.map((person) => person.id)).toEqual(expected.slice(10));
 		expect(second.next).toBeUndefined();
 		expect(back.items.map((person) => person.id)).toEqual(expected.slice(0, 10));
+	});
+});
+
+describe("the review stats of a User", () => {
+	const statsOf = (client: ReturnType<typeof createTestDatabase>["client"], id: number) =>
+		client.query.users.findFirst({ columns: { publicReviewCount: true, latestReviewAt: true }, where: { id } }).sync();
+	const secondsOf = (date: Date) => Math.floor(date.getTime() / 1000);
+
+	it("follow the Reviews the User writes and deletes, counting only those in the ReviewWindow", async () => {
+		const { client, db } = createTestDatabase();
+		const ada = insertUser(client, "ada");
+		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
+		const ids = [];
+		for (const rating of [6, 8, 10, 4]) ids.push(await writeReview(db, ada.id, grill.id, rating));
+		const written = statsOf(client, ada.id);
+		const newest = await db.reviews.findById(ids.at(-1)!, ada.id);
+
+		for (const id of ids.slice(1)) await db.reviews.delete(ada.id, id);
+		const oneLeft = statsOf(client, ada.id);
+		await db.reviews.delete(ada.id, ids[0]!);
+
+		expect({ written, oneLeft, none: statsOf(client, ada.id) }).toEqual({
+			written: { publicReviewCount: 3, latestReviewAt: secondsOf(newest!.createdAt) },
+			oneLeft: { publicReviewCount: 1, latestReviewAt: expect.any(Number) },
+			none: { publicReviewCount: 0, latestReviewAt: 0 },
+		});
+	});
+
+	it("follow the decisions on the Restaurants the User reviewed", async () => {
+		const { client, db } = createTestDatabase();
+		const admin = insertUser(client, "root_admin", "admin");
+		const ada = insertUser(client, "ada");
+		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
+		await writeReview(db, ada.id, grill.id, 8);
+		const approved = statsOf(client, ada.id);
+
+		await db.restaurants.decide(admin.id, [grill.id], "rejected");
+		const rejected = statsOf(client, ada.id);
+		await db.restaurants.decide(admin.id, [grill.id], "approved");
+
+		expect({ approved: approved?.publicReviewCount, rejected, again: statsOf(client, ada.id) }).toEqual({
+			approved: 1,
+			rejected: { publicReviewCount: 0, latestReviewAt: 0 },
+			again: approved,
+		});
+	});
+
+	it("keep the time of the latest Review at 0 while the Profile is private, and count its Reviews still", async () => {
+		const { client, db } = createTestDatabase();
+		const ada = insertUser(client, "ada");
+		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
+		await writeReview(db, ada.id, grill.id, 8);
+		const shared = statsOf(client, ada.id);
+
+		await db.users.setPrivacy(ada.id, ada.username, true);
+		const hidden = statsOf(client, ada.id);
+		await db.users.setPrivacy(ada.id, ada.username, false);
+
+		expect({ hidden, again: statsOf(client, ada.id) }).toEqual({ hidden: { publicReviewCount: 1, latestReviewAt: 0 }, again: shared });
+		expect(shared?.latestReviewAt).toBeGreaterThan(0);
 	});
 });

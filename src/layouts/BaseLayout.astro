@@ -35,10 +35,13 @@ const {
   ...props
 } = Astro.props;
 
-const image = new URL(preview, Astro.url);
+const { pathname, search } = Astro.url;
+// On the address of the site, not the host the request came to. Cloudflare keeps one page for a path, whatever its
+// host, so a page asked for at another host, such as workers.dev, would otherwise show that host to every Visitor.
+const pageUrl = new URL(`${pathname}${search}`, Astro.site ?? Astro.url);
+const image = new URL(preview, pageUrl);
 const unread = user?.unreadNotificationCount ?? 0;
 
-const { pathname } = Astro.url;
 const isUnder = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 const current = (href: string) => (pathname === href ? "page" : undefined);
 
@@ -79,13 +82,13 @@ const login = !user && pathname !== signInHref() ? signInHref(Astro.url) : undef
     <meta name="description" content={description} />
 
     <meta property="og:type" content={ogType} />
-    <meta property="og:url" content={Astro.url} />
+    <meta property="og:url" content={pageUrl} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:image" content={image} />
 
     <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content={Astro.url} />
+    <meta property="twitter:url" content={pageUrl} />
     <meta property="twitter:title" content={title} />
     <meta property="twitter:description" content={description} />
     <meta property="twitter:image" content={image} />

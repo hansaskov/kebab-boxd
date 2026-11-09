@@ -7,9 +7,14 @@ export default $config({
       removal: input?.stage === "production" ? "retain" : "remove",
       protect: input?.stage === "production",
       home: "cloudflare",
+      // SST ships an older one, which cannot turn on the cache of a Worker.
+      providers: { cloudflare: "6.23.1" },
     };
   },
   async run() {
+    const zoneName = "hjemmet.net";
+    const domain = `kebab.${zoneName}`;
+
     // Set each one for a stage with `sst secret set <name> <value> --stage <stage>`.
     const secrets = {
       GOOGLE_CLIENT_ID: new sst.Secret("GoogleClientId"),
@@ -32,13 +37,15 @@ export default $config({
         // SST has no component for Cloudflare Images, which turns uploads into WebP pictures.
         worker: (args) => {
           args.bindings = $output(args.bindings).apply((bindings) => [...(bindings ?? []), { type: "images", name: "Images" }]);
+          // Workers Logs keeps what the Durable Object logs, such as the rows each database call reads.
+          args.observability = { enabled: true };
         },
       },
     });
 
     const web = new sst.cloudflare.Astro("Web", {
       link: [backend],
-      domain: $app.stage === "production" ? "kebab.hjemmet.net" : undefined,
+      domain: $app.stage === "production" ? domain : undefined,
       dev: { command: "pnpm dev" },
       transform: {
         server: {
@@ -47,12 +54,30 @@ export default $config({
             worker: (args) => {
               const secretBindings = Object.entries(secrets).map(([name, secret]) => ({ type: "secret_text", name, text: secret.value }));
               args.bindings = $output(args.bindings).apply((bindings) => [...(bindings ?? []), ...secretBindings]);
+              // Cloudflare keeps the pages that every Visitor sees, as src/middleware/visitor-cache.ts tells it.
+              // Astro writes this into wrangler.json, which SST does not read.
+              args.cacheOptions = { enabled: true };
             },
           },
         },
       },
     });
 
-    return { url: web.url };
+    // Cloudflare turns away the crawlers of AI companies. This is a setting of the zone, so it applies to every site
+    // of the zone, not only to this one.
+    const bots =
+      $app.stage === "production"
+        ? new cloudflare.BotManagement("BotManagement", {
+            zoneId: cloudflare.getZoneOutput({ filter: { name: zoneName } }).zoneId,
+            aiBotsProtection: "block",
+            // Bot Fight Mode needs the JavaScript detections of Cloudflare, a script on every page, which the site
+            // does without and its Content-Security-Policy refuses.
+            fightMode: false,
+            // The site writes its own robots.txt.
+            isRobotsTxtManaged: false,
+          })
+        : undefined;
+
+    return { url: web.url, aiBots: bots?.aiBotsProtection };
   },
 });

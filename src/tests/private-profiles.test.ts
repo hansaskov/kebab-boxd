@@ -7,7 +7,16 @@ import ProfilePage from "@src/pages/[username]/profile.astro";
 import RestaurantPage from "@src/pages/restaurants/[id].astro";
 import ReviewPage from "@src/pages/reviews/[id]/index.astro";
 import { renderPage } from "@src/tests/container";
-import { createTestDatabase, firstPage, insertRestaurant, insertReview, insertUser, restaurantRow, signIn } from "@src/tests/database";
+import {
+	createTestDatabase,
+	firstPage,
+	insertRestaurant,
+	insertReview,
+	insertUser,
+	refreshAuthorStatsOf,
+	restaurantRow,
+	signIn,
+} from "@src/tests/database";
 
 async function publish(db: Database, authorId: number, restaurantId: number, description: string) {
 	const review = await db.reviews.create(authorId, restaurantId, { rating: 8, description }, []);
@@ -191,7 +200,7 @@ describe("A private Profile", () => {
 		});
 	});
 
-	it("tells only its followers when the User of a private Profile last reviewed, also in the order of people", async () => {
+	it("orders people as if its User had never reviewed, for everyone, followers too, and tells no one when they did", async () => {
 		const { client, db } = createTestDatabase();
 		const ada = insertUser(client, "ada");
 		const bob = insertUser(client, "bob");
@@ -199,6 +208,7 @@ describe("A private Profile", () => {
 		const grill = insertRestaurant(client, "Grill", { status: "approved" });
 		insertReview(client, ada.id, grill.id, 8, new Date("2026-01-01T00:00:00Z"));
 		insertReview(client, bob.id, grill.id, 8, new Date("2026-06-01T00:00:00Z"));
+		refreshAuthorStatsOf(client, [ada.id, bob.id]);
 		await db.users.setPrivacy(bob.id, bob.username, true);
 		await db.follows.follow(cleo.id, bob.username);
 		await db.follows.approveRequest(bob.id, cleo.username);
@@ -208,11 +218,11 @@ describe("A private Profile", () => {
 			return [page.items.map((person) => person.username), page.next?.after];
 		};
 
-		const at = (date: string) => new Date(date).getTime() / 1000;
+		const adaFirst = [["ada"], `${new Date("2026-01-01T00:00:00Z").getTime() / 1000}_${ada.id}`];
 		expect({ visitor: await latestFirst(null), stranger: await latestFirst(ada.id), follower: await latestFirst(cleo.id) }).toEqual({
-			visitor: [["ada"], `${at("2026-01-01T00:00:00Z")}_${ada.id}`],
-			stranger: [["ada"], `${at("2026-01-01T00:00:00Z")}_${ada.id}`],
-			follower: [["bob"], `${at("2026-06-01T00:00:00Z")}_${bob.id}`],
+			visitor: adaFirst,
+			stranger: adaFirst,
+			follower: adaFirst,
 		});
 	});
 });

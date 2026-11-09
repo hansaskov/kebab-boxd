@@ -22,6 +22,11 @@ export const users = p.snakeCase.table("users", {
   followNotifications: p.int({ mode: "boolean" }).notNull().default(true),
   likeNotifications: p.int({ mode: "boolean" }).notNull().default(true),
   suggestionNotifications: p.int({ mode: "boolean" }).notNull().default(true),
+  // Cached like the stats of a Restaurant, so that people can be ordered by them without reading every Review:
+  // how many public Reviews the user has, which their Profile shows, and when they wrote the latest, in seconds
+  // since 1970. Everyone sees people in the same order, so the time is 0 while the Profile is private.
+  publicReviewCount: p.int().notNull().default(0),
+  latestReviewAt: p.int().notNull().default(0),
   bannedAt: p.int({ mode: "timestamp" }),
   updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(now),
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
@@ -29,6 +34,8 @@ export const users = p.snakeCase.table("users", {
   p.index("users_profile_picture_id_idx").on(t.profilePictureId),
   p.index("users_name_idx").on(t.username),
   p.index("users_email_idx").on(t.email),
+  p.index("users_public_review_count_id_idx").on(t.publicReviewCount, t.id),
+  p.index("users_latest_review_at_id_idx").on(t.latestReviewAt, t.id),
   p.uniqueIndex("users_username_lower_unique").on(sql`lower(${t.username})`),
   p.uniqueIndex("users_email_unique").on(sql`lower(${t.email})`),
 ]);

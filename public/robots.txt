@@ -1,4 +1,5 @@
 User-agent: *
-Allow: /
-
-Sitemap: https://astrofy-template.netlify.app/sitemap-index.xml
+# The links of the map move and zoom it, one address for every place on Earth at every zoom.
+Disallow: /explore?
+# Signing in, and the data of a User.
+Disallow: /api/

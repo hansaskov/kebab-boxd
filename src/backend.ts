@@ -1,6 +1,6 @@
 import { DurableObject, WorkerEntrypoint } from "cloudflare:workers";
 import type { Database } from "@src/db";
-import { openDurableDatabase } from "@src/db/durable-object";
+import { openDurableDatabase, type CallReport } from "@src/db/durable-object";
 import { callDatabase, type DatabaseRpc } from "@src/db/remote";
 import { createPictureStore } from "@src/pictures/store";
 import { processDueWork } from "@src/background-work";
@@ -12,6 +12,12 @@ interface Env {
 	Images: ImagesBinding;
 }
 
+// Workers Logs keeps the fields of a logged object, so the rows each call reads can be added up by call. A call that
+// touched no rows, such as reading a picture from R2, costs nothing and is not logged.
+const logCall: CallReport = (call, rows) => {
+	if (rows.rowsRead > 0 || rows.rowsWritten > 0) console.log({ message: "Database call", call, ...rows });
+};
+
 const purgeIntervalMs = 60 * 60 * 1000;
 const nextPurgeKey = "nextPurgeAt";
 
@@ -22,7 +28,7 @@ export class DatabaseObject extends DurableObject<Env> {
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
-		this.#db = openDurableDatabase(ctx.storage, createPictureStore(env.Pictures, env.Images));
+		this.#db = openDurableDatabase(ctx.storage, createPictureStore(env.Pictures, env.Images), logCall);
 		this.#db.onWork(() => void ctx.storage.setAlarm(Date.now()));
 		void ctx.blockConcurrencyWhile(async () => {
 			if ((await ctx.storage.getAlarm()) === null) await ctx.storage.setAlarm(Date.now());

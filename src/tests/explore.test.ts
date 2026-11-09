@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { clusterCellSize, clusterMargin, defaultMapCenter, defaultMapZoom, exploreMapCells, exploreMapSize } from "@src/data/map";
+import { clusterCellSize, clusterMargin, defaultMapCenter, defaultMapZoom, exploreGridStep, exploreMapCells, exploreMapSize } from "@src/data/map";
 import type { Client } from "@src/db/client";
 import * as s from "@src/db/schema";
-import { exploreCityHref, restaurantHref } from "@src/hrefs";
+import { exploreCityHref, exploreHref, restaurantHref } from "@src/hrefs";
 import { clustersOn, openedView } from "@src/map/clusters";
 import type { Coordinates } from "@src/map/coordinates";
-import { maxZoom, viewport } from "@src/map/viewport";
+import { maxZoom, snapToGrid, viewport, type MapView } from "@src/map/viewport";
 import ExplorePage from "@src/pages/explore.astro";
 import { loadSampleCityList } from "@src/tests/cities";
 import { dialogIn, renderPage } from "@src/tests/container";
@@ -43,6 +43,14 @@ const cellsOf = (html: string) =>
 	}));
 
 const defaultMap = () => viewport(defaultMapCenter, defaultMapZoom, exploreMapSize);
+
+// The map a Visitor sees, on the grid of the explore map.
+function visitorMap(view: MapView) {
+	const snapped = snapToGrid(view, exploreGridStep);
+	return viewport(snapped.center, snapped.zoom, exploreMapSize);
+}
+
+const mapLinksOf = (html: string) => hrefs(html, /href="(\/explore\?lat=[^"]*)"/g).map((href) => href.replaceAll("&amp;", "&"));
 
 // The middle of the map, which the link to zoom in keeps.
 function mapCenterOf(html: string): Coordinates {
@@ -156,7 +164,7 @@ describe("the explore map", () => {
 
 	it("moves to the middle of the cell the user clicks, which tells how far and which way", async () => {
 		const { db } = createTestDatabase();
-		const map = defaultMap();
+		const map = visitorMap({ center: defaultMapCenter, zoom: defaultMapZoom });
 
 		const cells = cellsOf((await renderPage(ExplorePage, { db, session: null }, "/explore")).html);
 		const placements = cells.map(({ params }) => map.place({ latitude: Number(params.get("lat")), longitude: Number(params.get("lng")) }));
@@ -172,6 +180,36 @@ describe("the explore map", () => {
 		expect(new Set(cells.map(({ label }) => label)).size).toBe(cells.length);
 		expect(cells[0]?.label).toMatch(/^Move [\d.]+ k?m north and [\d.]+ k?m west$/);
 		expect(cells.at(-1)?.label).toMatch(/^Move [\d.]+ k?m south and [\d.]+ k?m east$/);
+	});
+
+	it("keeps the map of a Visitor on a grid, so that every way to a place leads to the same address", async () => {
+		const { client, db } = createTestDatabase();
+		insertApproved(client, "Grill A", near(0, 1000));
+		insertApproved(client, "Grill B", near(20, 1010));
+		// Off the grid, as a link a User shared may be.
+		const shared = { center: { latitude: 55.40123, longitude: 10.39876 }, zoom: 13 };
+		const here = exploreHref({ center: visitorMap(shared).center, zoom: shared.zoom });
+		const visit = async (path: string) => (await renderPage(ExplorePage, { db, session: null }, path)).html;
+		const zoomLink = (html: string, title: "Zoom in" | "Zoom out") =>
+			hrefs(html, new RegExp(`<a class="icon-btn" href="([^"]*)"[^>]*title="${title}"`, "g"))[0]!.replaceAll("&amp;", "&");
+		// The links of the map come in order: the cluster on it, the two zooms, the cells and the cluster in the list.
+		const firstCell = 3;
+		const cellLink = (html: string, row: number, column: number) => mapLinksOf(html)[firstCell + row * exploreMapCells.columns + column]!;
+		const onGrid = (href: string) => {
+			const params = new URL(href, "http://localhost").searchParams;
+			const center = { latitude: Number(params.get("lat")), longitude: Number(params.get("lng")) };
+			return exploreHref(snapToGrid({ center, zoom: Number(params.get("zoom")) }, exploreGridStep));
+		};
+
+		const page = await visit(exploreHref(shared));
+		const links = mapLinksOf(page);
+
+		// The cluster on the map and in the list, the two zooms and the cells.
+		expect(links).toHaveLength(2 + 2 + exploreMapCells.columns * exploreMapCells.rows);
+		for (const link of links) expect(link).toBe(onGrid(link));
+		expect(zoomLink(await visit(zoomLink(page, "Zoom in")), "Zoom out")).toBe(here);
+		// Half a cell north-west, and back south-east.
+		expect(cellLink(await visit(cellLink(page, 1, 2)), 2, 3)).toBe(here);
 	});
 
 	it("has the browser load a page of the map in advance only when the user is about to open it", async () => {
@@ -227,8 +265,10 @@ describe("a search on the explore map", () => {
 
 		const { html } = await renderPage(ExplorePage, { db, session: null }, `${copenhagen}&q=odensee`);
 
+		const { center } = visitorMap({ center: { latitude: 55.6761, longitude: 12.5683 }, zoom: 12 });
 		expect(html).toContain("No city starts with “odensee”.");
-		expect(mapCenterOf(html)).toEqual({ latitude: 55.6761, longitude: 12.5683 });
+		expect(mapCenterOf(html).latitude).toBeCloseTo(center.latitude, 5);
+		expect(mapCenterOf(html).longitude).toBeCloseTo(center.longitude, 5);
 	});
 });
 

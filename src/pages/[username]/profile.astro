@@ -77,7 +77,7 @@ if (canView) {
 }
 
 const tabs: Record<ProfileTab, { label: string; total: number; empty: string }> = {
-  reviews: { label: "Reviews", total: canViewHiddenReviews ? user.allReviewCount : user.reviewCount, empty: "No reviews yet." },
+  reviews: { label: "Reviews", total: canViewHiddenReviews ? user.allReviewCount : user.publicReviewCount, empty: "No reviews yet." },
   favorites: { label: "Favorites", total: user.favoriteCount, empty: "No favorites yet." },
   "bucket-list": { label: "Bucket list", total: user.bucketListCount, empty: "The bucket list is empty." },
   followers: { label: "Followers", total: user.followerCount, empty: "No followers yet." },
