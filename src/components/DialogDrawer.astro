@@ -20,29 +20,40 @@ const descriptionId = `${id}-description`;
     aria-describedby={description ? descriptionId : undefined}
     {...props}
 >
-    <div class="dialog-drawer-handle" aria-hidden="true"></div>
-    <header class="dialog-drawer-header">
-        <h2 id={titleId} class="t-subheading">{title}</h2>
-        {description && (
-            <p id={descriptionId} class="t-body-sm text-fg-muted">{description}</p>
-        )}
-    </header>
+    <div class="dialog-drawer-panel">
+        <div class="dialog-drawer-handle" aria-hidden="true"></div>
+        <header class="dialog-drawer-header">
+            <h2 id={titleId} class="t-subheading">{title}</h2>
+            {description && (
+                <p id={descriptionId} class="t-body-sm text-fg-muted">{description}</p>
+            )}
+        </header>
+        <button
+            type="button"
+            class="icon-btn dialog-drawer-close"
+            commandfor={id}
+            command="close"
+            aria-label="Close"
+        >
+            <X size={18} aria-hidden="true" />
+        </button>
+        <slot />
+        <button
+            type="button"
+            class="btn btn-secondary btn-md dialog-drawer-cancel"
+            commandfor={id}
+            command="close"
+        >
+            Cancel
+        </button>
+    </div>
+    <!-- Covers the screen behind the panel, so a tap outside closes the drawer where closedby is not supported (Safari). -->
     <button
         type="button"
-        class="icon-btn dialog-drawer-close"
+        class="dialog-drawer-dismiss"
         commandfor={id}
         command="close"
-        aria-label="Close"
-    >
-        <X size={18} aria-hidden="true" />
-    </button>
-    <slot />
-    <button
-        type="button"
-        class="btn btn-secondary btn-md dialog-drawer-cancel"
-        commandfor={id}
-        command="close"
-    >
-        Cancel
-    </button>
+        tabindex="-1"
+        aria-hidden="true"
+    ></button>
 </dialog>

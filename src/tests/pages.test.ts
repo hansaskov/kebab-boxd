@@ -34,6 +34,8 @@ describe("pages", () => {
 		expect(dialog).toContain("Log in to Kebab Boxd");
 		expect(dialog).toContain('href="/api/google"');
 		expect(dialog).not.toMatch(/^<dialog\b[^>]*\sopen\b/);
+		// A tap outside the panel closes the dialog, also in Safari, which does not support closedby.
+		expect(dialog).toMatch(/class="dialog-drawer-dismiss" commandfor="login-get-started" command="close"/);
 		expect(html).toContain('rel="preload" href="/fonts/google-sans-medium-latin.woff2"');
 	});
 

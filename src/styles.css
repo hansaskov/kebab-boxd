@@ -780,43 +780,34 @@
     z-index: 1;
   }
 
-  /* A sheet from the bottom on a phone and a centred dialog on a larger screen. Its content is a column that
-     each element fills the width of, so the action lines up with Cancel below it. */
+  /* A sheet from the bottom on a phone and a centred dialog on a larger screen. The dialog covers the screen and
+     holds the panel and, behind it, a layer that closes the drawer when tapped. Its content is a column that each
+     element fills the width of, so the action lines up with Cancel below it. */
   .dialog-drawer {
     position: fixed;
-    inset: auto 0 0;
+    inset: 0;
     margin: 0;
+    padding: 0;
     width: 100%;
+    height: 100%;
     max-width: none;
-    max-height: 85dvh;
-    overflow-y: auto;
-    flex-direction: column;
-    gap: 1.25rem;
-    padding: 0.75rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
-    border: 1px solid var(--ds-color-border-subtle);
-    border-bottom: 0;
-    border-radius: var(--ds-radius-box) var(--ds-radius-box) 0 0;
-    background: var(--ds-color-bg-surface);
+    max-height: none;
+    /* Not hidden: the browser scrolls a hidden overflow to show the focused element when the dialog opens,
+       which skips the panel's slide in. */
+    overflow: clip;
+    border: 0;
+    background: transparent;
     color: var(--ds-color-fg-default);
-    box-shadow: var(--ds-shadow-panel);
-    transform: translateY(100%);
     transition:
-      transform 280ms var(--pr-ease-out),
       overlay 280ms allow-discrete,
       display 280ms allow-discrete;
   }
   .dialog-drawer[open] {
-    display: flex;
-    transform: none;
-  }
-  @starting-style {
-    .dialog-drawer[open] {
-      transform: translateY(100%);
-    }
+    display: block;
   }
   .dialog-drawer[open]:not(:modal) {
     z-index: 60;
-    box-shadow: 0 0 0 100vmax var(--ds-color-scrim);
+    background: var(--ds-color-scrim);
   }
   .dialog-drawer::backdrop {
     background: var(--ds-color-scrim);
@@ -836,6 +827,38 @@
   }
   body:has(.dialog-drawer:modal) {
     overflow: hidden;
+  }
+
+  .dialog-drawer-dismiss {
+    position: absolute;
+    inset: 0;
+    cursor: default;
+  }
+  .dialog-drawer-panel {
+    position: absolute;
+    inset: auto 0 0;
+    z-index: 1;
+    display: flex;
+    max-height: 85dvh;
+    overflow-y: auto;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 0.75rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
+    border: 1px solid var(--ds-color-border-subtle);
+    border-bottom: 0;
+    border-radius: var(--ds-radius-box) var(--ds-radius-box) 0 0;
+    background: var(--ds-color-bg-surface);
+    box-shadow: var(--ds-shadow-panel);
+    transform: translateY(100%);
+    transition: transform 280ms var(--pr-ease-out);
+  }
+  .dialog-drawer[open] .dialog-drawer-panel {
+    transform: none;
+  }
+  @starting-style {
+    .dialog-drawer[open] .dialog-drawer-panel {
+      transform: translateY(100%);
+    }
   }
 
   .dialog-drawer-handle {
@@ -861,6 +884,11 @@
 
   @media (min-width: 40rem) {
     .dialog-drawer {
+      transition:
+        overlay 180ms allow-discrete,
+        display 180ms allow-discrete;
+    }
+    .dialog-drawer-panel {
       inset: 0;
       margin: auto;
       width: min(28rem, calc(100% - 2rem));
@@ -873,16 +901,14 @@
       scale: 0.96;
       transition:
         opacity 180ms ease,
-        scale 180ms var(--pr-ease-out),
-        overlay 180ms allow-discrete,
-        display 180ms allow-discrete;
+        scale 180ms var(--pr-ease-out);
     }
-    .dialog-drawer[open] {
+    .dialog-drawer[open] .dialog-drawer-panel {
       opacity: 1;
       scale: 1;
     }
     @starting-style {
-      .dialog-drawer[open] {
+      .dialog-drawer[open] .dialog-drawer-panel {
         transform: none;
         opacity: 0;
         scale: 0.96;
