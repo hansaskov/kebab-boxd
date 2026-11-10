@@ -37,15 +37,23 @@ const { shape } = createReviewSchema;
   <form class="mt-4" method="post" action={actions.reviews.create} enctype="multipart/form-data">
     <input type="hidden" name="restaurantId" value={restaurant.id} />
     <fieldset class="settings-card">
-      <FieldRating label="Rating" name="rating" submitted={submitted} zodField={shape.rating} />
+      <FieldRating layout="stack" label="Rating" name="rating" submitted={submitted} zodField={shape.rating} />
       <FieldTextArea
+        layout="stack"
+        class="min-h-56"
         label="Review"
         name="description"
-        description="What was good, and what was not?"
+        placeholder="What was good, and what was not?"
         submitted={submitted}
         zodField={shape.description}
       />
-      <FieldFile label={`Choose up to ${maxPicturesPerReview} pictures or drop them here`} name="pictures" multiple submitted={submitted} />
+      <FieldFile
+        label="Pictures"
+        prompt={`Choose up to ${maxPicturesPerReview} pictures`}
+        name="pictures"
+        multiple
+        submitted={submitted}
+      />
       <div class="settings-card-footer">
         <button class="btn btn-primary btn-md" type="submit">Publish review</button>
       </div>

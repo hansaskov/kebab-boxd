@@ -1,4 +1,3 @@
-import { inArray } from "drizzle-orm";
 import { refreshAuthorStats, refreshLikeCounts, refreshRestaurantStats } from "@src/db/cached-stats";
 import type { Client, Transaction } from "@src/db/client";
 import { chunks, durableSqliteLimits } from "@src/db/limits";
@@ -259,7 +258,19 @@ function insertSubjects(tx: Transaction) {
 	for (let event = 0; event < 20; event++) {
 		tx.insert(s.citySearchEvents).values({ citySearchId, message: `Asked server ${event}.`, createdAt: next() }).run();
 	}
-	tx.update(s.restaurants).set({ citySearchId }).where(inArray(s.restaurants.id, suggestedIds)).run();
+	// The search approved what it found, and an Admin rejected some of it later. They are in the north of the city,
+	// off the map of its middle, which stays as the budgets of the map were set for.
+	for (let i = 0; i < 4; i++) {
+		insertRestaurant(tx, `Found Kebab ${i}`, {
+			latitude: odense.latitude + 0.045,
+			longitude: odense.longitude + 0.01 * i,
+			city: "Odense",
+			status: i < 3 ? "approved" : "rejected",
+			osmId: `node/${i + 1}`,
+			citySearchId,
+			createdAt: next(),
+		});
+	}
 
 	return {
 		adminId,

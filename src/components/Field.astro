@@ -6,9 +6,12 @@ interface Props {
     label?: string | undefined;
     description?: string | undefined;
     layout?: "row" | "stack" | undefined;
+    // The field is a group of controls, such as radio buttons, rather than one. A label can name only one control,
+    // so the group refers to the label by its id instead.
+    group?: boolean | undefined;
 }
 
-const { field, label, description, layout = "row" } = Astro.props;
+const { field, label, description, layout = "row", group = false } = Astro.props;
 const isRow = layout === "row";
 // A component that forwards the label slot under a condition creates the slot even when the condition is false,
 // so the slot counts only when it renders something.
@@ -20,11 +23,17 @@ if (!label && !hasLabelSlot) {
 }
 ---
 
-<div class={isRow ? "settings-row" : "space-y-2"}>
+<div class={isRow ? "settings-row" : "field-stack space-y-2"}>
     <div class={isRow ? "settings-row-text" : undefined}>
-        <label class:list={["field-label", { "font-normal": hasLabelSlot }]} for={field.id}>
-            {hasLabelSlot ? <Fragment set:html={labelSlot} /> : label}
-        </label>
+        {group ? (
+            <p class:list={["field-label", { "font-normal": hasLabelSlot }]} id={field.labelId}>
+                {hasLabelSlot ? <Fragment set:html={labelSlot} /> : label}
+            </p>
+        ) : (
+            <label class:list={["field-label", { "font-normal": hasLabelSlot }]} for={field.id}>
+                {hasLabelSlot ? <Fragment set:html={labelSlot} /> : label}
+            </label>
+        )}
         {description && <p id={field.descriptionId} class="t-body-sm text-fg-muted">{description}</p>}
     </div>
     <div class:list={["space-y-2", { "settings-row-field": isRow }]}>

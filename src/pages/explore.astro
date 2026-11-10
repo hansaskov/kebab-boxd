@@ -125,7 +125,7 @@ const toast = successToast(Astro.locals, actions.updateLocation, { title: "Locat
 		<>
 			<h1 class="sm:sr-only">Explore</h1>
 			<div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-3 sm:mt-0">
-				<SearchForm class="w-full sm:max-w-sm" id="explore-city" label="Find a city" value={query} placeholder="City" />
+				<SearchForm class="w-full" id="explore-city" label="Find a city" value={query} placeholder="Search for a city near you" />
 				{!explored.isAtHome && (
 					<div class="t-body-sm ms-auto flex flex-wrap items-center gap-x-4 gap-y-1 max-sm:order-last">
 						{home && <a class="link" href={exploreHref({ center: home, zoom: explored.map.zoom })}>Back to your location</a>}
@@ -196,7 +196,7 @@ const toast = successToast(Astro.locals, actions.updateLocation, { title: "Locat
 				Kebab <span class="text-brand-text">Boxd</span>
 			</p>
 			<form class="mt-8 w-full" method="get" action={Astro.url.pathname} role="search">
-				<label class="sr-only" for="explore-start">Where do you want reviews from?</label>
+				<label class="sr-only" for="explore-start">Search for a city near you</label>
 				<div class="relative">
 					<Search class="pointer-events-none absolute start-5 top-1/2 -translate-y-1/2 text-fg-muted" size={20} aria-hidden="true" />
 					<input
@@ -206,7 +206,7 @@ const toast = successToast(Astro.locals, actions.updateLocation, { title: "Locat
 						name="q"
 						value={query}
 						maxlength={searchMaxLength}
-						placeholder="Where do you want reviews from?"
+						placeholder="Search for a city near you"
 						autocomplete="off"
 						autofocus
 						aria-describedby={problem ? "explore-start-problem" : undefined}

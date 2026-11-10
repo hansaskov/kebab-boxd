@@ -449,6 +449,33 @@
     transform: scale(0.94);
   }
 
+  /* Removes the picture it lies on, in its top right corner. Its own surface keeps it clear on any picture. */
+  .picture-remove {
+    position: absolute;
+    top: 0.375rem;
+    right: 0.375rem;
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    background: color-mix(in oklab, var(--ds-color-bg-surface) 85%, transparent);
+    color: var(--ds-color-fg-default);
+    box-shadow: var(--ds-shadow-card);
+    cursor: pointer;
+    transition:
+      background-color 140ms ease,
+      color 140ms ease,
+      transform 80ms ease;
+  }
+  .picture-remove:hover {
+    background: var(--ds-color-danger-subtle);
+    color: var(--ds-color-danger-default);
+  }
+  .picture-remove:active {
+    transform: scale(0.94);
+  }
+
   .tag {
     display: inline-flex;
     align-items: center;
@@ -623,12 +650,87 @@
     color: var(--ds-color-fg-muted);
   }
 
+  /* A text area grows with its text, up to a height from where it scrolls. A browser that cannot size it
+     to its text keeps the minimum height, and the user can still drag it taller. */
   textarea.input {
     height: auto;
     min-height: 6rem;
-    padding-block: 0.375rem;
+    max-height: 32rem;
+    field-sizing: content;
+    padding-block: 0.625rem;
     resize: vertical;
     line-height: 1.6;
+  }
+
+  /* A rating chosen from a row of stars, half a star at a time. Each half star is the label of a radio
+     button, so a click on it chooses its rating and the arrow keys move between the ratings, without script.
+     A half is filled when its rating or a higher one is chosen. While the pointer is on the row, a half is
+     filled instead when the pointer is on it or on a higher half, to show what a click would choose. */
+  .star-rating {
+    --star-rating-size: 3rem;
+    --star-rating-icon-size: 2.25rem;
+    display: flex;
+    width: fit-content;
+    border-radius: var(--ds-radius-field);
+  }
+  .star-rating:has(:focus-visible) {
+    outline: 2px solid var(--ds-color-focus);
+    outline-offset: 2px;
+  }
+
+  /* Half a star is 1.5rem wide, as wide as a target to tap needs to be. */
+  .star-rating-option {
+    --star-rating-fill: transparent;
+    position: relative;
+    width: calc(var(--star-rating-size) / 2);
+    height: var(--star-rating-size);
+    overflow: hidden;
+    color: var(--ds-color-fg-subtle);
+    cursor: pointer;
+  }
+  .star-rating-option:has(> input:focus-visible) {
+    outline: none;
+  }
+  .star-rating-whole {
+    width: var(--star-rating-size);
+  }
+
+  .star-rating-icon {
+    position: absolute;
+    top: 50%;
+    left: calc((var(--star-rating-size) - var(--star-rating-icon-size)) / 2);
+    translate: 0 -50%;
+    width: var(--star-rating-icon-size);
+    height: var(--star-rating-icon-size);
+    stroke-width: 1.5;
+    fill: var(--star-rating-fill);
+    transition:
+      fill 120ms ease,
+      color 120ms ease;
+  }
+  /* The second half of a star shows the right side of the icon. */
+  .star-rating-end .star-rating-icon {
+    left: calc((var(--star-rating-size) - var(--star-rating-icon-size)) / 2 - var(--star-rating-size) / 2);
+  }
+
+  .star-rating[aria-invalid="true"] .star-rating-option {
+    color: var(--ds-color-danger-default);
+  }
+
+  /* The three rules below have the same specificity, so the later one wins where they meet. */
+  .star-rating .star-rating-option:is(:has(:checked), :has(~ .star-rating-option :checked)) {
+    --star-rating-fill: currentColor;
+    color: var(--ds-color-brand-text);
+  }
+  @media (hover: hover) {
+    .star-rating:has(.star-rating-option:hover) .star-rating-option {
+      --star-rating-fill: transparent;
+      color: var(--ds-color-fg-subtle);
+    }
+    .star-rating .star-rating-option:is(:hover, :has(~ .star-rating-option:hover)) {
+      --star-rating-fill: currentColor;
+      color: var(--ds-color-brand-text);
+    }
   }
 
   .select {
@@ -675,6 +777,10 @@
   .settings-card > * + *,
   .settings-card > ul > li + li {
     border-top: 1px solid var(--ds-color-border-subtle);
+  }
+  /* A field with its label above it, as wide as the card. */
+  .settings-card > .field-stack {
+    padding-block: 1.25rem;
   }
 
   .settings-card-footer {

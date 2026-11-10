@@ -7,7 +7,8 @@ import { canOn, type Viewer } from "@src/auth/permissions";
 import { succeededOn } from "@src/actions/outcome";
 import type { ReviewCard } from "@src/db/reviews";
 import RelativeTime from "@src/components/RelativeTime.astro";
-import { describeStars, splitStars, toStars } from "@src/format/rating";
+import { describeStars, starFills, toStars } from "@src/format/rating";
+import { maxPicturesPerReview } from "@src/validation/review";
 import { editReviewHref, profileHref, restaurantHref, reviewHref } from "@src/hrefs";
 
 interface Props extends HTMLAttributes<"article"> {
@@ -23,25 +24,12 @@ const { author, restaurant } = review;
 const canLike = canOn(viewer, "review:like", review) || (review.isLikedByViewer && canOn(viewer, "review:unlike", review));
 const canEdit = canOn(viewer, "review:edit", review);
 const justLiked = review.isLikedByViewer && succeededOn(Astro.locals, actions.reviews.like) === review.id;
-const stars = splitStars(review.rating);
-const pictureCount = review.pictures.length;
-
-// On a phone the pictures form a row of thumbnails under the text. From the sm breakpoint they form a small square beside it.
-const pictureCell = (index: number) => {
-  if (pictureCount === 1) return { item: "sm:col-span-2", image: "aspect-square" };
-  if (pictureCount === 3 && index === 0) return { item: "sm:col-span-2", image: "aspect-square sm:aspect-2/1" };
-  return { item: "", image: "aspect-square" };
-};
+// The pictures fill the width of the card in one row, a column for each picture a Review may have, so they grow
+// with the screen and line up from one card to the next.
+const pictureColumns = `grid-template-columns: repeat(${maxPicturesPerReview}, minmax(0, 1fr))`;
 ---
 
-<article
-  class:list={[
-    "p-4 sm:px-5",
-    pictureCount > 0 && "grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_8rem] sm:grid-rows-[auto_1fr_auto] sm:gap-x-5",
-    className,
-  ]}
-  {...props}
->
+<article class:list={["p-4 sm:px-5", className]} {...props}>
   <header class="flex items-start gap-3">
     {showAuthor && (
       <a href={profileHref(author.username)} tabindex="-1">
@@ -56,8 +44,12 @@ const pictureCell = (index: number) => {
       </p>
       <p class="t-body-sm flex flex-wrap items-center gap-x-2 text-fg-muted">
         <span class="inline-flex items-center gap-0.5 text-brand-text" role="img" aria-label={describeStars(toStars(review.rating))}>
-          {Array.from({ length: stars.full }, () => <Star size={15} fill="currentColor" aria-hidden="true" />)}
-          {stars.half && <StarHalf size={15} fill="currentColor" aria-hidden="true" />}
+          {starFills(review.rating).map((fill) => (
+            <span class="grid *:col-start-1 *:row-start-1">
+              <Star class:list={{ "text-line-strong": fill !== "full" }} size={15} fill="currentColor" aria-hidden="true" />
+              {fill === "half" && <StarHalf size={15} fill="currentColor" aria-hidden="true" />}
+            </span>
+          ))}
         </span>
         <span class="flex gap-2 whitespace-nowrap">
           <span aria-hidden="true">·</span>
@@ -77,20 +69,14 @@ const pictureCell = (index: number) => {
     )}
   </header>
 
-  {review.description && <p class="t-body mt-2 max-w-prose whitespace-pre-line sm:col-start-1">{review.description}</p>}
+  {review.description && <p class="t-body mt-2 max-w-prose whitespace-pre-line">{review.description}</p>}
 
-  {pictureCount > 0 && (
-    <ul class="mt-3 flex gap-1.5 sm:col-start-2 sm:row-span-3 sm:row-start-1 sm:mt-0 sm:grid sm:grid-cols-2 sm:self-start">
-      {review.pictures.map((picture, index) => (
-        <li class:list={["w-20 min-w-0 sm:w-auto", pictureCell(index).item]}>
+  {review.pictures.length > 0 && (
+    <ul class="mt-3 grid gap-1.5" style={pictureColumns}>
+      {review.pictures.map((picture) => (
+        <li>
           <a href={picture.url}>
-            <img
-              class:list={["w-full rounded-field bg-subtle object-cover", pictureCell(index).image]}
-              src={picture.url}
-              alt=""
-              loading="lazy"
-              decoding="async"
-            />
+            <img class="aspect-square w-full rounded-field bg-subtle object-cover" src={picture.url} alt="" loading="lazy" decoding="async" />
           </a>
         </li>
       ))}
@@ -98,7 +84,7 @@ const pictureCell = (index: number) => {
   )}
 
   {(canLike || review.likeCount > 0) && (
-    <footer class="mt-3 flex items-center gap-2 sm:col-start-1 sm:row-start-3 sm:self-end">
+    <footer class="mt-3 flex items-center gap-2">
       {canLike ? (
         <form class="flex" method="post" action={review.isLikedByViewer ? actions.reviews.unlike : actions.reviews.like}>
           <input type="hidden" name="reviewId" value={review.id} />

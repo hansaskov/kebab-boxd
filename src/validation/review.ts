@@ -22,7 +22,11 @@ export const updateReviewSchema = z.object({
 	rating: ratingSchema,
 	description: descriptionSchema,
 	pictures: picturesSchema(maxPicturesPerReview),
-	removePictureIds: z.array(idSchema),
+});
+
+export const removeReviewPictureSchema = z.object({
+	reviewId: idSchema,
+	pictureId: idSchema,
 });
 
 export const reviewTargetSchema = z.object({

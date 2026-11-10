@@ -1,7 +1,7 @@
 import { defineAction } from "astro:actions";
 import { orThrow, requireSession } from "@src/actions/authorize";
-import { profileHref, restaurantHref, reviewHref } from "@src/hrefs";
-import { createReviewSchema, reviewTargetSchema, updateReviewSchema } from "@src/validation/review";
+import { editReviewHref, profileHref, restaurantHref, reviewHref } from "@src/hrefs";
+import { createReviewSchema, removeReviewPictureSchema, reviewTargetSchema, updateReviewSchema } from "@src/validation/review";
 
 function likeAction(write: "like" | "unlike") {
   return defineAction({
@@ -28,17 +28,19 @@ export const reviewActions = {
   update: defineAction({
     accept: "form",
     input: updateReviewSchema,
-    handler: async ({ reviewId, rating, description, pictures, removePictureIds }, { locals }) => {
+    handler: async ({ reviewId, rating, description, pictures }, { locals }) => {
       const { user } = requireSession(locals);
-      orThrow(
-        await locals.db.reviews.update(user.id, reviewId, {
-          rating,
-          description: description || null,
-          addPictures: pictures,
-          removePictureIds,
-        }),
-      );
+      orThrow(await locals.db.reviews.update(user.id, reviewId, { rating, description: description || null, addPictures: pictures }));
       return { redirect: reviewHref(reviewId) };
+    },
+  }),
+  // The author stays on the edit page, to go on changing the review.
+  removePicture: defineAction({
+    accept: "form",
+    input: removeReviewPictureSchema,
+    handler: async ({ reviewId, pictureId }, { locals }) => {
+      orThrow(await locals.db.reviews.removePicture(requireSession(locals).user.id, reviewId, pictureId));
+      return { redirect: editReviewHref(reviewId) };
     },
   }),
   delete: defineAction({

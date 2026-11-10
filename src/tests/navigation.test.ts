@@ -130,6 +130,8 @@ describe("the settings", () => {
 
 		expect(profile).toMatch(/for="fullname">\s*Full name\s*</);
 		expect(profile).toMatch(/for="username">\s*Username\s*</);
+		// The heading of its section names the picture, so the prompt inside the field is its label.
+		expect(profile).toMatch(/<label class="dropzone-label" for="picture">Choose a picture<\/label>/);
 		expect(data).toMatch(/for="confirmation">\s*Type <strong>ada<\/strong> to confirm/);
 	});
 

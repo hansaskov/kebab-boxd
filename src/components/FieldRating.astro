@@ -1,14 +1,14 @@
 ---
-import { ChevronDown } from "@lucide/astro";
+import { Star } from "@lucide/astro";
 import type { ComponentProps } from "astro/types";
 import type { ZodNumber } from "astro/zod";
 import Field from "@src/components/Field.astro";
 import type { SubmittedForm } from "@src/actions/outcome";
 import { describeField } from "@src/format/field";
-import { describeStars, toStars } from "@src/format/rating";
+import { describeStars, maxStars, toStars } from "@src/format/rating";
 import { getConstraintsFromZodSchema } from "@src/validation/constraint";
 
-interface Props extends Omit<ComponentProps<typeof Field>, "field" | "layout" | "description">, astroHTML.JSX.SelectHTMLAttributes {
+interface Props extends Omit<ComponentProps<typeof Field>, "field" | "description" | "group"> {
     name: string;
     zodField: ZodNumber;
     label: string;
@@ -17,24 +17,44 @@ interface Props extends Omit<ComponentProps<typeof Field>, "field" | "layout" | 
     submitted?: SubmittedForm | undefined;
 }
 
-const { zodField, selected, label, submitted, class: className, ...props } = Astro.props;
-const { min, max, ...constraints } = getConstraintsFromZodSchema(zodField);
-if (min === undefined || max === undefined) {
-    throw new Error(`FieldRating "${props.name}" needs a schema with a minimum and a maximum.`);
+const { name, zodField, selected, submitted, ...props } = Astro.props;
+const { min, max, required } = getConstraintsFromZodSchema(zodField);
+if (min === undefined || max !== maxStars * 2) {
+    throw new Error(`FieldRating "${name}" needs a schema with a minimum and a maximum of ${maxStars * 2}, one for each half star.`);
 }
-const ratings = Array.from({ length: max - min + 1 }, (_, i) => max - i);
-const current = submitted ? Number(submitted.get(props.name)) || undefined : selected;
-const field = describeField({ ...props, submitted });
+
+const current = submitted ? Number(submitted.get(name)) || undefined : selected;
+const field = describeField({ name, submitted });
+
+// A rating is a number of half stars. An odd rating ends in the first half of a star, an even one in the second half.
+// When the half before a rating is below the minimum, its option covers the whole star.
+const options = Array.from({ length: max - min + 1 }, (_, i) => min + i).map((rating) => ({
+    rating,
+    part: rating % 2 === 1 ? "start" : rating - 1 < min ? "whole" : "end",
+}));
 ---
 
-<Field field={field} label={label}>
-    <div class="select">
-        <select class:list={["input", className]} {...constraints} {...props} {...field.control}>
-            {current === undefined && <option value="" selected disabled>Choose a rating</option>}
-            {ratings.map((rating) => (
-                <option value={rating} selected={current === rating}>{describeStars(toStars(rating))}</option>
-            ))}
-        </select>
-        <ChevronDown size={16} aria-hidden="true" class="select-icon" />
+<Field field={field} group {...props}>
+    <div
+        class="star-rating"
+        role="radiogroup"
+        aria-labelledby={field.labelId}
+        aria-describedby={field.control["aria-describedby"]}
+        aria-invalid={field.control["aria-invalid"]}
+    >
+        {options.map(({ rating, part }) => (
+            <label class:list={["star-rating-option", `star-rating-${part}`]}>
+                <input
+                    class="sr-only"
+                    type="radio"
+                    name={name}
+                    value={rating}
+                    checked={current === rating}
+                    required={required}
+                />
+                <span class="sr-only">{describeStars(toStars(rating))}</span>
+                <Star class="star-rating-icon" aria-hidden="true" />
+            </label>
+        ))}
     </div>
 </Field>

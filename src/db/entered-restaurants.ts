@@ -5,7 +5,7 @@ import type { RestaurantStatus } from "@src/db/schema";
 import { boundsAround, type Coordinates } from "@src/map/coordinates";
 import type { Address } from "@src/map/nominatim";
 
-// How a place that was found becomes a pending Restaurant, whether a User suggested it or a CitySearch found it.
+// How a place that was found becomes a Restaurant, whether a User suggested it or a CitySearch found it.
 
 // Two places with the same name this close to each other are taken to be the same restaurant.
 const duplicateDistanceMeters = 150;
@@ -22,6 +22,12 @@ export interface FoundPlace extends Coordinates {
 
 // Who entered the Restaurant: the User who suggested it, or the CitySearch that found it.
 export type Origin = { suggestedBy: number } | { citySearchId: number };
+
+// A Restaurant a User suggested waits for an Admin to approve it. One a CitySearch found is approved at once,
+// since an Admin chose to search the City; an Admin may still reject it.
+function statusOf(origin: Origin): RestaurantStatus {
+	return "suggestedBy" in origin ? "pending" : "approved";
+}
 
 // The Restaurant with one of the statuses that the place already is: the one with its id at Google Maps or
 // OpenStreetMap, or one with its name close by.
@@ -49,12 +55,13 @@ export function findExisting(tx: Transaction, place: FoundPlace, statuses: reado
 	);
 }
 
-export function insertPendingRestaurant(tx: Transaction, place: FoundPlace, address: Address, origin: Origin) {
+// Has no reviews yet, so no cached stats change, even when it is approved at once.
+export function enterRestaurant(tx: Transaction, place: FoundPlace, address: Address, origin: Origin) {
 	const { name, latitude, longitude, googleMapsId = null, osmId = null } = place;
 	const location = tx.insert(s.locations).values({ ...address, latitude, longitude }).returning({ id: s.locations.id }).get();
 	return tx
 		.insert(s.restaurants)
-		.values({ name, googleMapsId, osmId, locationId: location.id, status: "pending", ...origin })
+		.values({ name, googleMapsId, osmId, locationId: location.id, status: statusOf(origin), ...origin })
 		.returning({ id: s.restaurants.id })
 		.get();
 }

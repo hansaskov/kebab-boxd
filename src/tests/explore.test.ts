@@ -245,10 +245,10 @@ describe("the explore map", () => {
 });
 
 // Whether the page asks where to look, instead of showing a map.
-const asksWhereOf = (html: string) => html.includes('placeholder="Where do you want reviews from?"') && !html.includes('<div class="map');
+const asksWhereOf = (html: string) => html.includes('placeholder="Search for a city near you"') && !html.includes('<div class="map');
 
 describe("the start of the explore page", () => {
-	it("asks a Visitor and a User without a location where they want reviews from, and offers to feel lucky", async () => {
+	it("asks a Visitor and a User without a location to search for a city near them, and offers to feel lucky", async () => {
 		const { client, db } = createTestDatabase();
 		const ada = insertUser(client, "ada");
 		insertApproved(client, "Lone Kebab", near(0, 0));

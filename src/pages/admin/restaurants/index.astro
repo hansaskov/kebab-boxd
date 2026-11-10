@@ -9,7 +9,7 @@ import TabNav from "@src/components/TabNav.astro";
 import { submittedForm } from "@src/actions/outcome";
 import { can } from "@src/auth/permissions";
 import { adminTabs } from "@src/data/admin-tabs";
-import { restaurantStatuses, type RestaurantStatus } from "@src/db/schema";
+import type { RestaurantStatus } from "@src/db/schema";
 import { regionAndCountry } from "@src/format/country";
 import { adminCitiesHref, adminRestaurantsHref, googleMapsHref, openStreetMapHref, profileHref, restaurantHref, signInHref } from "@src/hrefs";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
@@ -26,26 +26,29 @@ if (!can(session.user, "admin-console:view")) {
   return Astro.rewrite("/403");
 }
 
-const status = parseOption(Astro.url.searchParams, "status", restaurantStatuses, "pending");
 const { restaurants, citySearches } = Astro.locals.db;
 const searchId = parseId(Astro.url.searchParams.get("search") ?? undefined);
 const citySearch = searchId ? await citySearches.findById(searchId) : undefined;
+// A CitySearch approves what it finds, so none of its restaurants wait. The first status is shown without asking.
+const statuses: readonly [RestaurantStatus, ...RestaurantStatus[]] = citySearch ? ["approved", "rejected"] : ["pending", "approved", "rejected"];
+const [defaultStatus] = statuses;
+const status = parseOption(Astro.url.searchParams, "status", statuses, defaultStatus);
 const [page, counts] = await Promise.all([
   restaurants.listByStatus(status, parsePageRequest(Astro.url), citySearch?.id),
   restaurants.countByStatus(citySearch?.id),
 ]);
 
 const statusLabels: Record<RestaurantStatus, string> = { pending: "Waiting", approved: "Approved", rejected: "Rejected" };
-const statusTabs = (["pending", "approved", "rejected"] as const).map((option) => ({
+const statusTabs = statuses.map((option) => ({
   label: statusLabels[option],
   count: counts[option],
-  href: firstPageHref(Astro.url, { status: option === "pending" ? undefined : option }),
+  href: firstPageHref(Astro.url, { status: option === defaultStatus ? undefined : option }),
   current: option === status,
 }));
 const emptyMessages: Record<RestaurantStatus, string> = {
   pending: "No suggestions are waiting.",
   approved: "No restaurants are approved.",
-  rejected: "No suggestions are rejected.",
+  rejected: "No restaurants are rejected.",
 };
 
 // The checkboxes belong to this form through their form attribute, so each row can keep its own form.

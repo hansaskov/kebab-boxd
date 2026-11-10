@@ -6,7 +6,7 @@ import type { SubmittedForm } from "@src/actions/outcome";
 import { describeField } from "@src/format/field";
 import { getConstraintsFromZodSchema } from "@src/validation/constraint";
 
-interface Props extends Omit<ComponentProps<typeof Field>, "field" | "layout">, astroHTML.JSX.TextareaHTMLAttributes {
+interface Props extends Omit<ComponentProps<typeof Field>, "field" | "group">, astroHTML.JSX.TextareaHTMLAttributes {
     name: string;
     zodField: ZodString | ZodNullable<ZodString>;
     label: string;
@@ -14,15 +14,15 @@ interface Props extends Omit<ComponentProps<typeof Field>, "field" | "layout">, 
     submitted?: SubmittedForm | undefined;
 }
 
-const { zodField, label, description, submitted, value, class: className, ...props } = Astro.props;
-const field = describeField({ ...props, description, submitted });
+const { id, name, zodField, label, description, layout, submitted, value, class: className, ...props } = Astro.props;
+const field = describeField({ id, name, description, submitted });
 ---
 
-<Field field={field} label={label} description={description}>
+<Field field={field} label={label} description={description} layout={layout}>
     <textarea
         class:list={["input", className]}
         {...getConstraintsFromZodSchema(zodField)}
         {...props}
-        {...field.control}>{submitted ? submitted.get(props.name) : value}</textarea
+        {...field.control}>{submitted ? submitted.get(name) : value}</textarea
     >
 </Field>

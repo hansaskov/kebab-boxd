@@ -13,10 +13,12 @@ interface FieldSource {
 export function describeField({ id, name, description, errors, submitted }: FieldSource) {
 	const fieldId = id ?? name;
 	const shown = errors ?? submitted?.errors(name) ?? [];
+	const labelId = `${fieldId}-label`;
 	const descriptionId = `${fieldId}-description`;
 	const errorId = `${fieldId}-error`;
 	return {
 		id: fieldId,
+		labelId,
 		descriptionId,
 		errorId,
 		errors: shown,

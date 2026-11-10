@@ -74,7 +74,7 @@ describe("a CitySearch", () => {
 		expect(await startSearch(db, admin.id, copenhagen)).toEqual(expect.any(Number));
 	});
 
-	it("turns the places it finds into pending Restaurants without a suggester, and tells the Admin when the last is added", async () => {
+	it("turns the places it finds into approved Restaurants without a suggester, and tells the Admin when the last is added", async () => {
 		const { client, db, admin } = await setUp();
 		const id = await startSearch(db, admin.id);
 		await db.citySearches.saveCandidates(id, found([kebabPlace("node/1", "Kebab Huset"), kebabPlace("way/2", "Döner Corner", 55.4, 10.39)]));
@@ -90,8 +90,33 @@ describe("a CitySearch", () => {
 		expect(await notificationsOf(db, admin.id)).toEqual(["finished Odense: 2"]);
 		expect(logOf(client, id)).toEqual(["overpass.example found 2 places, 2 of them new.", "Done. Added 2 restaurants."]);
 		const restaurant = client.query.restaurants.findFirst({ with: { location: true }, where: { osmId: "node/1" } }).sync();
-		expect(restaurant).toMatchObject({ name: "Kebab Huset", status: "pending", suggestedBy: null, citySearchId: id });
+		expect(restaurant).toMatchObject({ name: "Kebab Huset", status: "approved", suggestedBy: null, citySearchId: id });
 		expect(restaurant?.location).toMatchObject({ addressLine1: "Vestergade 1", city: "Odense", latitude: 55.396 });
+	});
+
+	it("leaves only the Restaurants that Users suggest waiting for an Admin, who may still reject one it found", async () => {
+		const { client, db, admin } = await setUp();
+		const ada = insertUser(client, "ada");
+		const queued = await db.suggestionQueue.queue(ada.id, "https://www.google.com/maps/place/Shawarma+Village/data=!1s0x1:0x2!3d55.39!4d10.37");
+		if (isProblem(queued)) throw new Error(`The link was not queued: ${queued.problem}.`);
+		const suggested = await db.suggestionQueue.finish(
+			queued.id,
+			{ name: "Shawarma Village", googleMapsId: "0x1:0x2", latitude: 55.39, longitude: 10.37 },
+			{ addressLine1: "Kongensgade 13", postalCode: "5000", city: "Odense", country: "Denmark" },
+		);
+		const id = await startSearch(db, admin.id);
+		await db.citySearches.saveCandidates(id, found([kebabPlace("node/1", "Kebab Huset")]));
+		await processNextCandidate(db);
+		const listed = async (status: "pending" | "approved") =>
+			(await db.restaurants.listByStatus(status, { limit: 10, cursor: undefined })).items.map((restaurant) => restaurant.name);
+
+		expect(suggested.status).toBe("suggested");
+		expect([await listed("pending"), await listed("approved")]).toEqual([["Shawarma Village"], ["Kebab Huset"]]);
+		expect((await db.restaurants.list("", "newest", { limit: 10, cursor: undefined })).items.map((restaurant) => restaurant.name)).toEqual(["Kebab Huset"]);
+
+		const kebabHuset = client.query.restaurants.findFirst({ columns: { id: true }, where: { citySearchId: id } }).sync()!;
+		expect(await db.restaurants.decide(admin.id, [kebabHuset.id], "rejected")).toEqual({ decided: 1 });
+		expect(await db.restaurants.countByStatus(id)).toEqual({ approved: 0, pending: 0, rejected: 1 });
 	});
 
 	it("leaves out a place that already is a Restaurant, even a rejected one, and teaches one found by its name its OpenStreetMap id", async () => {

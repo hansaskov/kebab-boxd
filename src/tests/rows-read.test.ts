@@ -363,8 +363,13 @@ describeCalls("the rows each write to the database reads", {
 		budget: 200,
 	},
 	"reviews.update": {
-		measure: (db) => db.measure("reviews", "update", db.subjects.authorId, db.subjects.reviewId, { ...review, addPictures: [], removePictureIds: [] }),
+		measure: (db) => db.measure("reviews", "update", db.subjects.authorId, db.subjects.reviewId, { ...review, addPictures: [] }),
 		budget: 200,
+	},
+	"reviews.removePicture": {
+		// The review has no pictures, so it reads what any removal reads, without the rows of the picture.
+		measure: (db) => db.measure("reviews", "removePicture", db.subjects.authorId, db.subjects.reviewId, 1),
+		budget: 40,
 	},
 	"reviews.like": {
 		measure: (db) => db.measure("reviews", "like", db.subjects.viewerId, db.subjects.privateReviewId),

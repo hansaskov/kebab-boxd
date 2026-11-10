@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull, sql, type SQLWrapper } from "drizzle-orm";
 import type { Client, Transaction } from "@src/db/client";
 import { cursorList, type Seek } from "@src/db/pagination";
-import { enteredRestaurantCount } from "@src/db/pending-restaurants";
+import { enteredRestaurantCount } from "@src/db/entered-restaurants";
 import * as s from "@src/db/schema";
 import type { FollowKind, NotificationKind, SuggestionDecision, User } from "@src/db/schema";
 import { isVisibleNotification } from "@src/db/visibility";

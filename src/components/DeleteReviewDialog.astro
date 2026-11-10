@@ -1,0 +1,25 @@
+---
+import { actions } from "astro:actions";
+import type { ComponentProps } from "astro/types";
+import DialogDrawer from "@src/components/DialogDrawer.astro";
+import { deleteReviewDialogId } from "@src/data/dialog-ids";
+
+// Asks to confirm the deletion that a DeleteReviewButton starts. It has its own form, so it cannot be inside another.
+interface Props extends Omit<ComponentProps<typeof DialogDrawer>, "id" | "title" | "description"> {
+  reviewId: number;
+}
+
+const { reviewId, ...props } = Astro.props;
+---
+
+<DialogDrawer
+  id={deleteReviewDialogId(reviewId)}
+  title="Delete this review?"
+  description="The review and its pictures are deleted for good."
+  {...props}
+>
+  <form method="post" action={actions.reviews.delete}>
+    <input type="hidden" name="reviewId" value={reviewId} />
+    <button class="btn btn-danger btn-md w-full" type="submit">Delete review</button>
+  </form>
+</DialogDrawer>

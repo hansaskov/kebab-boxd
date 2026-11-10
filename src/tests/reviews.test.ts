@@ -37,7 +37,7 @@ describe("RatingAvg", () => {
 		const review = await writeReview(db, ada.id, grill.id, 2);
 		await writeReview(db, bob.id, grill.id, 10);
 
-		await db.reviews.update(ada.id, review, { rating: 8, description: null, addPictures: [], removePictureIds: [] });
+		await db.reviews.update(ada.id, review, { rating: 8, description: null, addPictures: [] });
 
 		expect(restaurantRow(client, grill.id)).toMatchObject({ ratingAvg: 9, reviewCount: 2 });
 

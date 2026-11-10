@@ -35,6 +35,7 @@ const failureTitles: Record<ActionNames<typeof server>, string> = {
 	"restaurants.suggest": "Suggestion failed",
 	"reviews.create": "Publishing failed",
 	"reviews.update": "Saving failed",
+	"reviews.removePicture": "Removal failed",
 	"reviews.delete": "Deletion failed",
 	"reviews.like": "Like failed",
 	"reviews.unlike": "Unlike failed",

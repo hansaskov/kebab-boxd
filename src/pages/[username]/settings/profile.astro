@@ -116,7 +116,7 @@ const toast = shownInline
     <form class="mt-3" method="post" action={actions.updateProfilePicture} enctype="multipart/form-data">
       <input type="hidden" name="currentUsername" value={user.username} />
       <fieldset class="settings-card">
-        <FieldFile label="Choose a picture or drop it here" name="picture" required submitted={pictureForm}>
+        <FieldFile prompt="Choose a picture" name="picture" required submitted={pictureForm}>
           <Avatar class="size-20 text-2xl" name={user.fullname} picture={user.profilePicture} />
         </FieldFile>
         <div class="settings-card-footer gap-2">

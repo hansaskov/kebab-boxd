@@ -6,7 +6,7 @@ import type { SubmittedForm } from "@src/actions/outcome";
 import { describeField } from "@src/format/field";
 import { getConstraintsFromZodSchema } from "@src/validation/constraint";
 
-interface Props extends Omit<ComponentProps<typeof Field>, "field">, astroHTML.JSX.InputHTMLAttributes {
+interface Props extends Omit<ComponentProps<typeof Field>, "field" | "group">, astroHTML.JSX.InputHTMLAttributes {
     name: string;
     zodField: ZodString | ZodNullable<ZodString>;
     errors?: string[] | undefined;
@@ -14,15 +14,15 @@ interface Props extends Omit<ComponentProps<typeof Field>, "field">, astroHTML.J
     submitted?: SubmittedForm | undefined;
 }
 
-const { zodField, label, description, layout, errors, submitted, value, class: className, ...props } = Astro.props;
-const field = describeField({ ...props, description, errors, submitted });
+const { id, name, zodField, label, description, layout, errors, submitted, value, class: className, ...props } = Astro.props;
+const field = describeField({ id, name, description, errors, submitted });
 ---
 
 <Field field={field} label={label} description={description} layout={layout}>
     {Astro.slots.has("label") && <Fragment slot="label"><slot name="label" /></Fragment>}
     <input
         class:list={["input", className]}
-        value={submitted ? submitted.get(props.name) : value}
+        value={submitted ? submitted.get(name) : value}
         {...getConstraintsFromZodSchema(zodField)}
         {...props}
         {...field.control}

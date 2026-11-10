@@ -51,7 +51,7 @@ describe("Pictures", () => {
 		// The file is no picture, so a write that reads it is refused for that instead.
 		const results = [
 			await db.reviews.create(bob.id, pending.id, { rating: 8, description: null }, [textFile()]),
-			await db.reviews.update(bob.id, review, { rating: 4, description: null, addPictures: [textFile()], removePictureIds: [] }),
+			await db.reviews.update(bob.id, review, { rating: 4, description: null, addPictures: [textFile()] }),
 			await db.users.setProfilePicture(bob.id, ada.username, textFile()),
 		];
 
@@ -79,7 +79,7 @@ describe("Pictures", () => {
 		await db.users.setProfilePicture(ada.id, ada.username, await pictureFile());
 		const [, removed] = await picturesOf(db, kept, ada.id);
 
-		await db.reviews.update(ada.id, kept, { rating: 8, description: null, addPictures: [], removePictureIds: [removed!.id] });
+		await db.reviews.removePicture(ada.id, kept, removed!.id);
 		await db.reviews.delete(ada.id, deleted);
 
 		expect(await storedPictureNames()).toHaveLength(2);
@@ -90,18 +90,31 @@ describe("Pictures", () => {
 		expect(await storedPictureNames()).toEqual([]);
 	});
 
+	it("are removed one at a time, only by the author, and only from their own review", async () => {
+		const { client, db, ada, grill } = setUp();
+		const bob = insertUser(client, "bob");
+		const review = await writeReview(db, ada.id, grill.id, 8, [await pictureFile(), await pictureFile()]);
+		const other = await writeReview(db, ada.id, grill.id, 8, [await pictureFile()]);
+		const [first, second] = await picturesOf(db, review, ada.id);
+		const [onOther] = await picturesOf(db, other, ada.id);
+
+		expect(await db.reviews.removePicture(bob.id, review, first!.id)).toEqual({ problem: "forbidden", permission: "review:edit" });
+		expect(await db.reviews.removePicture(ada.id, review, onOther!.id)).toBe("updated");
+		expect(await picturesOf(db, other, ada.id)).toHaveLength(1);
+
+		expect(await db.reviews.removePicture(ada.id, review, first!.id)).toBe("updated");
+		// Sent twice, as a second click on the button would, it changes nothing the second time.
+		expect(await db.reviews.removePicture(ada.id, review, first!.id)).toBe("updated");
+		expect((await picturesOf(db, review, ada.id)).map(({ id }) => id)).toEqual([second!.id]);
+		expect(await storedPictureNames()).toHaveLength(2);
+	});
+
 	it("stay as they were when a change to the review is refused", async () => {
 		const { db, ada, grill } = setUp();
 		const review = await writeReview(db, ada.id, grill.id, 8, [await pictureFile(), await pictureFile(), await pictureFile()]);
 		const before = await storedPictureNames();
-		const [first] = await picturesOf(db, review, ada.id);
 
-		const result = await db.reviews.update(ada.id, review, {
-			rating: 8,
-			description: null,
-			addPictures: [await pictureFile(), await pictureFile(), await pictureFile()],
-			removePictureIds: [first!.id],
-		});
+		const result = await db.reviews.update(ada.id, review, { rating: 8, description: null, addPictures: [await pictureFile(), await pictureFile()] });
 
 		expect(result).toEqual({ problem: "too-many-pictures" });
 		expect(await storedPictureNames()).toEqual(before);

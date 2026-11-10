@@ -1,23 +1,22 @@
 ---
 import { Trash } from "@lucide/astro";
-import { actions } from "astro:actions";
-import DialogDrawer from "@src/components/DialogDrawer.astro";
+import type { HTMLAttributes } from "astro/types";
+import { deleteReviewDialogId } from "@src/data/dialog-ids";
 
-interface Props {
+// Opens the DeleteReviewDialog of the review, which the page renders outside any form, since the dialog has its own.
+interface Props extends HTMLAttributes<"button"> {
   reviewId: number;
-  class?: string;
 }
 
-const { reviewId, class: className } = Astro.props;
-const dialogId = `delete-review-${reviewId}`;
+const { reviewId, class: className, ...props } = Astro.props;
 ---
 
-<button class:list={["btn btn-danger btn-md", className]} type="button" commandfor={dialogId} command="show-modal">
+<button
+  class:list={["btn btn-danger btn-md", className]}
+  type="button"
+  commandfor={deleteReviewDialogId(reviewId)}
+  command="show-modal"
+  {...props}
+>
   <Trash size={16} aria-hidden="true" />Delete review
 </button>
-<DialogDrawer id={dialogId} title="Delete this review?" description="The review and its pictures are deleted for good.">
-  <form method="post" action={actions.reviews.delete}>
-    <input type="hidden" name="reviewId" value={reviewId} />
-    <button class="btn btn-danger btn-md w-full" type="submit">Delete review</button>
-  </form>
-</DialogDrawer>

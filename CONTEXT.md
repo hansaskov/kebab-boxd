@@ -5,7 +5,7 @@ A Letterboxd-style social app where users review kebab restaurants, follow each 
 ## Language
 
 **Restaurant**:
-A kebab-serving establishment that users review, rate, favorite, and add to their bucket list. Entered by a user suggesting it or by a CitySearch finding it, and either way goes through pending → approved | rejected. The canonical reviewed subject of the app.
+A kebab-serving establishment that users review, rate, favorite, and add to their bucket list. Entered by a user suggesting it, which makes it pending until an Admin approves or rejects it, or by a CitySearch finding it, which approves it at once. An Admin may reject an approved Restaurant later. The canonical reviewed subject of the app.
 _Avoid_: Kebab, KebabShop, Place, Venue
 
 **Suggest**:
@@ -25,7 +25,7 @@ The cities with at least 1,000 people, about 170,000 of them, from GeoNames. Emp
 _Avoid_: Cities table, Gazetteer
 
 **CitySearch**:
-An Admin's request to find the kebab Restaurants of a City in OpenStreetMap. It looks for fast food places and restaurants whose cuisine or name says kebab, döner, shawarma, gyros or the like, within a circle around the City that grows with its population. Each place it finds becomes a Restaurant with Status:pending, without a User who suggested it, unless it already is a Restaurant: one with the same OpenStreetMap id, or the same name, ignoring letter case, within 150 m, whatever its status. So a Restaurant an Admin rejected is not found again. Only one CitySearch for a City runs at a time. It asks the public Overpass servers in turn until one answers, and tries again later, up to 5 times, when none does. Its log tells the Admins each server it asked and what it answered, and each place it could not look up. An Admin may try a CitySearch again at once, while it waits or after it failed. When it is done, the Admin who started it is notified, and is led to the Restaurants it found, to approve or reject several at once.
+An Admin's request to find the kebab Restaurants of a City in OpenStreetMap. It looks for fast food places and restaurants whose cuisine or name says kebab, döner, shawarma, gyros or the like, within a circle around the City that grows with its population. Each place it finds becomes a Restaurant with Status:approved, without a User who suggested it, unless it already is a Restaurant: one with the same OpenStreetMap id, or the same name, ignoring letter case, within 150 m, whatever its status. So a Restaurant an Admin rejected is not found again. Only one CitySearch for a City runs at a time. It asks the public Overpass servers in turn until one answers, and tries again later, up to 5 times, when none does. Its log tells the Admins each server it asked and what it answered, and each place it could not look up. An Admin may try a CitySearch again at once, while it waits or after it failed. When it is done, the Admin who started it is notified, and is led to the Restaurants it found, to reject several at once that do not serve kebab.
 _Avoid_: Import, Crawl, Scan
 
 **GoogleMapsId**:
@@ -101,7 +101,7 @@ The unique handle identifying a User. 3–30 characters from `A–Z`, `a–z`, `
 _Avoid_: Handle, DisplayName, Nickname
 
 **Admin**:
-A role on a User. Admins can approve or reject suggested Restaurants, several at once, start CitySearches and update the CityList. Not a separate entity type. An Admin is able to manage all users and content, this entails banning users, suspending reviews, and restaurants. An Admin can give the role to another User or take it away, but cannot change their own role, so there is always at least one Admin. A banned User cannot be given the role or have it taken away until the ban is lifted, and an Admin cannot be banned, so a banned Admin cannot exist. While a stage has no Admin, the User who signs in with its bootstrap email address, verified by the Provider, becomes the first one.
+A role on a User. Admins can approve or reject Restaurants, several at once, start CitySearches and update the CityList. Only the Restaurants Users suggest wait for an Admin. Not a separate entity type. An Admin is able to manage all users and content, this entails banning users, suspending reviews, and restaurants. An Admin can give the role to another User or take it away, but cannot change their own role, so there is always at least one Admin. A banned User cannot be given the role or have it taken away until the ban is lifted, and an Admin cannot be banned, so a banned Admin cannot exist. While a stage has no Admin, the User who signs in with its bootstrap email address, verified by the Provider, becomes the first one.
 _Avoid_: Moderator, Staff, Manager
 
 **Permission**:
@@ -113,7 +113,7 @@ A hosted image stored in blob storage (only the URL is in the database). Used fo
 _Avoid_: Image, Photo, Avatar
 
 **Location**:
-A structured physical address for a Restaurant: address lines, city, postal code, region, country, plus required latitude/longitude coordinates. Not used for Users, users store coordinates directly on their own record, and only they can see them, not even an Admin. The map starts at the coordinates of the User, which they write in their settings or set to the middle of the map. A Visitor, or a User without coordinates, is first asked where they want reviews from. A search moves the map to a City. Feeling lucky skips the map and opens the best-rated Restaurant around the City, or, without a search, any approved Restaurant.
+A structured physical address for a Restaurant: address lines, city, postal code, region, country, plus required latitude/longitude coordinates. Not used for Users, users store coordinates directly on their own record, and only they can see them, not even an Admin. The map starts at the coordinates of the User, which they write in their settings or set to the middle of the map. A Visitor, or a User without coordinates, is first asked to search for a City near them. A search moves the map to a City. Feeling lucky skips the map and opens the best-rated Restaurant around the City, or, without a search, any approved Restaurant.
 _Avoid_: Address, Spot, Place
 
 **Cluster**:

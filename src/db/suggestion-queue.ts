@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { Client } from "@src/db/client";
-import { findExisting, insertPendingRestaurant } from "@src/db/pending-restaurants";
+import { enterRestaurant, findExisting } from "@src/db/entered-restaurants";
 import { isProblem, problem, type Problem } from "@src/db/problem";
 import * as s from "@src/db/schema";
 import type { Place } from "@src/map/google-maps";
@@ -87,7 +87,7 @@ export function createSuggestionQueue(client: Client, wake: () => void) {
 						return { status: "duplicate", id: duplicate.id };
 					}
 
-					const restaurant = insertPendingRestaurant(tx, place, address, { suggestedBy: row.userId });
+					const restaurant = enterRestaurant(tx, place, address, { suggestedBy: row.userId });
 					tx.delete(s.suggestionQueue).where(eq(s.suggestionQueue.id, id)).run();
 					return { status: "suggested", id: restaurant.id };
 				},

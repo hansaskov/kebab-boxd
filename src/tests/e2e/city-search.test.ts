@@ -58,7 +58,7 @@ describe("end to end", () => {
 		const { page } = await db.notifications.show(admin.id, { limit: 10, cursor: undefined });
 		expect(search).toMatchObject({ status: "finished", candidateCount: 0 });
 		expect(restaurants.length).toBeGreaterThan(10);
-		expect(restaurants.every((restaurant) => restaurant.status === "pending" && restaurant.osmId && restaurant.suggestedBy === null)).toBe(true);
+		expect(restaurants.every((restaurant) => restaurant.status === "approved" && restaurant.osmId && restaurant.suggestedBy === null)).toBe(true);
 		expect(restaurants.filter((restaurant) => restaurant.location.addressLine1 && restaurant.location.city).length).toBeGreaterThan(restaurants.length / 2);
 		expect(search?.events.at(-1)?.message).toMatch(/found \d+ places/);
 		expect(search?.events[0]?.message).toBe(`Done. Added ${restaurants.length} restaurants.`);

@@ -7,6 +7,7 @@ import m0005 from './20261104200248_city_search/migration.sql';
 import m0006 from './20261104205600_city_search_log/migration.sql';
 import m0007 from './20261105145334_private_profiles/migration.sql';
 import m0008 from './20261109141655_user_review_stats/migration.sql';
+import m0009 from './20261110212656_approve_city_search_restaurants/migration.sql';
 
   export default {
     migrations: {
@@ -18,7 +19,8 @@ import m0008 from './20261109141655_user_review_stats/migration.sql';
 "20261104200248_city_search": m0005,
 "20261104205600_city_search_log": m0006,
 "20261105145334_private_profiles": m0007,
-"20261109141655_user_review_stats": m0008
+"20261109141655_user_review_stats": m0008,
+"20261110212656_approve_city_search_restaurants": m0009
 }
   }
   

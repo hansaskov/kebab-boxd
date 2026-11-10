@@ -2,6 +2,7 @@
 import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import DeleteReviewButton from "@src/components/DeleteReviewButton.astro";
+import DeleteReviewDialog from "@src/components/DeleteReviewDialog.astro";
 import ReviewCard from "@src/components/ReviewCard.astro";
 import { canOn, refusal } from "@src/auth/permissions";
 import { successToast } from "@src/format/action-toast";
@@ -33,5 +34,10 @@ const toast =
 >
   <ReviewCard class="rounded-box border border-line bg-surface" review={review} viewer={viewer} />
 
-  {canDelete && !canEdit && <DeleteReviewButton class="mt-6" reviewId={review.id} />}
+  {canDelete && !canEdit && (
+    <>
+      <DeleteReviewButton class="mt-6" reviewId={review.id} />
+      <DeleteReviewDialog reviewId={review.id} />
+    </>
+  )}
 </BaseLayout>

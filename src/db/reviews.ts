@@ -21,7 +21,6 @@ export type ReviewContent = Pick<Review, "rating" | "description">;
 
 export interface ReviewChanges extends ReviewContent {
 	addPictures: File[];
-	removePictureIds: number[];
 }
 
 const qb = new QueryBuilder();
@@ -123,7 +122,7 @@ export function createReviews(client: Client, pictures: PictureStore) {
 			);
 		},
 
-		async update(actorId: number, id: number, { addPictures, removePictureIds, ...content }: ReviewChanges) {
+		async update(actorId: number, id: number, { addPictures, ...content }: ReviewChanges) {
 			return authorizedWriteWithPictures(
 				client,
 				pictures,
@@ -131,18 +130,25 @@ export function createReviews(client: Client, pictures: PictureStore) {
 				"review:edit",
 				(tx) => findTargetReview(tx, id, actorId),
 				(tx, review, changes) => {
-					const removed = review.pictures.filter((picture) => removePictureIds.includes(picture.id));
-					if (review.pictures.length - removed.length + addPictures.length > maxPicturesPerReview) {
-						return problem("too-many-pictures");
-					}
+					if (review.pictures.length + addPictures.length > maxPicturesPerReview) return problem("too-many-pictures");
 					tx.update(s.reviews).set(content).where(eq(s.reviews.id, id)).run();
-					changes.remove(tx, removed);
 					attachAddedPictures(tx, changes, id);
 					refreshRestaurantStats(tx, [review.restaurantId]);
 					return "updated" as const;
 				},
 				{ files: addPictures, kind: "review" },
 			);
+		},
+
+		// A picture that is no longer on the review is already gone, so removing it again changes nothing and is no problem.
+		async removePicture(actorId: number, id: number, pictureId: number) {
+			return authorizedWriteWithPictures(client, pictures, actorId, "review:edit", (tx) => findTargetReview(tx, id, actorId), (tx, review, changes) => {
+				changes.remove(
+					tx,
+					review.pictures.filter((picture) => picture.id === pictureId),
+				);
+				return "updated" as const;
+			});
 		},
 
 		// Returns the review it deleted, so the action knows where to go back to.

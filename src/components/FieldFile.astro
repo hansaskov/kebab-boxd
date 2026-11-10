@@ -2,42 +2,54 @@
 import { Upload } from "@lucide/astro";
 import type { SubmittedForm } from "@src/actions/outcome";
 import { describeField } from "@src/format/field";
-import { acceptedPictureTypes, maxPictureMegabytes, pictureFormatNames } from "@src/validation/picture";
+import { acceptedPictureTypes, maxPictureMegabytes } from "@src/validation/picture";
 
 interface Props extends astroHTML.JSX.InputHTMLAttributes {
     name: string;
-    // Tells the user to choose files or drop them on the field. It is also the name of the field.
-    label: string;
+    // Tells the user to choose files or drop them on the field, inside the field.
+    prompt: string;
+    // The name of the field, above it like the label of every other field. Without it, the prompt names the field,
+    // for a field that a heading already names.
+    label?: string | undefined;
     description?: string | undefined;
     // The form as the user sent it when it failed. A browser cannot fill in a file input, so only its errors show.
     submitted?: SubmittedForm | undefined;
 }
 
-const { label, description, submitted, class: className, ...props } = Astro.props;
-const limits = `${pictureFormatNames}, up to ${maxPictureMegabytes} MB${props.multiple ? " each" : ""}.`;
+const { id, name, prompt, label, description, submitted, class: className, ...props } = Astro.props;
+// The browser offers only pictures to choose, so the formats are named only when a file is not one.
+const limits = `Up to ${maxPictureMegabytes} MB${props.multiple ? " each" : ""}.`;
 const fullDescription = [description, limits].filter(Boolean).join(" ");
-const field = describeField({ ...props, description: fullDescription, submitted });
+const field = describeField({ id, name, description: fullDescription, submitted });
+const promptId = `${field.id}-prompt`;
+const control = {
+    ...field.control,
+    "aria-describedby": [label && promptId, field.control["aria-describedby"]].filter(Boolean).join(" ") || undefined,
+};
 ---
 
-<div class="settings-row">
-    <div class="min-w-0 flex-1 space-y-2">
-        <div class="dropzone">
-            <!-- The default slot shows what the new pictures replace. -->
-            <slot><span class="dropzone-icon"><Upload size={18} aria-hidden="true" /></span></slot>
-            <label class="dropzone-label" for={field.id}>{label}</label>
-            <p id={field.descriptionId} class="dropzone-description">{fullDescription}</p>
-            <div class="dropzone-frame">
-                <input
-                    class:list={["dropzone-input", className]}
-                    type="file"
-                    accept={acceptedPictureTypes.join(",")}
-                    {...props}
-                    {...field.control}
-                />
-            </div>
-        </div>
-        {field.errors.length > 0 && (
-            <p id={field.errorId} class="t-caption text-danger" role="alert">{field.errors.join(" ")}</p>
+<div class="field-stack space-y-2">
+    {label && <label class="field-label" for={field.id}>{label}</label>}
+    <div class="dropzone">
+        <!-- The default slot shows what the new pictures replace. -->
+        <slot><span class="dropzone-icon"><Upload size={18} aria-hidden="true" /></span></slot>
+        {label ? (
+            <p id={promptId} class="dropzone-label">{prompt}</p>
+        ) : (
+            <label class="dropzone-label" for={field.id}>{prompt}</label>
         )}
+        <p id={field.descriptionId} class="dropzone-description">{fullDescription}</p>
+        <div class="dropzone-frame">
+            <input
+                class:list={["dropzone-input", className]}
+                type="file"
+                accept={acceptedPictureTypes.join(",")}
+                {...props}
+                {...control}
+            />
+        </div>
     </div>
+    {field.errors.length > 0 && (
+        <p id={field.errorId} class="t-caption text-danger" role="alert">{field.errors.join(" ")}</p>
+    )}
 </div>

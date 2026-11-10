@@ -5,7 +5,7 @@ import type { Client, Transaction } from "@src/db/client";
 import { notify, withdrawCitySearchNotification } from "@src/db/notifications";
 import { cursorList } from "@src/db/pagination";
 import { chunks, durableSqliteLimits } from "@src/db/limits";
-import { enteredRestaurantCount, findExisting, insertPendingRestaurant } from "@src/db/pending-restaurants";
+import { enterRestaurant, enteredRestaurantCount, findExisting } from "@src/db/entered-restaurants";
 import { isProblem, problem, type Problem } from "@src/db/problem";
 import * as s from "@src/db/schema";
 import { restaurantStatuses } from "@src/db/schema";
@@ -246,7 +246,7 @@ export function createCitySearches(client: Client, wake: () => void) {
 			});
 		},
 
-		// Turns the place into a pending Restaurant, unless it already is a Restaurant, whatever its status. A
+		// Turns the place into an approved Restaurant, unless it already is a Restaurant, whatever its status. A
 		// Restaurant it is found to be, by name, learns its OpenStreetMap id, so the next search knows it at once.
 		// The search ends with its last place. A place added without looking up its address says so in the log.
 		async addCandidate(
@@ -271,7 +271,7 @@ export function createCitySearches(client: Client, wake: () => void) {
 				}
 				const result = existing
 					? { status: "known" as const, id: existing.id }
-					: { status: "added" as const, id: insertPendingRestaurant(tx, place, address, { citySearchId }).id };
+					: { status: "added" as const, id: enterRestaurant(tx, place, address, { citySearchId }).id };
 				if (result.status === "added" && withoutLookup) {
 					log(tx, citySearchId, `Added ${place.name} with the address OpenStreetMap gave, which may lack the street.`, true);
 				}

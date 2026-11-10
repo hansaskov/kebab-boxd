@@ -7,7 +7,7 @@ import type { SubmittedForm } from "@src/actions/outcome";
 import { describeField } from "@src/format/field";
 import { getConstraintsFromZodSchema } from "@src/validation/constraint";
 
-interface Props extends Omit<ComponentProps<typeof Field>, "field" | "layout">, astroHTML.JSX.SelectHTMLAttributes {
+interface Props extends Omit<ComponentProps<typeof Field>, "field" | "layout" | "group">, astroHTML.JSX.SelectHTMLAttributes {
     name: string;
     zodField: ZodEnum | ZodNullable<ZodEnum>;
     label: string;
@@ -17,11 +17,11 @@ interface Props extends Omit<ComponentProps<typeof Field>, "field" | "layout">, 
     submitted?: SubmittedForm | undefined;
 }
 
-const { zodField, selected, label, description, noneOption, submitted, class: className, ...props } = Astro.props;
+const { id, name, zodField, selected, label, description, noneOption, submitted, class: className, ...props } = Astro.props;
 const isNullable = zodField instanceof ZodNullable;
 const options = (isNullable ? zodField.unwrap() : zodField).options;
-const current = submitted ? submitted.get(props.name) || null : selected;
-const field = describeField({ ...props, description, submitted });
+const current = submitted ? submitted.get(name) || null : selected;
+const field = describeField({ id, name, description, submitted });
 ---
 
 <Field field={field} label={label} description={description}>

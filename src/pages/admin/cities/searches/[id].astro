@@ -98,9 +98,9 @@ const restaurants = plural(search.restaurantCount, "restaurant");
       <div class="settings-row">
         <div class="settings-row-text">
           <p class="field-label">{restaurants}</p>
-          <p class="t-body-sm text-fg-muted">Approve or reject what the search found.</p>
+          <p class="t-body-sm text-fg-muted">Approved at once. Reject any that do not serve kebab.</p>
         </div>
-        <a class="btn btn-primary btn-md settings-row-action" href={adminRestaurantsHref(search.id)}>Review</a>
+        <a class="btn btn-secondary btn-md settings-row-action" href={adminRestaurantsHref(search.id)}>Show</a>
       </div>
     )}
   </div>

@@ -253,9 +253,9 @@ describe("pages", () => {
 		const started = await db.citySearches.start(admin.id, 2988507, "Paris");
 		if ("problem" in started) throw new Error(`The search did not start: ${started.problem}.`);
 		const searching = (await renderPage(AdminCitiesPage, { db, session }, "/admin/cities?q=pari")).html;
-		const { id: restaurantId } = insertRestaurant(client, "Paris Kebab");
+		const { id: restaurantId } = insertRestaurant(client, "Paris Kebab", { status: "approved" });
 		client.update(s.restaurants).set({ citySearchId: started.id, osmId: "node/7" }).where(eq(s.restaurants.id, restaurantId)).run();
-		insertRestaurant(client, "Odense Kebab");
+		insertRestaurant(client, "Odense Kebab", { status: "approved" });
 		const review = (await renderPage(AdminRestaurantsPage, { db, session }, `/admin/restaurants?search=${started.id}`)).html;
 
 		expect({
@@ -269,13 +269,20 @@ describe("pages", () => {
 				searching.includes(`href="/admin/cities/searches/${started.id}"`),
 				searching.includes('http-equiv="refresh"'),
 			],
-			review: [review.includes("Restaurants in Paris"), review.includes("Paris Kebab"), review.includes("Odense Kebab"), review.includes("https://www.openstreetmap.org/node/7")],
+			// A CitySearch approves what it finds, so nothing of it waits.
+			review: [
+				review.includes("Restaurants in Paris"),
+				review.includes("Paris Kebab"),
+				review.includes("Odense Kebab"),
+				review.includes("https://www.openstreetmap.org/node/7"),
+				review.includes("Waiting"),
+			],
 		}).toEqual({
 			empty: [true, false],
 			found: [true, true, 2],
 			short: [true, false],
 			searching: [1, true, true, false],
-			review: [true, true, false, true],
+			review: [true, true, false, true, false],
 		});
 	});
 
