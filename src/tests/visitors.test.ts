@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { isProblem } from "@src/db/problem";
+import { defaultMapZoom } from "@src/data/map";
 import * as s from "@src/db/schema";
+import { exploreHref } from "@src/hrefs";
 import ExplorePage from "@src/pages/explore.astro";
 import FeedPage from "@src/pages/feed.astro";
 import NotificationsPage from "@src/pages/notifications.astro";
@@ -13,7 +15,7 @@ import SearchPage from "@src/pages/search.astro";
 import SettingsPage from "@src/pages/[username]/settings/index.astro";
 import type { Database } from "@src/db";
 import { dialogIn, renderPage } from "@src/tests/container";
-import { createTestDatabase, insertRestaurant, insertReview, insertUser } from "@src/tests/database";
+import { createTestDatabase, insertRestaurant, insertReview, insertUser, restaurantPlace } from "@src/tests/database";
 
 type Page = Parameters<typeof renderPage>[0];
 
@@ -42,7 +44,7 @@ describe("A Visitor", () => {
 			restaurant: await visit(db, RestaurantPage, `/restaurants/${id}`, { id }),
 			review: await visit(db, ReviewPage, `/reviews/${reviewId}`, { id: reviewId }),
 			profile: await visit(db, ProfilePage, "/ada/profile", { username: "ada" }),
-			explore: await visit(db, ExplorePage, "/explore"),
+			explore: await visit(db, ExplorePage, exploreHref({ center: restaurantPlace, zoom: defaultMapZoom })),
 			search: await visit(db, SearchPage, "/search?q=grill"),
 		};
 		const shown = Object.fromEntries(

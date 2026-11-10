@@ -113,7 +113,7 @@ A hosted image stored in blob storage (only the URL is in the database). Used fo
 _Avoid_: Image, Photo, Avatar
 
 **Location**:
-A structured physical address for a Restaurant: address lines, city, postal code, region, country, plus required latitude/longitude coordinates. Not used for Users, users store coordinates directly on their own record, and only they can see them, not even an Admin. The map starts at the coordinates of the User, which they write in their settings or set to the middle of the map. A search on the map moves it to a City.
+A structured physical address for a Restaurant: address lines, city, postal code, region, country, plus required latitude/longitude coordinates. Not used for Users, users store coordinates directly on their own record, and only they can see them, not even an Admin. The map starts at the coordinates of the User, which they write in their settings or set to the middle of the map. A Visitor, or a User without coordinates, is first asked where they want reviews from. A search moves the map to a City. Feeling lucky skips the map and opens the best-rated Restaurant around the City, or, without a search, any approved Restaurant.
 _Avoid_: Address, Spot, Place
 
 **Cluster**:

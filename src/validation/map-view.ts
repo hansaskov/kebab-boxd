@@ -7,12 +7,11 @@ function parseNumber(params: URLSearchParams, name: string, limit: number) {
 	return Number.isFinite(value) && Math.abs(value) <= limit ? value : undefined;
 }
 
-export function parseMapView(params: URLSearchParams, fallback: MapView): MapView {
+// The map the address asks for, or nothing when it does not name a valid middle. Without a zoom, the map has the
+// fallback zoom.
+export function parseMapView(params: URLSearchParams, fallbackZoom: number): MapView | undefined {
 	const latitude = parseNumber(params, "lat", 90);
 	const longitude = parseNumber(params, "lng", 180);
-	const zoom = parseNumber(params, "zoom", 100);
-	return {
-		center: latitude !== undefined && longitude !== undefined ? { latitude, longitude } : fallback.center,
-		zoom: clampZoom(zoom ?? fallback.zoom),
-	};
+	if (latitude === undefined || longitude === undefined) return undefined;
+	return { center: { latitude, longitude }, zoom: clampZoom(parseNumber(params, "zoom", 100) ?? fallbackZoom) };
 }

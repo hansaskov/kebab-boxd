@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { clusterCellSize, clusterMargin, defaultMapCenter, defaultMapZoom, exploreGridStep, exploreMapCells, exploreMapSize } from "@src/data/map";
+import { clusterCellSize, clusterMargin, defaultMapZoom, exploreGridStep, exploreMapCells, exploreMapSize } from "@src/data/map";
 import type { Client } from "@src/db/client";
+import type { Database } from "@src/db";
 import * as s from "@src/db/schema";
 import { exploreCityHref, exploreHref, restaurantHref } from "@src/hrefs";
 import { clustersOn, openedView } from "@src/map/clusters";
@@ -14,6 +15,10 @@ import { createTestDatabase, insertRestaurant, insertUser, signIn } from "@src/t
 import { coordinatesSchema } from "@src/validation/coordinates";
 
 const metersPerDegree = 111_320;
+
+// The middle of the map the tests look at, and the address of that map.
+const defaultMapCenter: Coordinates = { latitude: 55.3959, longitude: 10.3883 };
+const odense = exploreHref({ center: defaultMapCenter, zoom: defaultMapZoom });
 
 // The place the given distances north and east of the middle of the default map.
 function near(north: number, east: number): Coordinates {
@@ -71,7 +76,7 @@ describe("the explore map", () => {
 		insertRestaurant(client, "Pending Kebab", { ...near(0, 0) });
 		insertApproved(client, "Copenhagen Kebab", { latitude: 55.6761, longitude: 12.5683 });
 
-		const { html } = await renderPage(ExplorePage, { db, session: null }, "/explore");
+		const { html } = await renderPage(ExplorePage, { db, session: null }, odense);
 
 		expect(markersOf(html)).toEqual(rowsOf(html));
 		expect(rowsOf(html)).toHaveLength(2);
@@ -166,7 +171,7 @@ describe("the explore map", () => {
 		const { db } = createTestDatabase();
 		const map = visitorMap({ center: defaultMapCenter, zoom: defaultMapZoom });
 
-		const cells = cellsOf((await renderPage(ExplorePage, { db, session: null }, "/explore")).html);
+		const cells = cellsOf((await renderPage(ExplorePage, { db, session: null }, odense)).html);
 		const placements = cells.map(({ params }) => map.place({ latitude: Number(params.get("lat")), longitude: Number(params.get("lng")) }));
 
 		expect(cells).toHaveLength(exploreMapCells.columns * exploreMapCells.rows);
@@ -218,7 +223,7 @@ describe("the explore map", () => {
 		insertApproved(client, "Grill A", near(0, 1000));
 		insertApproved(client, "Grill B", near(20, 1010));
 
-		const { html } = await renderPage(ExplorePage, { db, session: null }, "/explore");
+		const { html } = await renderPage(ExplorePage, { db, session: null }, odense);
 		const map = html.slice(html.indexOf('<div class="map'), html.indexOf('<p class="map-attribution'));
 		const links = map.match(/<a [^>]*>/g) ?? [];
 		const rules = JSON.parse(html.match(/<script type="speculationrules">([^<]*)<\/script>/)?.[1] ?? "{}");
@@ -236,6 +241,111 @@ describe("the explore map", () => {
 			{ zooms: false, onIntent: false },
 			{ zooms: true, onIntent: true },
 		]);
+	});
+});
+
+// Whether the page asks where to look, instead of showing a map.
+const asksWhereOf = (html: string) => html.includes('placeholder="Where do you want reviews from?"') && !html.includes('<div class="map');
+
+describe("the start of the explore page", () => {
+	it("asks a Visitor and a User without a location where they want reviews from, and offers to feel lucky", async () => {
+		const { client, db } = createTestDatabase();
+		const ada = insertUser(client, "ada");
+		insertApproved(client, "Lone Kebab", near(0, 0));
+
+		const visitor = (await renderPage(ExplorePage, { db, session: null }, "/explore")).html;
+		const user = (await renderPage(ExplorePage, { db, session: await signIn(db, ada.id) }, "/explore")).html;
+
+		for (const html of [visitor, user]) {
+			expect(asksWhereOf(html)).toBe(true);
+			expect(html).toContain('<button class="btn btn-secondary btn-md" type="submit" name="lucky" value="">I’m feeling lucky</button>');
+			expect(html).not.toContain("Lone Kebab");
+		}
+	});
+
+	it("shows a User the map around their location at once", async () => {
+		const { client, db } = createTestDatabase();
+		const ada = insertUser(client, "ada");
+		await db.users.setLocation(ada.id, ada.username, defaultMapCenter);
+		insertApproved(client, "Lone Kebab", near(200, 0));
+
+		const { html } = await renderPage(ExplorePage, { db, session: await signIn(db, ada.id) }, "/explore");
+
+		expect(asksWhereOf(html)).toBe(false);
+		expect(html).toContain("Lone Kebab");
+	});
+
+	it("keeps asking when no City starts with the search, and says so", async () => {
+		const { client, db } = createTestDatabase();
+		await loadSampleCityList(db, insertUser(client, "root_admin", "admin").id);
+
+		const search = (await renderPage(ExplorePage, { db, session: null }, "/explore?q=odensee")).html;
+		const lucky = (await renderPage(ExplorePage, { db, session: null }, "/explore?q=odensee&lucky=")).html;
+
+		for (const html of [search, lucky]) {
+			expect(asksWhereOf(html)).toBe(true);
+			expect(html).toContain('value="odensee"');
+			expect(html).toContain("No city starts with “odensee”.");
+		}
+	});
+});
+
+describe("feeling lucky on the explore page", () => {
+	async function parisOf(db: Database, client: Client) {
+		await loadSampleCityList(db, insertUser(client, "root_admin", "admin").id);
+		const [paris] = await db.cities.search("pari", 1);
+		if (!paris) throw new Error("The sample has Paris.");
+		return paris;
+	}
+
+	async function feelLucky(db: Database, search: string) {
+		const { response } = await renderPage(ExplorePage, { db, session: null }, `/explore?${new URLSearchParams({ q: search, lucky: "" })}`);
+		return { status: response.status, location: response.headers.get("Location") };
+	}
+
+	it("opens the best-rated approved Restaurant of the City, as Google opens its first result", async () => {
+		const { client, db } = createTestDatabase();
+		const paris = await parisOf(db, client);
+		const inParis = (east: number) => ({ latitude: paris.latitude, longitude: paris.longitude + east / 100 });
+		insertApproved(client, "Good Kebab", inParis(1), 6);
+		const best = insertApproved(client, "Best Kebab", inParis(2), 9);
+		const pending = insertRestaurant(client, "Pending Kebab", inParis(0));
+		client.update(s.restaurants).set({ ratingAvg: 10 }).where(eq(s.restaurants.id, pending.id)).run();
+		insertApproved(client, "Odense Kebab", near(0, 0), 10);
+
+		expect(await feelLucky(db, "pari")).toEqual({ status: 302, location: restaurantHref(best.id) });
+	});
+
+	it("shows the map of the City when it has no approved Restaurant", async () => {
+		const { client, db } = createTestDatabase();
+		const paris = await parisOf(db, client);
+		insertApproved(client, "Odense Kebab", near(0, 0), 10);
+
+		expect(await feelLucky(db, "pari")).toEqual({ status: 302, location: exploreCityHref("pari", paris.id) });
+	});
+
+	it("opens an approved Restaurant without a search, and says when there is none", async () => {
+		const { client, db } = createTestDatabase();
+		const before = (await renderPage(ExplorePage, { db, session: null }, "/explore?lucky=")).html;
+		insertRestaurant(client, "Pending Kebab", near(0, 0));
+		const approved = insertApproved(client, "Lone Kebab", near(200, 0));
+
+		expect(asksWhereOf(before)).toBe(true);
+		expect(before).toContain("There are no restaurants yet.");
+		expect(await feelLucky(db, "")).toEqual({ status: 302, location: restaurantHref(approved.id) });
+	});
+
+	it("picks any approved Restaurant by a fraction, and never one that is not approved", async () => {
+		const { client, db } = createTestDatabase();
+		const first = insertApproved(client, "First Kebab", near(0, 0));
+		insertRestaurant(client, "Pending Kebab", near(0, 0));
+		insertRestaurant(client, "Rejected Kebab", { ...near(0, 0), status: "rejected" });
+		const middle = insertApproved(client, "Middle Kebab", near(0, 0));
+		const last = insertApproved(client, "Last Kebab", near(0, 0));
+
+		const picked = await Promise.all([-1, 0, 0.2, 0.4, 0.6, 0.8, 0.99, 1].map(async (fraction) => (await db.restaurants.pickApproved(fraction))?.id));
+
+		expect(picked).toEqual([first.id, first.id, middle.id, middle.id, middle.id, last.id, last.id, last.id]);
 	});
 });
 

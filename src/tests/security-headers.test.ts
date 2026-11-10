@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { defaultMapZoom } from "@src/data/map";
 import * as s from "@src/db/schema";
 import { withSecurityHeaders } from "@src/middleware/security-headers";
+import { exploreHref } from "@src/hrefs";
 import ExplorePage from "@src/pages/explore.astro";
 import FeedPage from "@src/pages/feed.astro";
 import LandingPage from "@src/pages/index.astro";
@@ -8,7 +10,7 @@ import LoginPage from "@src/pages/login.astro";
 import ProfilePage from "@src/pages/[username]/profile.astro";
 import RestaurantPage from "@src/pages/restaurants/[id].astro";
 import { renderPage } from "@src/tests/container";
-import { createTestDatabase, insertRestaurant, insertUser, signIn, writeReview } from "@src/tests/database";
+import { createTestDatabase, insertRestaurant, insertUser, restaurantPlace, signIn, writeReview } from "@src/tests/database";
 
 const site = "https://kebab.hjemmet.net";
 
@@ -49,7 +51,7 @@ describe("the security headers", () => {
 
 		const pages = await Promise.all([
 			renderPage(FeedPage, locals, "/feed?feed=everyone"),
-			renderPage(ExplorePage, locals, "/explore"),
+			renderPage(ExplorePage, locals, exploreHref({ center: restaurantPlace, zoom: defaultMapZoom })),
 			renderPage(RestaurantPage, locals, `/restaurants/${grill.id}`, { id: String(grill.id) }),
 			renderPage(ProfilePage, locals, "/ada/profile", { username: "ada" }),
 			renderPage(LandingPage, { db, session: null }, "/"),

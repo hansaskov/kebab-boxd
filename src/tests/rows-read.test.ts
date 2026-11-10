@@ -163,6 +163,14 @@ describeCalls("the rows each call of the database reads to show a page", {
 		budget: 10_000,
 		grows: "the map of a continent shows most restaurants, and reads where each of them is",
 	},
+	"restaurants.findBestRatedIn, feeling lucky in a city": {
+		measure: (db) => db.measure("restaurants", "findBestRatedIn", viewport(db.subjects.center, 13, exploreMapSize).bounds),
+		budget: 200,
+	},
+	"restaurants.pickApproved, feeling lucky without a search": {
+		measure: (db) => db.measure("restaurants", "pickApproved", 0.5),
+		budget: 10,
+	},
 	"restaurants.listSuggestedBy": {
 		measure: (db) => db.measure("restaurants", "listSuggestedBy", db.subjects.viewerId, page),
 		budget: 25,

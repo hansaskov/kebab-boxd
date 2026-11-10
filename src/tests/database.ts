@@ -40,6 +40,9 @@ export async function signIn(db: Database, userId: number) {
 	return session;
 }
 
+// Where a restaurant is when a test does not say, in Odense.
+export const restaurantPlace = { latitude: 55.4, longitude: 10.39 };
+
 export function insertRestaurant(
 	client: Client,
 	name: string,
@@ -47,8 +50,8 @@ export function insertRestaurant(
 		suggestedBy = null,
 		status = "pending",
 		city = "Odense",
-		latitude = 55.4,
-		longitude = 10.39,
+		latitude = restaurantPlace.latitude,
+		longitude = restaurantPlace.longitude,
 	}: Partial<Pick<s.NewRestaurant, "suggestedBy" | "status"> & Pick<s.NewLocation, "city" | "latitude" | "longitude">> = {},
 ) {
 	const location = client.insert(s.locations).values({ city, latitude, longitude }).returning().get();

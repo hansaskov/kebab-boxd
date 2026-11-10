@@ -1,4 +1,4 @@
-import { and, between, eq, sql } from "drizzle-orm";
+import { and, asc, between, desc, eq, sql } from "drizzle-orm";
 import { authorizedWriteAll, findTargetRestaurants } from "@src/db/authorize";
 import { authorsOfReviewsAt, refreshAuthorStats } from "@src/db/cached-stats";
 import type { Client } from "@src/db/client";
@@ -53,6 +53,20 @@ function cellOf({ columnsPerDegree, rowEdges }: ClusterGrid) {
 	};
 }
 
+// The approved restaurants whose location is in the bounds. A query that uses it reads from the locations, cross
+// joined with the restaurants, so that SQLite starts from the locations in the bounds, which their index finds, and
+// looks up the restaurant of each. It would rather start from the approved restaurants, which reads every one of
+// them, wherever it is. The relational queries cannot choose the order SQLite joins in, so these use the core
+// query builder.
+function approvedIn(bounds: Bounds) {
+	return and(
+		eq(s.restaurants.locationId, s.locations.id),
+		eq(s.restaurants.status, "approved"),
+		between(s.locations.latitude, bounds.south, bounds.north),
+		between(s.locations.longitude, bounds.west, bounds.east),
+	);
+}
+
 export function createRestaurants(client: Client) {
 	return {
 		// The approved restaurants whose name or city contains the search.
@@ -101,14 +115,10 @@ export function createRestaurants(client: Client) {
 		// The approved restaurants in the bounds, as a Cluster for each cell of the grid that has any. Without a
 		// grid, each restaurant is a cluster of its own.
 		//
-		// The relational queries cannot group rows, so this uses the core query builder. The innermost query finds
-		// the cell of each restaurant once, which keeps the values bound to the statement few. Window functions over
-		// the restaurants of each cell then give every row the count, average position and bounds of its cluster,
-		// and rank the rows, so that the first row in the ranking stands for its cluster.
-		//
-		// SQLite would rather start from the approved restaurants, which reads every one of them, wherever it is.
-		// A cross join makes it start from the locations in the bounds, which their index finds, and look up the
-		// restaurant of each.
+		// The relational queries cannot group rows either. The innermost query finds the cell of each restaurant
+		// once, which keeps the values bound to the statement few. Window functions over the restaurants of each
+		// cell then give every row the count, average position and bounds of its cluster, and rank the rows, so
+		// that the first row in the ranking stands for its cluster.
 		async listClusters(bounds: Bounds, grid: ClusterGrid | undefined): Promise<Cluster<ClusterRestaurant>[]> {
 			const cell = grid ? cellOf(grid) : { column: sql<number>`${s.restaurants.id}`, row: sql<number>`0` };
 			const located = client
@@ -124,14 +134,7 @@ export function createRestaurants(client: Client) {
 				})
 				.from(s.locations)
 				.crossJoin(s.restaurants)
-				.where(
-					and(
-						eq(s.restaurants.locationId, s.locations.id),
-						eq(s.restaurants.status, "approved"),
-						between(s.locations.latitude, bounds.south, bounds.north),
-						between(s.locations.longitude, bounds.west, bounds.east),
-					),
-				)
+				.where(approvedIn(bounds))
 				.as("located");
 
 			const ofCluster = sql`over (partition by ${located.column}, ${located.row})`;
@@ -162,6 +165,35 @@ export function createRestaurants(client: Client) {
 				bounds: { north, south, east, west },
 				best: { id, name, ratingAvg, city },
 			}));
+		},
+
+		// The best-rated approved restaurant in the bounds, the one with more reviews first when two are rated the
+		// same, if there is one.
+		async findBestRatedIn(bounds: Bounds): Promise<{ id: number } | undefined> {
+			const [best] = await client
+				.select({ id: s.restaurants.id })
+				.from(s.locations)
+				.crossJoin(s.restaurants)
+				.where(approvedIn(bounds))
+				.orderBy(desc(s.restaurants.ratingAvg), desc(s.restaurants.reviewCount), asc(s.restaurants.id))
+				.limit(1);
+			return best;
+		},
+
+		// An approved restaurant, chosen by a fraction from 0 up to 1, such as one from Math.random(). The fraction
+		// picks an id between the first and the last approved restaurant, and the approved restaurant with that id
+		// or the next one is chosen. So it reads three rows, however many restaurants there are. A restaurant
+		// after ids that are not approved is chosen a little more often than the others.
+		async pickApproved(fraction: number): Promise<{ id: number } | undefined> {
+			const columns = { id: true } as const;
+			const [first, last] = await Promise.all([
+				client.query.restaurants.findFirst({ columns, where: { status: "approved" }, orderBy: { id: "asc" } }),
+				client.query.restaurants.findFirst({ columns, where: { status: "approved" }, orderBy: { id: "desc" } }),
+			]);
+			if (!first || !last) return undefined;
+			const share = Math.min(Math.max(fraction, 0), 1 - Number.EPSILON);
+			const from = first.id + Math.floor(share * (last.id - first.id + 1));
+			return client.query.restaurants.findFirst({ columns, where: { status: "approved", id: { gte: from } }, orderBy: { id: "asc" } });
 		},
 
 		// The queue of suggestions is worked through oldest first; decided suggestions show the latest first.

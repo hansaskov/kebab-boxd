@@ -1,5 +1,5 @@
 ---
-import { ZoomIn } from "@lucide/astro";
+import { Search, ZoomIn } from "@lucide/astro";
 import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import AverageRating from "@src/components/AverageRating.astro";
@@ -7,7 +7,8 @@ import MapView from "@src/components/MapView.astro";
 import SearchForm from "@src/components/SearchForm.astro";
 import TabNav from "@src/components/TabNav.astro";
 import LoginDialog from "@src/components/LoginDialog.astro";
-import { defaultMapCenter, defaultMapZoom, exploreCityLimit, exploreGridStep, exploreMapCells, exploreMapSize } from "@src/data/map";
+import { defaultMapZoom, exploreCityLimit, exploreGridStep, exploreMapCells, exploreMapSize } from "@src/data/map";
+import type { City } from "@src/db/cities";
 import { successToast } from "@src/format/action-toast";
 import { regionAndCountry } from "@src/format/country";
 import { formatDistance } from "@src/format/distance";
@@ -21,11 +22,12 @@ import { searchRadiusMeters } from "@src/map/overpass";
 import { fitBounds, maxZoom, minZoom, snapToGrid, viewport, type MapView as View } from "@src/map/viewport";
 import { parseId } from "@src/validation/id";
 import { parseMapView } from "@src/validation/map-view";
-import { parseSearch } from "@src/validation/search-params";
+import { parseSearch, searchMaxLength } from "@src/validation/search-params";
 
 const session = Astro.locals.session;
+const params = Astro.url.searchParams;
 
-// A Visitor has no location of their own, so their map starts at the default center.
+// A Visitor has no location of their own, and neither has a User who has not set one.
 const home: Coordinates | undefined =
 	session && session.user.latitude !== null && session.user.longitude !== null
 		? { latitude: session.user.latitude, longitude: session.user.longitude }
@@ -34,124 +36,188 @@ const home: Coordinates | undefined =
 // A search moves the map to the most populous City whose name starts with it, or to the one of them the user
 // chose. The map shows the circle a CitySearch finds the Restaurants of the City in. A search that finds no
 // City leaves the map where it was, since the search form keeps the place of the map.
-const query = parseSearch(Astro.url.searchParams);
+const query = parseSearch(params);
 const cities = query ? await Astro.locals.db.cities.search(query, exploreCityLimit) : [];
-const chosenCityId = parseId(Astro.url.searchParams.get("city") ?? undefined);
+const chosenCityId = parseId(params.get("city") ?? undefined);
 const city = cities.find((match) => match.id === chosenCityId) ?? cities[0];
+const cityBounds = (of: City) => boundsAround(of, searchRadiusMeters(of.population));
+
+// “I’m feeling lucky” skips the map, as Google skips the results, and opens the best-rated Restaurant of the City.
+// When the City has none, it shows the map of the City. Without a search, it opens any approved Restaurant.
+const isLucky = params.has("lucky");
+if (isLucky) {
+	const restaurant = city
+		? await Astro.locals.db.restaurants.findBestRatedIn(cityBounds(city))
+		: query
+			? undefined
+			: await Astro.locals.db.restaurants.pickApproved(Math.random());
+	if (restaurant) return Astro.redirect(restaurantHref(restaurant.id));
+	if (city) return Astro.redirect(exploreCityHref(query, city.id));
+}
+
 // The map of a Visitor stays on the grid, and so do its links. A User's map is where they put it, since they set
 // their location to its middle.
 const onGrid = (requested: View) => (session ? requested : snapToGrid(requested, exploreGridStep));
 const mapHref = (to: View) => exploreHref(onGrid(to));
-const view = onGrid(
-	city
-		? fitBounds(boundsAround(city, searchRadiusMeters(city.population)), exploreMapSize, 0)
-		: parseMapView(Astro.url.searchParams, { center: home ?? defaultMapCenter, zoom: defaultMapZoom }),
-);
-const map = viewport(view.center, view.zoom, exploreMapSize);
 
-// Each Cluster is a marker on the map and a row of the list below it. A cluster of one restaurant leads to the
-// restaurant, and a larger one zooms in on its restaurants.
-const clusters = (await clustersOn(map, Astro.locals.db.restaurants.listClusters)).map((cluster) => {
-	const isRestaurant = cluster.count === 1;
+// Without a City, a place on the map or a location of their own, the user is asked where to look first.
+const requested: View | undefined = city
+	? fitBounds(cityBounds(city), exploreMapSize, 0)
+	: (parseMapView(params, defaultMapZoom) ?? (home && { center: home, zoom: defaultMapZoom }));
+
+async function exploreMap(view: View) {
+	const map = viewport(view.center, view.zoom, exploreMapSize);
+
+	// Each Cluster is a marker on the map and a row of the list below it. A cluster of one restaurant leads to the
+	// restaurant, and a larger one zooms in on its restaurants.
+	const clusters = (await clustersOn(map, Astro.locals.db.restaurants.listClusters)).map((cluster) => {
+		const isRestaurant = cluster.count === 1;
+		return {
+			...cluster,
+			isRestaurant,
+			name: isRestaurant ? cluster.best.name : `${cluster.best.name} and ${cluster.count - 1} more`,
+			href: isRestaurant ? restaurantHref(cluster.best.id) : mapHref(openedView(cluster, map)),
+			details: [formatDistance(distanceInMeters(map.center, cluster.center)), cluster.best.city].filter(Boolean).join(" · "),
+		};
+	});
+
 	return {
-		...cluster,
-		isRestaurant,
-		name: isRestaurant ? cluster.best.name : `${cluster.best.name} and ${cluster.count - 1} more`,
-		href: isRestaurant ? restaurantHref(cluster.best.id) : mapHref(openedView(cluster, map)),
-		details: [formatDistance(distanceInMeters(map.center, cluster.center)), cluster.best.city].filter(Boolean).join(" · "),
+		map,
+		clusters,
+		navigation: {
+			zoomIn: map.zoom < maxZoom ? mapHref({ center: map.center, zoom: map.zoom + 1 }) : undefined,
+			zoomOut: map.zoom > minZoom ? mapHref({ center: map.center, zoom: map.zoom - 1 }) : undefined,
+			columns: exploreMapCells.columns,
+			cells: map.cellCenters(exploreMapCells.columns, exploreMapCells.rows).map((center) => ({
+				href: mapHref({ center, zoom: map.zoom }),
+				label: `Move ${formatOffset(map.center, center)}`,
+			})),
+		},
+		markers: clusters.map((cluster) => ({
+			coordinates: cluster.center,
+			href: cluster.href,
+			label: cluster.name,
+			count: cluster.isRestaurant ? undefined : cluster.count,
+		})),
+		isAtHome: home !== undefined && distanceInMeters(home, map.center) < 1,
+		// The middle of the map, to a tenth of a meter, in the format the location is written in. A fixed number of
+		// decimals keeps a small number from being written as an exponent, which the format does not allow.
+		center: `${map.center.latitude.toFixed(6)}, ${map.center.longitude.toFixed(6)}`,
 	};
-});
+}
 
-const navigation = {
-	zoomIn: map.zoom < maxZoom ? mapHref({ center: map.center, zoom: map.zoom + 1 }) : undefined,
-	zoomOut: map.zoom > minZoom ? mapHref({ center: map.center, zoom: map.zoom - 1 }) : undefined,
-	columns: exploreMapCells.columns,
-	cells: map.cellCenters(exploreMapCells.columns, exploreMapCells.rows).map((center) => ({
-		href: mapHref({ center, zoom: map.zoom }),
-		label: `Move ${formatOffset(map.center, center)}`,
-	})),
-};
-const markers = clusters.map((cluster) => ({
-	coordinates: cluster.center,
-	href: cluster.href,
-	label: cluster.name,
-	count: cluster.isRestaurant ? undefined : cluster.count,
-}));
+const explored = requested && (await exploreMap(onGrid(requested)));
 
-const isAtHome = home !== undefined && distanceInMeters(home, map.center) < 1;
-// The middle of the map, to a tenth of a meter, in the format the location is written in. A fixed number of
-// decimals keeps a small number from being written as an exponent, which the format does not allow.
-const mapCenter = `${map.center.latitude.toFixed(6)}, ${map.center.longitude.toFixed(6)}`;
+const problem =
+	query && !city
+		? isShortSearch(query)
+			? "Type at least two letters."
+			: `No city starts with “${query}”.`
+		: isLucky
+			? "There are no restaurants yet."
+			: undefined;
 
 const toast = successToast(Astro.locals, actions.updateLocation, { title: "Location saved", text: "The map starts here now." });
 ---
 
 <BaseLayout title="Explore" description="Kebab restaurants on a map" prefetchUrls={[searchHref("restaurants")]} toast={toast}>
-	<h1 class="sm:sr-only">Explore</h1>
-	<div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-3 sm:mt-0">
-		<SearchForm class="w-full sm:max-w-sm" id="explore-city" label="Find a city" value={query} placeholder="City" />
-		{!isAtHome && (
-			<div class="t-body-sm ms-auto flex flex-wrap items-center gap-x-4 gap-y-1 max-sm:order-last">
-				{home && <a class="link" href={exploreHref({ center: home, zoom: map.zoom })}>Back to your location</a>}
-				{session ? (
-					<form method="post" action={actions.updateLocation}>
-						<input type="hidden" name="currentUsername" value={session.user.username} />
-						<input type="hidden" name="location" value={mapCenter} />
-						<button class="link cursor-pointer" type="submit">Set this as your location</button>
-					</form>
-				) : (
-					<>
-						<button class="link cursor-pointer" type="button" commandfor={loginDialogId("set-location")} command="show-modal">Set this as your location</button>
-						<LoginDialog reason="set-location" returnTo={Astro.url} />
-					</>
+	{explored ? (
+		<>
+			<h1 class="sm:sr-only">Explore</h1>
+			<div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-3 sm:mt-0">
+				<SearchForm class="w-full sm:max-w-sm" id="explore-city" label="Find a city" value={query} placeholder="City" />
+				{!explored.isAtHome && (
+					<div class="t-body-sm ms-auto flex flex-wrap items-center gap-x-4 gap-y-1 max-sm:order-last">
+						{home && <a class="link" href={exploreHref({ center: home, zoom: explored.map.zoom })}>Back to your location</a>}
+						{session ? (
+							<form method="post" action={actions.updateLocation}>
+								<input type="hidden" name="currentUsername" value={session.user.username} />
+								<input type="hidden" name="location" value={explored.center} />
+								<button class="link cursor-pointer" type="submit">Set this as your location</button>
+							</form>
+						) : (
+							<>
+								<button class="link cursor-pointer" type="button" commandfor={loginDialogId("set-location")} command="show-modal">Set this as your location</button>
+								<LoginDialog reason="set-location" returnTo={Astro.url} />
+							</>
+						)}
+					</div>
+				)}
+				{problem && <p class="t-body-sm w-full text-fg-muted">{problem}</p>}
+				{cities.length > 1 && (
+					<TabNav
+						class="w-full"
+						aria-label="Cities"
+						tabs={cities.map((match) => ({
+							label: `${match.name}, ${regionAndCountry(match)}`,
+							href: exploreCityHref(query, match.id),
+							current: match.id === city?.id,
+						}))}
+					/>
 				)}
 			</div>
-		)}
-		{query && !city && (
-			<p class="t-body-sm w-full text-fg-muted">{isShortSearch(query) ? "Type at least two letters." : `No city starts with “${query}”.`}</p>
-		)}
-		{cities.length > 1 && (
-			<TabNav
-				class="w-full"
-				aria-label="Cities"
-				tabs={cities.map((match) => ({
-					label: `${match.name}, ${regionAndCountry(match)}`,
-					href: exploreCityHref(query, match.id),
-					current: match.id === city?.id,
-				}))}
-			/>
-		)}
-	</div>
 
-	<MapView class="mt-4" viewport={map} markers={markers} here={home} navigation={navigation} />
+			<MapView class="mt-4" viewport={explored.map} markers={explored.markers} here={home} navigation={explored.navigation} />
 
-	<section class="mt-8" aria-labelledby="on-the-map">
-		<h2 id="on-the-map">On the map</h2>
-		{clusters.length === 0 ? (
-			<p class="t-body mt-2 text-fg-muted">There are no restaurants on this part of the map.</p>
-		) : (
-			<ul class="list mt-3">
-				{clusters.map((cluster) => (
-					<li class="list-row">
-						<div class="min-w-0 flex-1">
-							<a
-								class="list-row-link field-label block truncate"
-								href={cluster.href}
-								rel={cluster.isRestaurant ? undefined : "nofollow"}
-								data-eagerness={cluster.isRestaurant ? undefined : "moderate"}
-							>
-								{cluster.name}
-							</a>
-							<p class="t-body-sm truncate text-fg-muted">{cluster.details}</p>
-						</div>
-						{cluster.isRestaurant ? (
-							<AverageRating ratingAvg={cluster.best.ratingAvg} />
-						) : (
-							<ZoomIn class="shrink-0 text-fg-muted" size={16} aria-hidden="true" />
-						)}
-					</li>
-				))}
-			</ul>
-		)}
-	</section>
+			<section class="mt-8" aria-labelledby="on-the-map">
+				<h2 id="on-the-map">On the map</h2>
+				{explored.clusters.length === 0 ? (
+					<p class="t-body mt-2 text-fg-muted">There are no restaurants on this part of the map.</p>
+				) : (
+					<ul class="list mt-3">
+						{explored.clusters.map((cluster) => (
+							<li class="list-row">
+								<div class="min-w-0 flex-1">
+									<a
+										class="list-row-link field-label block truncate"
+										href={cluster.href}
+										rel={cluster.isRestaurant ? undefined : "nofollow"}
+										data-eagerness={cluster.isRestaurant ? undefined : "moderate"}
+									>
+										{cluster.name}
+									</a>
+									<p class="t-body-sm truncate text-fg-muted">{cluster.details}</p>
+								</div>
+								{cluster.isRestaurant ? (
+									<AverageRating ratingAvg={cluster.best.ratingAvg} />
+								) : (
+									<ZoomIn class="shrink-0 text-fg-muted" size={16} aria-hidden="true" />
+								)}
+							</li>
+						))}
+					</ul>
+				)}
+			</section>
+		</>
+	) : (
+		<section class="mx-auto flex min-h-[60dvh] max-w-xl flex-col items-center justify-center text-center">
+			<h1 class="sr-only">Explore</h1>
+			<p class="text-5xl font-semibold tracking-tight select-none sm:text-6xl" aria-hidden="true">
+				Kebab <span class="text-brand-text">Boxd</span>
+			</p>
+			<form class="mt-8 w-full" method="get" action={Astro.url.pathname} role="search">
+				<label class="sr-only" for="explore-start">Where do you want reviews from?</label>
+				<div class="relative">
+					<Search class="pointer-events-none absolute start-5 top-1/2 -translate-y-1/2 text-fg-muted" size={20} aria-hidden="true" />
+					<input
+						id="explore-start"
+						class="input h-13 rounded-full ps-13 pe-5 shadow-lift"
+						type="search"
+						name="q"
+						value={query}
+						maxlength={searchMaxLength}
+						placeholder="Where do you want reviews from?"
+						autocomplete="off"
+						autofocus
+						aria-describedby={problem ? "explore-start-problem" : undefined}
+					/>
+				</div>
+				{problem && <p id="explore-start-problem" class="t-body-sm mt-3 text-fg-muted">{problem}</p>}
+				<div class="mt-7 flex flex-wrap justify-center gap-3">
+					<button class="btn btn-secondary btn-md" type="submit">Search</button>
+					<button class="btn btn-secondary btn-md" type="submit" name="lucky" value="">I’m feeling lucky</button>
+				</div>
+			</form>
+		</section>
+	)}
 </BaseLayout>

@@ -1,8 +1,6 @@
-import type { Coordinates } from "@src/map/coordinates";
 import type { ViewportSize } from "@src/map/viewport";
 
-// Odense, where Kebab Boxd started.
-export const defaultMapCenter: Coordinates = { latitude: 55.3959, longitude: 10.3883 };
+// The zoom of a map that shows a part of a city, such as the one around the location of a User.
 export const defaultMapZoom = 13;
 export const restaurantMapZoom = 16;
 
