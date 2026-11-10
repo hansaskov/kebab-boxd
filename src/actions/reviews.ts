@@ -9,6 +9,8 @@ function likeAction(write: "like" | "unlike") {
     input: reviewTargetSchema,
     handler: async ({ reviewId }, { locals }) => {
       orThrow(await locals.db.reviews[write](requireSession(locals).user.id, reviewId));
+      // The page after a like points out the Review that was liked.
+      return reviewId;
     },
   });
 }

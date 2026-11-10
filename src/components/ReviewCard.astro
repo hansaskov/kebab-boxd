@@ -4,6 +4,7 @@ import { actions } from "astro:actions";
 import type { HTMLAttributes } from "astro/types";
 import Avatar from "@src/components/Avatar.astro";
 import { canOn, type Viewer } from "@src/auth/permissions";
+import { succeededOn } from "@src/actions/outcome";
 import type { ReviewCard } from "@src/db/reviews";
 import RelativeTime from "@src/components/RelativeTime.astro";
 import { describeStars, splitStars, toStars } from "@src/format/rating";
@@ -21,6 +22,7 @@ const { author, restaurant } = review;
 
 const canLike = canOn(viewer, "review:like", review) || (review.isLikedByViewer && canOn(viewer, "review:unlike", review));
 const canEdit = canOn(viewer, "review:edit", review);
+const justLiked = review.isLikedByViewer && succeededOn(Astro.locals, actions.reviews.like) === review.id;
 const stars = splitStars(review.rating);
 const pictureCount = review.pictures.length;
 
@@ -101,7 +103,7 @@ const pictureCell = (index: number) => {
         <form class="flex" method="post" action={review.isLikedByViewer ? actions.reviews.unlike : actions.reviews.like}>
           <input type="hidden" name="reviewId" value={review.id} />
           <button class="btn btn-sm btn-secondary" type="submit" aria-pressed={review.isLikedByViewer ? "true" : "false"}>
-            <Heart class:list={{ "text-danger": review.isLikedByViewer }} size={16} fill={review.isLikedByViewer ? "currentColor" : "none"} aria-hidden="true" />
+            <Heart class:list={{ "text-danger": review.isLikedByViewer, "like-pop": justLiked }} size={16} fill={review.isLikedByViewer ? "currentColor" : "none"} aria-hidden="true" />
             <span class="sr-only">Like</span>
             <span class="tabular-nums">{review.likeCount}</span>
           </button>

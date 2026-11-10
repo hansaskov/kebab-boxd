@@ -9,10 +9,11 @@ export interface ActionFailure {
 	input: SubmittedInput;
 }
 
-// What the middleware keeps of a form action for the page after it: which action ran and, when it failed,
-// why and what the user typed.
+// What the middleware keeps of a form action for the page after it: which action ran, what it acted on when it
+// says so and, when it failed, why and what the user typed.
 export interface ActionOutcome {
 	name: string;
+	target?: string | number | undefined;
 	failure?: ActionFailure | undefined;
 }
 
@@ -35,8 +36,14 @@ async function readSubmittedInput(request: Pick<Request, "formData">): Promise<S
 }
 
 // The request is read only when the action failed, since only then is what the user typed shown again.
-export async function toOutcome(name: string, error: ActionError | undefined, request: Pick<Request, "formData">): Promise<ActionOutcome> {
-	if (!error) return { name };
+// An action that returns a string or number names what it acted on, so the page after it can point that thing out.
+export async function toOutcome(
+	name: string,
+	data: unknown,
+	error: ActionError | undefined,
+	request: Pick<Request, "formData">,
+): Promise<ActionOutcome> {
+	if (!error) return typeof data === "string" || typeof data === "number" ? { name, target: data } : { name };
 	const fields = isInputError(error) ? error.fields : {};
 	return { name, failure: { code: error.code, message: error.message, fields, input: await readSubmittedInput(request) } };
 }
@@ -84,4 +91,9 @@ export function submittedForm(locals: App.Locals, action: Action): SubmittedForm
 export function succeeded(locals: App.Locals, action: Action): boolean {
 	const outcome = locals.actionOutcome;
 	return outcome !== undefined && !outcome.failure && outcome.name === nameOf(action);
+}
+
+// What the action acted on, when it succeeded on the request before this one.
+export function succeededOn(locals: App.Locals, action: Action): string | number | undefined {
+	return succeeded(locals, action) ? locals.actionOutcome?.target : undefined;
 }

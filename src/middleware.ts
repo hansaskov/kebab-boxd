@@ -39,7 +39,7 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 		// The handler reads the body, so a copy is kept to give the form back what the user typed if it fails.
 		const submitted = context.request.clone();
 		const { data, error } = await action.handler();
-		await db.sessions.setActionData(session.id, await toOutcome(action.name, error, submitted));
+		await db.sessions.setActionData(session.id, await toOutcome(action.name, data, error, submitted));
 
 		const location = !error && hasRedirect(data) ? data.redirect : undefined;
 		return redirectClearingSpeculations(location ?? sentFrom());

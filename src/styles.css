@@ -331,6 +331,27 @@
     pointer-events: none;
   }
 
+  /* The heart of a Review the user just liked pops once, with a faint ring around it. */
+  .like-pop {
+    overflow: visible;
+    transform-origin: center;
+    animation: like-pop 560ms cubic-bezier(0.3, 1.6, 0.5, 1);
+  }
+  .like-pop path {
+    filter: drop-shadow(0 0 0 currentColor);
+    animation: like-glow 800ms ease-out;
+  }
+  @keyframes like-pop {
+    0% { transform: translateY(0) scale(0.7); }
+    55% { transform: translateY(-3px) scale(1.2); }
+    100% { transform: translateY(0) scale(1); }
+  }
+  @keyframes like-glow {
+    0% { filter: drop-shadow(0 0 0 currentColor); }
+    40% { filter: drop-shadow(0 0 3px currentColor); }
+    100% { filter: drop-shadow(0 0 0 transparent); }
+  }
+
   .btn-md {
     height: 2.75rem;
     padding-inline: 1.25rem;
