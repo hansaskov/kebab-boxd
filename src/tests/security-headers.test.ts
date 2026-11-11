@@ -12,7 +12,7 @@ import RestaurantPage from "@src/pages/restaurants/[id].astro";
 import { renderPage } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertUser, restaurantPlace, signIn, writeReview } from "@src/tests/database";
 
-const site = "https://kebab.hjemmet.net";
+const site = "https://kebab-boxd.com";
 
 // The sources of each directive of the Content Security Policy.
 function policyOf(response: Response) {

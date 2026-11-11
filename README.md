@@ -27,7 +27,7 @@ pnpm sst secret set BootstrapAdminEmail <your Google email> --stage production
 pnpm sst:deploy
 ```
 
-The production stage also blocks AI crawlers. This is a setting of the whole zone, `hjemmet.net`, so the API token needs permission to edit its Bot Management. Bot Fight Mode stays off: it puts a script of Cloudflare on every page, which the site does without.
+The production stage also blocks AI crawlers. This is a setting of the whole zone, `kebab-boxd.com`, so the API token needs permission to edit its Bot Management. Bot Fight Mode stays off: it puts a script of Cloudflare on every page, which the site does without.
 
 | Part | Cloudflare service |
 | --- | --- |
@@ -49,7 +49,7 @@ The free plan stops the database for the rest of the day once it has read 5 mill
 To check the cache after a deploy, ask for a page twice without a cookie. The second answer has `cf-cache-status: HIT`:
 
 ```bash
-curl -sI https://kebab.hjemmet.net/feed | grep -i cf-cache-status
+curl -sI https://kebab-boxd.com/feed | grep -i cf-cache-status
 ```
 
 After a change to `src/db/schema.ts`, run `pnpm db:generate`. The Durable Object applies new migrations when it starts.

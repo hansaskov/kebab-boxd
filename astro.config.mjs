@@ -4,7 +4,7 @@ import cloudflare from "@astrojs/cloudflare";
 import { cacheCloudflare } from "@astrojs/cloudflare/cache";
 
 export default defineConfig({
-  site: "https://kebab.hjemmet.net",
+  site: "https://kebab-boxd.com",
   output: "server",
   devToolbar: {
     enabled: false

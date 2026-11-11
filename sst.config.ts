@@ -12,8 +12,8 @@ export default $config({
     };
   },
   async run() {
-    const zoneName = "hjemmet.net";
-    const domain = `kebab.${zoneName}`;
+    const zoneName = "kebab-boxd.com";
+    const domain = zoneName;
 
     // Set each one for a stage with `sst secret set <name> <value> --stage <stage>`.
     const secrets = {
