@@ -1,6 +1,6 @@
 ---
 import "@src/styles.css";
-import { Bell, CircleUser, Compass, DoorOpen, Lightbulb, LogIn, Moon, Rss, Search, Settings, Shield, Sun } from "@lucide/astro";
+import { Bell, CircleUser, DoorOpen, Lightbulb, LogIn, MapPin, Moon, Rss, Search, Settings, Shield, Sun } from "@lucide/astro";
 import { actions } from "astro:actions";
 import type { ComponentProps } from "astro/types";
 import Avatar from "@src/components/Avatar.astro";
@@ -49,7 +49,7 @@ const current = (href: string) => (pathname === href ? "page" : undefined);
 // The dock shows every icon, and the bar shows only the one of Search.
 const links = [
   { name: "Feed", href: feedHref, icon: Rss },
-  { name: "Explore", href: "/explore", icon: Compass },
+  { name: "Explore", href: "/explore", icon: MapPin },
   { name: "Search", href: searchHref(), icon: Search, startsRightGroup: true, hasIconInBar: true },
 ];
 

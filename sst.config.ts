@@ -63,12 +63,22 @@ export default $config({
       },
     });
 
-    // Cloudflare turns away the crawlers of AI companies. This is a setting of the zone, so it applies to every site
-    // of the zone, not only to this one.
+    // The settings below belong to the zone, so they apply to every site of the zone, not only to this one.
+    const zoneId = $app.stage === "production" ? cloudflare.getZoneOutput({ filter: { name: zoneName } }).zoneId : undefined;
+
+    // Cloudflare sends a visitor who asks for http:// to https://.
+    const alwaysUseHttps = zoneId
+      ? new cloudflare.ZoneSetting("AlwaysUseHttps", { zoneId, settingId: "always_use_https", value: "on" })
+      : undefined;
+
+    // Cloudflare accepts only a valid certificate from the origin.
+    const ssl = zoneId ? new cloudflare.ZoneSetting("Ssl", { zoneId, settingId: "ssl", value: "strict" }) : undefined;
+
+    // Cloudflare turns away the crawlers of AI companies.
     const bots =
-      $app.stage === "production"
+      zoneId
         ? new cloudflare.BotManagement("BotManagement", {
-            zoneId: cloudflare.getZoneOutput({ filter: { name: zoneName } }).zoneId,
+            zoneId,
             aiBotsProtection: "block",
             // Bot Fight Mode needs the JavaScript detections of Cloudflare, a script on every page, which the site
             // does without and its Content-Security-Policy refuses.
@@ -78,6 +88,6 @@ export default $config({
           })
         : undefined;
 
-    return { url: web.url, aiBots: bots?.aiBotsProtection };
+    return { url: web.url, aiBots: bots?.aiBotsProtection, alwaysUseHttps: alwaysUseHttps?.value, ssl: ssl?.value };
   },
 });
