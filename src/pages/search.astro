@@ -5,8 +5,7 @@ import PersonList from "@src/components/PersonList.astro";
 import RestaurantList from "@src/components/RestaurantList.astro";
 import SearchForm from "@src/components/SearchForm.astro";
 import TabNav from "@src/components/TabNav.astro";
-import { restaurantSorts, type RestaurantSort } from "@src/db/restaurants";
-import { personSorts, type PersonSort } from "@src/db/users";
+import { personSorts, restaurantSorts, type PersonSort, type RestaurantSort } from "@src/data/options";
 import { firstPageHref, parsePageRequest, type PageRequest } from "@src/pagination";
 import { parseOption, parseSearch, searchTypes, type SearchType } from "@src/validation/search-params";
 

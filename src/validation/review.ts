@@ -1,10 +1,10 @@
 import { z } from "astro/zod";
 import { idSchema } from "@src/validation/id";
+import { maxPicturesPerReview } from "@src/data/limits";
 import { picturesSchema } from "@src/validation/picture";
 
 export const minRating = 2;
 export const maxRating = 10;
-export const maxPicturesPerReview = 4;
 
 export const ratingSchema = z.number().int().min(minRating).max(maxRating);
 

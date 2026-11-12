@@ -1,7 +1,7 @@
 import { defineAction } from "astro:actions";
 import { z } from "astro/zod";
 import { orThrow, requireSession, targetUserSchema } from "@src/actions/authorize";
-import { roles } from "@src/db/schema";
+import { roles } from "@src/data/options";
 import { adminUserHref } from "@src/hrefs";
 import { citySearchSchema, citySearchTargetSchema } from "@src/validation/city-search";
 import { decisionSchema } from "@src/validation/restaurant";

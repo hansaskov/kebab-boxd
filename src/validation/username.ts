@@ -1,8 +1,6 @@
 import { z } from "astro/zod";
+import { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "@src/data/limits";
 import { reservedUsernames } from "@src/data/reserved-usernames";
-
-export const USERNAME_MIN_LENGTH = 3;
-export const USERNAME_MAX_LENGTH = 30;
 export const USERNAME_PATTERN_MESSAGE = "Use only letters A–Z or a–z, digits and underscores.";
 
 export const usernameSchema = z

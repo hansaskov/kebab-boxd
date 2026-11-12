@@ -60,10 +60,22 @@ After a change to `src/db/schema.ts`, run `pnpm db:generate`. The Durable Object
 
 Every call of the database is a trip from the Web Worker to the Durable Object, about 35 ms in production. A page takes as long as the trips it waits for one after another, so a signed-in page waits for two: one for the session, and one for everything the page shows. A Visitor's page waits for one. `src/tests/database-trips.test.ts` fails when a page waits for more.
 
-Every page tells how long it waited in its `Server-Timing` header, which the Network panel of the browser shows under Timing:
+Every page tells how long it took in its `Server-Timing` header, which the Network panel of the browser shows under Timing. `db` is the time it waited for the database, with its trips, and says when the database woke up. `app` shows only when the Web Worker had to start for the request:
 
 ```bash
 curl -sI https://kebab-boxd.com/feed | grep -i server-timing
+```
+
+Cloudflare stops a Worker that gets no requests and lets the Durable Object sleep, so the first request after a while waits for them to start. A site with few visitors meets a Worker that must start on many requests, since Cloudflare spreads them over many machines. Both Workers load all their code when they start, so each carries only what it needs:
+
+- The Web Worker never loads the code of the database or Drizzle. A value that the pages and the database share, such as a limit or the options of a list, lives in `src/data`. `pnpm lint` refuses any other import from `src/db` outside it, except types.
+- The Backend Worker never loads Zod or Astro, which only the forms need. `src/tests/backend-bundle.test.ts` checks it, and that it stays small.
+- The styles go in each page from one copy in `BaseLayout.astro`. Astro's own inlining kept a copy for every route in the Web Worker.
+
+`pnpm bench:live` measures the live site as a Visitor after it has been idle, and again at once:
+
+```bash
+pnpm bench:live --rounds 3 --idle 200 /privacy /feed
 ```
 
 `pnpm bench:pages` builds the site and measures every page as a Visitor, a User and an Admin. It runs the Web Worker and the Backend Worker in workerd, with the large database of the row tests and the trip to the database as long as in production. It tells the median time of each page, its calls and its trips. A page should answer within 100 000 µs, and must within 200 000 µs.

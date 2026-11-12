@@ -1,5 +1,5 @@
 import type { Database } from "@src/db";
-import { maxAttempts as maxCandidateAttempts } from "@src/db/city-searches";
+import { maxCitySearchAttempts as maxCandidateAttempts } from "@src/data/limits";
 import { downloadCityList } from "@src/map/geonames";
 import { findPlace } from "@src/map/google-maps";
 import { type Address, findAddress } from "@src/map/nominatim";

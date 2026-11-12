@@ -1,5 +1,8 @@
 ---
-import "@src/styles.css";
+// The styles go in the page itself, so it is whole as soon as it loads, with nothing more to ask for and nothing that
+// moves when it arrives. They are read as text and written here, once. Imported as a stylesheet, Astro would keep a
+// copy of them for every route in the code of the Worker, which loads it all each time it starts.
+import styles from "@src/styles.css?inline";
 import { Bell, CircleUser, DoorOpen, Lightbulb, LogIn, MapPin, Moon, Rss, Search, Settings, Shield, Sun } from "@lucide/astro";
 import { actions } from "astro:actions";
 import type { ComponentProps } from "astro/types";
@@ -92,6 +95,7 @@ const login = !user && pathname !== signInHref() ? signInHref(Astro.url) : undef
     <meta property="twitter:title" content={title} />
     <meta property="twitter:description" content={description} />
     <meta property="twitter:image" content={image} />
+    <style is:inline set:html={styles}></style>
     <SpeculationsAPI {...props} />
     <slot name="head" />
   </head>

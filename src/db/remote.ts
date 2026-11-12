@@ -1,8 +1,15 @@
 import type { Database } from "@src/db";
 
-// What the Backend Worker offers over RPC: one method that runs any method of the Database.
+// What the Durable Object answers a call with: what the method returned, and whether the Durable Object woke up for
+// the call, which makes it slow. A Durable Object that has no work sleeps, and wakes for the next call.
+export interface DatabaseReply {
+	value: unknown;
+	wokeUp: boolean;
+}
+
+// What the Durable Object offers over RPC: one method that runs any method of the Database.
 export interface DatabaseRpc {
-	call(area: string, method: string, args: unknown[]): Promise<unknown>;
+	call(area: string, method: string, args: unknown[]): Promise<DatabaseReply>;
 }
 
 // A File cannot cross RPC, so its bytes travel instead and the other side makes a new File of them.
@@ -46,7 +53,7 @@ export function connectDatabase(rpc: DatabaseRpc): Database {
 				get: (_, method) =>
 					typeof method !== "string" || method === "then"
 						? undefined
-						: async (...args: unknown[]) => rpc.call(area, method, (await pack(args)) as unknown[]),
+						: async (...args: unknown[]) => (await rpc.call(area, method, (await pack(args)) as unknown[])).value,
 			},
 		);
 	const areas = new Map<string, unknown>();

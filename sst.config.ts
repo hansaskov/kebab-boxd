@@ -53,7 +53,15 @@ export default $config({
             // astro:env reads the secrets from the bindings of the Worker under these names.
             worker: (args) => {
               const secretBindings = Object.entries(secrets).map(([name, secret]) => ({ type: "secret_text", name, text: secret.value }));
-              args.bindings = $output(args.bindings).apply((bindings) => [...(bindings ?? []), ...secretBindings]);
+              // The Web Worker calls the Durable Object of the Backend Worker itself, which spares each call of the database
+              // a trip through the Backend Worker. src/middleware.ts uses it when it is there, which it is not in `sst dev`.
+              const databaseBinding = {
+                type: "durable_object_namespace",
+                name: "Database",
+                className: database.className,
+                scriptName: backend.nodes.worker.scriptName,
+              };
+              args.bindings = $output(args.bindings).apply((bindings) => [...(bindings ?? []), ...secretBindings, databaseBinding]);
               // Cloudflare keeps the pages that every Visitor sees, as src/middleware/visitor-cache.ts tells it.
               // Astro writes this into wrangler.json, which SST does not read.
               args.cacheOptions = { enabled: true };

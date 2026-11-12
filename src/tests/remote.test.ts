@@ -7,7 +7,9 @@ import { pictureFile } from "@src/tests/pictures";
 
 // The website reaches the database over RPC, which copies every argument with the structured clone algorithm.
 function connectOverClone(db: Database) {
-	return connectDatabase({ call: async (area, method, args) => structuredClone(await callDatabase(db, area, method, structuredClone(args))) });
+	return connectDatabase({
+		call: async (area, method, args) => ({ value: structuredClone(await callDatabase(db, area, method, structuredClone(args))), wokeUp: false }),
+	});
 }
 
 describe("The database over RPC", () => {

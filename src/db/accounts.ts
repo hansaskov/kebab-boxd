@@ -4,7 +4,7 @@ import type { ProviderAccount } from "@src/auth/oauth";
 import type { Client, Transaction } from "@src/db/client";
 import * as s from "@src/db/schema";
 import type { User } from "@src/db/schema";
-import { USERNAME_MAX_LENGTH } from "@src/validation/username";
+import { USERNAME_MAX_LENGTH } from "@src/data/limits";
 
 const FALLBACK_USERNAME = "kebab";
 

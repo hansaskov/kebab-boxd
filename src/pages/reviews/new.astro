@@ -8,7 +8,8 @@ import { refusal } from "@src/auth/permissions";
 import { submittedForm } from "@src/actions/outcome";
 import { refusalPage, restaurantHref, signInHref } from "@src/hrefs";
 import { parseId } from "@src/validation/id";
-import { createReviewSchema, maxPicturesPerReview } from "@src/validation/review";
+import { maxPicturesPerReview } from "@src/data/limits";
+import { createReviewSchema } from "@src/validation/review";
 
 const session = Astro.locals.session;
 if (!session) {

@@ -6,7 +6,7 @@ import RelativeTime from "@src/components/RelativeTime.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { can } from "@src/auth/permissions";
 import { adminTabs } from "@src/data/admin-tabs";
-import { maxAttempts } from "@src/db/city-searches";
+import { maxCitySearchAttempts as maxAttempts } from "@src/data/limits";
 import { successToast } from "@src/format/action-toast";
 import { regionAndCountry } from "@src/format/country";
 import { plural } from "@src/format/plural";

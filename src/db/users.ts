@@ -10,6 +10,7 @@ import { authorizedWriteWithPictures } from "@src/db/pictures";
 import { problem } from "@src/db/problem";
 import * as s from "@src/db/schema";
 import type { Role, User } from "@src/db/schema";
+import type { PersonSort, UserFilter } from "@src/data/options";
 import { deleteAllSessionsOf } from "@src/db/sessions";
 import { isUniqueConstraintError } from "@src/db/sqlite-errors";
 import { isFollowedBy, isUnbannedUser } from "@src/db/visibility";
@@ -19,11 +20,6 @@ import type { PictureStore } from "@src/pictures/store";
 
 export type Profile = Pick<User, "fullname" | "username" | "pronoun" | "bio">;
 
-export const personSorts = ["most-reviews", "latest-review"] as const;
-export type PersonSort = (typeof personSorts)[number];
-
-export const userFilters = ["all", "admin", "banned"] as const;
-export type UserFilter = (typeof userFilters)[number];
 
 type Users = typeof s.users;
 

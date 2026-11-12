@@ -8,7 +8,7 @@ import { succeededOn } from "@src/actions/outcome";
 import type { ReviewCard } from "@src/db/reviews";
 import RelativeTime from "@src/components/RelativeTime.astro";
 import { describeStars, starFills, toStars } from "@src/format/rating";
-import { maxPicturesPerReview } from "@src/validation/review";
+import { maxPicturesPerReview } from "@src/data/limits";
 import { editReviewHref, profileHref, restaurantHref, reviewHref } from "@src/hrefs";
 
 interface Props extends HTMLAttributes<"article"> {

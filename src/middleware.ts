@@ -1,10 +1,10 @@
-import { waitUntil } from "cloudflare:workers";
+import { env, waitUntil } from "cloudflare:workers";
 import { Resource } from "sst/resource";
 import { readSession } from "@src/auth/session";
 import { defineMiddleware, sequence } from "astro:middleware";
 import { getActionContext } from "astro:actions";
 import { withChangedHeaders } from "@src/middleware/headers";
-import { measuringDatabase } from "@src/middleware/server-timing";
+import { coldStartTiming, measuringDatabase } from "@src/middleware/server-timing";
 import { withSecurityHeaders } from "@src/middleware/security-headers";
 import { answerFormOfVisitor, formPage } from "@src/middleware/forms";
 import { isSpeculative, redirectClearingSpeculations } from "@src/middleware/speculations";
@@ -22,11 +22,18 @@ function hasRedirect(data: unknown): data is { redirect: string } {
 	return typeof data === "object" && data !== null && "redirect" in data && typeof data.redirect === "string";
 }
 
+// In production the Web Worker calls the Durable Object itself, which spares each call a trip through the Backend Worker
+// and the Backend Worker a start of its own. `sst dev` cannot bind the Durable Object of a deployed Worker, so there
+// the calls go through the Backend Worker.
+function databaseRpc(): DatabaseRpc {
+	return env.Database ? env.Database.getByName("main") : (Resource.Backend as unknown as DatabaseRpc);
+}
+
 const sessionMiddleware = defineMiddleware(async (context, next) => {
 	if (context.isPrerendered) return next();
 
 	const requestedAt = new Date();
-	const measured = measuringDatabase(Resource.Backend as unknown as DatabaseRpc);
+	const measured = measuringDatabase(databaseRpc());
 	const db = connectDatabase(measured.rpc);
 	context.locals.db = db;
 	// Before the history is written, which happens after the answer and is no part of the wait.
@@ -78,6 +85,12 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 
 const securityMiddleware = defineMiddleware(async (_context, next) => withSecurityHeaders(await next()));
 
+const coldStartMiddleware = defineMiddleware(async (_context, next) => {
+	const timing = coldStartTiming();
+	const response = await next();
+	return timing ? withChangedHeaders(response, (headers) => headers.append("Server-Timing", timing)) : response;
+});
+
 // Astro adds the headers of the cache after the middleware, from what it was told, and Cloudflare keeps a page only
 // while it says so. Every other response is never kept.
 const visitorCacheMiddleware = defineMiddleware(async (context, next) => {
@@ -87,4 +100,4 @@ const visitorCacheMiddleware = defineMiddleware(async (context, next) => {
 	return cache ? withChangedHeaders(response, (headers) => headers.append("Vary", "Cookie")) : response;
 });
 
-export const onRequest = sequence(securityMiddleware, visitorCacheMiddleware, sessionMiddleware);
+export const onRequest = sequence(coldStartMiddleware, securityMiddleware, visitorCacheMiddleware, sessionMiddleware);

@@ -29,12 +29,16 @@
       "patterns": [{
         "group": ["drizzle-orm", "drizzle-orm/*"],
         "message": "Database access belongs in src/db. Add it to the module of its concept there and call it through Astro.locals.db."
+      }, {
+        "group": ["@src/db/*", "!@src/db/problem", "!@src/db/remote"],
+        "allowTypeImports": true,
+        "message": "The Web Worker would load the code of the database and Drizzle with it. Import its types, or move the value to src/data."
       }]
     }]
   },
   "overrides": [
     {
-      "files": ["src/db/**", "tools/page-latency/**"],
+      "files": ["src/db/**", "src/backend.ts", "src/background-work.ts", "tools/page-latency/**"],
       "rules": { "no-restricted-imports": "off" }
     },
     {

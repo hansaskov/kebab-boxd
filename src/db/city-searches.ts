@@ -1,5 +1,6 @@
 import { and, eq, gt, sql } from "drizzle-orm";
 import { authorizedSubjectWrite } from "@src/db/authorize";
+import { maxCitySearchAttempts } from "@src/data/limits";
 import { findCity, searchCities, type City } from "@src/db/cities";
 import type { Client, Transaction } from "@src/db/client";
 import { notify, withdrawCitySearchNotification } from "@src/db/notifications";
@@ -16,7 +17,7 @@ import type { PageRequest } from "@src/pagination";
 
 // A search is tried up to this many times while no Overpass server answers, and a place is looked up at
 // Nominatim this many times before it is added with the address OpenStreetMap gave.
-export const maxAttempts = 5;
+const maxAttempts = maxCitySearchAttempts;
 // Each attempt asks every server, so a search that failed waits for them to recover.
 const searchRetryDelaySeconds = 2 * 60;
 const candidateRetryDelaySeconds = 60;

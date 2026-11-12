@@ -1,4 +1,5 @@
 import * as p from "drizzle-orm/sqlite-core";
+import { roles } from "@src/data/options"
 import { pronouns } from "@src/data/pronouns"
 import { sql } from "drizzle-orm";
 import type { ActionOutcome } from "@src/actions/outcome";
@@ -12,7 +13,7 @@ export const users = p.snakeCase.table("users", {
   email: p.text().notNull(),
   emailVerified: p.int({mode: "boolean"}).notNull().$default(() => false),
   profilePictureId: p.int({ mode: "number" }).references(() => pictures.id, {onDelete: "set null"}),
-  role: p.text({ enum: ["user", "admin"] }).notNull().default("user"),
+  role: p.text({ enum: roles }).notNull().default("user"),
   bio: p.text(),
   pronoun: p.text({ enum: pronouns }),
   latitude: p.real(),
@@ -41,7 +42,6 @@ export const users = p.snakeCase.table("users", {
 ]);
 
 export type User = typeof users.$inferSelect
-export const roles = users.role.enumValues
 export type Role = User["role"]
 
 export const sessions = p.snakeCase.table("sessions", {

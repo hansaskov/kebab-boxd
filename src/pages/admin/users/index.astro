@@ -7,7 +7,7 @@ import TabNav from "@src/components/TabNav.astro";
 import { can } from "@src/auth/permissions";
 import { adminTabs } from "@src/data/admin-tabs";
 import { adminUserHref, feedHref, signInHref } from "@src/hrefs";
-import { userFilters, type UserFilter } from "@src/db/users";
+import { userFilters, type UserFilter } from "@src/data/options";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
 import { parseOption, parseSearch } from "@src/validation/search-params";
 

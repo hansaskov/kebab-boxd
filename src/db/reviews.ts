@@ -13,10 +13,7 @@ import type { Review } from "@src/db/schema";
 import { isListedReview, isListedReviewFor, isPublicReview, ofViewer, reviewAuthor } from "@src/db/visibility";
 import type { PageItem, PageRequest } from "@src/pagination";
 import type { PictureStore } from "@src/pictures/store";
-import { maxPicturesPerReview } from "@src/validation/review";
-
-export const feeds = ["following", "everyone"] as const;
-export type Feed = (typeof feeds)[number];
+import { maxPicturesPerReview } from "@src/data/limits";
 
 export type ReviewContent = Pick<Review, "rating" | "description">;
 

@@ -101,7 +101,7 @@ const miniflare = new Miniflare({
 				env: {
 					...placeholderSecrets,
 					SST_RESOURCE_App: text(JSON.stringify({ name: "kebab-boxd", stage: "bench" })),
-					Backend: { type: "worker", worker: "backend", exportName: "DelayedBackend" },
+					Database: { type: "durable-object", worker: "backend", exportName: "BenchDatabase" },
 				},
 			},
 		},

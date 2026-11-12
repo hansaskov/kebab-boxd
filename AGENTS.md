@@ -15,6 +15,7 @@ Single context root `CONTEXT.md`
 - Forms should use Astro Actions. 
 - Database queries should use the Drizzle relational queries v2 syntax.
 - A page waits for the database once. Each call is a trip to the Durable Object of about 35 ms, and the session already takes one. Send every call of a page at once with `Promise.all`. A call that needs another row takes what the address names, such as a Username, and finds and authorizes that row itself with `authorizedRead`. `src/tests/database-trips.test.ts` checks every page.
+- Keep each Worker small, since it loads all its code each time Cloudflare starts it. A value that pages and the database share belongs in `src/data`, not in `src/db` or `src/validation`.
 - Verify with `pnpm lint`, `pnpm check` and `pnpm test`.
 - Write tests under `@src/tests/`, mocking is forbidden. 
 

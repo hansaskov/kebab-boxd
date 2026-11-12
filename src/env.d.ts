@@ -8,6 +8,13 @@ declare namespace App {
 	}
 }
 
+// The Durable Object of the Backend Worker, which sst.config.ts binds to the Web Worker in production only.
+declare namespace Cloudflare {
+	interface Env {
+		Database?: DurableObjectNamespace<import("@src/backend").DatabaseObject>;
+	}
+}
+
 // The migrations that drizzle-kit writes are bundled as text.
 declare module "*.sql" {
 	const sql: string;

@@ -1,4 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
+import { maxQueuedPerUser } from "@src/data/limits";
 import type { Client } from "@src/db/client";
 import { enterRestaurant, findExisting } from "@src/db/entered-restaurants";
 import { isProblem, problem, type Problem } from "@src/db/problem";
@@ -8,8 +9,6 @@ import type { Address } from "@src/map/nominatim";
 
 // Finished links are kept for weeks, so only the latest are shown.
 const maxListed = 20;
-// Enough to suggest a few restaurants in a row, too few to flood the queue.
-export const maxQueuedPerUser = 5;
 export const maxAttempts = 5;
 const retryDelaySeconds = 60;
 

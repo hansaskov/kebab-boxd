@@ -2,9 +2,9 @@ import { ActionError } from "astro:actions";
 import { z } from "astro/zod";
 import { can, resourceOf, type Permission, type ResourceName, type Subject } from "@src/auth/permissions";
 import { isProblem, type Problem } from "@src/db/problem";
-import { maxQueuedPerUser } from "@src/db/suggestion-queue";
+import { maxQueuedPerUser } from "@src/data/limits";
 import { pictureFormatNames } from "@src/validation/picture";
-import { maxPicturesPerReview } from "@src/validation/review";
+import { maxPicturesPerReview } from "@src/data/limits";
 import { usernameSchema } from "@src/validation/username";
 
 type ErrorCode = ConstructorParameters<typeof ActionError>[0]["code"];

@@ -8,6 +8,7 @@ import { notify, withdrawDecision } from "@src/db/notifications";
 import { cursorList, type Filter, type Seek } from "@src/db/pagination";
 import * as s from "@src/db/schema";
 import type { RestaurantStatus } from "@src/db/schema";
+import type { RestaurantSort } from "@src/data/options";
 import { exploreCityLimit } from "@src/data/map";
 import { searchCities } from "@src/db/cities";
 import { clustersOn, type Cluster } from "@src/map/clusters";
@@ -16,8 +17,6 @@ import type { Bounds } from "@src/map/coordinates";
 import type { ClusterGrid, MapView } from "@src/map/viewport";
 import type { PageRequest } from "@src/pagination";
 
-export const restaurantSorts = ["top-rated", "popular", "newest"] as const;
-export type RestaurantSort = (typeof restaurantSorts)[number];
 
 const topRatedPages = cursorList("restaurants", ["ratingAvg", "id"], "desc");
 const popularPages = cursorList("restaurants", ["reviewCount", "id"], "desc");
