@@ -1,3 +1,4 @@
+import { hashSecret } from "@src/auth/hash";
 import { refreshAuthorStats, refreshLikeCounts, refreshRestaurantStats } from "@src/db/cached-stats";
 import type { Client, Transaction } from "@src/db/client";
 import { chunks, durableSqliteLimits } from "@src/db/limits";
@@ -237,7 +238,8 @@ function insertSubjects(tx: Transaction) {
 	});
 
 	const sessionId = "viewer-session";
-	tx.insert(s.sessions).values({ id: sessionId, userId: viewerId, secretHash: Buffer.alloc(32), lastVerifiedAt: new Date() }).run();
+	const sessionSecret = "viewer-secret";
+	tx.insert(s.sessions).values({ id: sessionId, userId: viewerId, secretHash: hashSecret(sessionSecret), lastVerifiedAt: new Date() }).run();
 	for (let page = 0; page < 30; page++) {
 		tx.insert(s.history).values({ sessionId, requestedAt: next(), method: "GET", route: "/feed", path: "/feed", status: 200 }).run();
 	}
@@ -279,6 +281,8 @@ function insertSubjects(tx: Transaction) {
 		privateId,
 		friendId: friendIds[0]!,
 		sessionId,
+		// The token of the session, which the cookie of the viewer's browser holds.
+		sessionToken: `${sessionId}.${sessionSecret}`,
 		restaurantId,
 		pendingRestaurantId: suggestedIds[0]!,
 		reviewId: authorReviewIds[0]!,

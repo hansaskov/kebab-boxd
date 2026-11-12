@@ -5,16 +5,19 @@ import RelativeTime from "@src/components/RelativeTime.astro";
 import { successToast } from "@src/format/action-toast";
 import { deviceName } from "@src/format/device-name";
 import { sessionHistoryHref } from "@src/hrefs";
+import { isProblem } from "@src/db/problem";
 import { openSettings, otherSectionHrefs } from "@src/settings";
 
-const settings = await openSettings(Astro, "security");
+// The devices check the permission themselves, so they come in the same trip to the database as the settings.
+const [settings, devices] = await Promise.all([
+  openSettings(Astro, "security"),
+  Astro.locals.db.sessions.listActive(Astro.params.username ?? "", Astro.locals.session?.user.id ?? null),
+]);
 if (settings instanceof Response) {
   return settings;
 }
 const { session, user } = settings;
 const isOwnAccount = session.user.id === user.id;
-
-const devices = await Astro.locals.db.sessions.listActive(user.id);
 ---
 
 <SettingsLayout
@@ -30,7 +33,7 @@ const devices = await Astro.locals.db.sessions.listActive(user.id);
   <section class="mt-6" aria-labelledby="devices-heading">
     <h2 id="devices-heading">Devices</h2>
     <div class="settings-card mt-3">
-      {devices.length === 0 ? (
+      {isProblem(devices) || devices.length === 0 ? (
         <p class="settings-row t-body-sm text-fg-muted">There are no signed-in devices.</p>
       ) : (
         <ul>

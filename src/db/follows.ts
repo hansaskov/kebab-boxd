@@ -1,11 +1,12 @@
 import { and, eq, exists, sql } from "drizzle-orm";
 import { QueryBuilder } from "drizzle-orm/sqlite-core";
-import { writeOnUser } from "@src/db/authorize";
+import { authorizedRead, findUserSeenBy, writeOnUser } from "@src/db/authorize";
 import type { Client, Transaction } from "@src/db/client";
 import { notify, withdraw } from "@src/db/notifications";
 import { cursorList } from "@src/db/pagination";
 import * as s from "@src/db/schema";
 import { isFollowedBy, isUnbannedUser, ofViewer } from "@src/db/visibility";
+import type { Problem } from "@src/db/problem";
 import type { PageItem, PageRequest } from "@src/pagination";
 
 const qb = new QueryBuilder();
@@ -119,41 +120,48 @@ export function createFollows(client: Client) {
 		},
 
 		// Banned users are left out of the lists.
-		async listFollowers(userId: number, viewerId: number | null, page: PageRequest) {
-			const rows = await followerPages(page, (seek) =>
-				client.query.followers.findMany({
-					columns: { followerId: true, createdAt: true },
-					with: { follower: personCard(viewerId) },
-					...seek({ followingId: userId, follower: { bannedAt: { isNull: true } } }),
-				}),
-			);
-			return { ...rows, items: rows.items.map((row) => row.follower) };
+		// The followers of the User named `username`, as the viewer, who is null for a Visitor, sees them on the Profile.
+		async listFollowers(username: string, viewerId: number | null, page: PageRequest) {
+			return authorizedRead(client, viewerId, "user:view-profile", findUserSeenBy(client, username, viewerId), async (user) => {
+				const rows = await followerPages(page, (seek) =>
+					client.query.followers.findMany({
+						columns: { followerId: true, createdAt: true },
+						with: { follower: personCard(viewerId) },
+						...seek({ followingId: user.id, follower: { bannedAt: { isNull: true } } }),
+					}),
+				);
+				return { ...rows, items: rows.items.map((row) => row.follower) };
+			});
 		},
 
-		async listFollowing(userId: number, viewerId: number | null, page: PageRequest) {
-			const rows = await followingPages(page, (seek) =>
-				client.query.followers.findMany({
-					columns: { followingId: true, createdAt: true },
-					with: { following: personCard(viewerId) },
-					...seek({ followerId: userId, following: { bannedAt: { isNull: true } } }),
-				}),
-			);
-			return { ...rows, items: rows.items.map((row) => row.following) };
+		// The people the User named `username` follows, as the viewer, who is null for a Visitor, sees them on the Profile.
+		async listFollowing(username: string, viewerId: number | null, page: PageRequest) {
+			return authorizedRead(client, viewerId, "user:view-profile", findUserSeenBy(client, username, viewerId), async (user) => {
+				const rows = await followingPages(page, (seek) =>
+					client.query.followers.findMany({
+						columns: { followingId: true, createdAt: true },
+						with: { following: personCard(viewerId) },
+						...seek({ followerId: user.id, following: { bannedAt: { isNull: true } } }),
+					}),
+				);
+				return { ...rows, items: rows.items.map((row) => row.following) };
+			});
 		},
 
-		// The users who wait for the User to approve them, the latest first. Only for a viewer with the permission
-		// user:view-follow-requests.
-		async listRequests(userId: number, viewerId: number, page: PageRequest) {
-			const rows = await requestPages(page, (seek) =>
-				client.query.followRequests.findMany({
-					columns: { followerId: true, createdAt: true },
-					with: { follower: personCard(viewerId) },
-					...seek({ followingId: userId, follower: { bannedAt: { isNull: true } } }),
-				}),
-			);
-			return { ...rows, items: rows.items.map((row) => row.follower) };
+		// The users who wait for the User named `username` to approve them, the latest first. Only the User sees them.
+		async listRequests(username: string, viewerId: number | null, page: PageRequest) {
+			return authorizedRead(client, viewerId, "user:view-follow-requests", findUserSeenBy(client, username, viewerId), async (user) => {
+				const rows = await requestPages(page, (seek) =>
+					client.query.followRequests.findMany({
+						columns: { followerId: true, createdAt: true },
+						with: { follower: personCard(viewerId) },
+						...seek({ followingId: user.id, follower: { bannedAt: { isNull: true } } }),
+					}),
+				);
+				return { ...rows, items: rows.items.map((row) => row.follower) };
+			});
 		},
 	};
 }
 
-export type Person = PageItem<Awaited<ReturnType<ReturnType<typeof createFollows>["listFollowers"]>>>;
+export type Person = PageItem<Exclude<Awaited<ReturnType<ReturnType<typeof createFollows>["listFollowers"]>>, Problem>>;

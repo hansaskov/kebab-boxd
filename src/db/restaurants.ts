@@ -8,9 +8,12 @@ import { notify, withdrawDecision } from "@src/db/notifications";
 import { cursorList, type Filter, type Seek } from "@src/db/pagination";
 import * as s from "@src/db/schema";
 import type { RestaurantStatus } from "@src/db/schema";
-import type { Cluster } from "@src/map/clusters";
+import { exploreCityLimit } from "@src/data/map";
+import { searchCities } from "@src/db/cities";
+import { clustersOn, type Cluster } from "@src/map/clusters";
+import { cityBounds, cityView, exploreView, exploreViewport } from "@src/map/explore-map";
 import type { Bounds } from "@src/map/coordinates";
-import type { ClusterGrid } from "@src/map/viewport";
+import type { ClusterGrid, MapView } from "@src/map/viewport";
 import type { PageRequest } from "@src/pagination";
 
 export const restaurantSorts = ["top-rated", "popular", "newest"] as const;
@@ -34,6 +37,17 @@ function matching(search: string): Filter<"restaurants"> {
 			{ location: { RAW: (location) => sql`instr(lower(${location.city}), lower(${search})) > 0` } },
 		],
 	};
+}
+
+export interface ExploreRequest {
+	// The text of a search for a City, empty without one.
+	search: string;
+	// The City the user chose among those the search finds.
+	cityId: number | undefined;
+	// The map the address asks for, or the one around the location of the User, which a search that finds no City
+	// leaves in place.
+	requested: MapView | undefined;
+	isVisitor: boolean;
 }
 
 export interface ClusterRestaurant {
@@ -68,6 +82,90 @@ function approvedIn(bounds: Bounds) {
 }
 
 export function createRestaurants(client: Client) {
+	// The approved restaurants in the bounds, as a Cluster for each cell of the grid that has any. Without a
+	// grid, each restaurant is a cluster of its own.
+	//
+	// The relational queries cannot group rows either. The innermost query finds the cell of each restaurant
+	// once, which keeps the values bound to the statement few. Window functions over the restaurants of each
+	// cell then give every row the count, average position and bounds of its cluster, and rank the rows, so
+	// that the first row in the ranking stands for its cluster.
+	const listClusters = async (bounds: Bounds, grid: ClusterGrid | undefined): Promise<Cluster<ClusterRestaurant>[]> => {
+		const cell = grid ? cellOf(grid) : { column: sql<number>`${s.restaurants.id}`, row: sql<number>`0` };
+		const located = client
+			.select({
+				id: s.restaurants.id,
+				name: s.restaurants.name,
+				ratingAvg: s.restaurants.ratingAvg,
+				city: s.locations.city,
+				latitude: s.locations.latitude,
+				longitude: s.locations.longitude,
+				column: cell.column.as("cell_column"),
+				row: cell.row.as("cell_row"),
+			})
+			.from(s.locations)
+			.crossJoin(s.restaurants)
+			.where(approvedIn(bounds))
+			.as("located");
+
+		const ofCluster = sql`over (partition by ${located.column}, ${located.row})`;
+		const ranked = client
+			.select({
+				id: located.id,
+				name: located.name,
+				ratingAvg: located.ratingAvg,
+				city: located.city,
+				count: sql<number>`count(*) ${ofCluster}`.as("count"),
+				latitude: sql<number>`avg(${located.latitude}) ${ofCluster}`.as("average_latitude"),
+				longitude: sql<number>`avg(${located.longitude}) ${ofCluster}`.as("average_longitude"),
+				north: sql<number>`max(${located.latitude}) ${ofCluster}`.as("north"),
+				south: sql<number>`min(${located.latitude}) ${ofCluster}`.as("south"),
+				east: sql<number>`max(${located.longitude}) ${ofCluster}`.as("east"),
+				west: sql<number>`min(${located.longitude}) ${ofCluster}`.as("west"),
+				rank: sql<number>`row_number() over (partition by ${located.column}, ${located.row} order by ${located.ratingAvg} desc, ${located.id})`.as(
+					"rank",
+				),
+			})
+			.from(located)
+			.as("ranked");
+
+		const rows = await client.select().from(ranked).where(eq(ranked.rank, 1));
+		return rows.map(({ id, name, ratingAvg, city, count, latitude, longitude, north, south, east, west }) => ({
+			count,
+			center: { latitude, longitude },
+			bounds: { north, south, east, west },
+			best: { id, name, ratingAvg, city },
+		}));
+	};
+
+	// The best-rated approved restaurant in the bounds, the one with more reviews first when two are rated the
+	// same, if there is one.
+	const findBestRatedIn = async (bounds: Bounds): Promise<{ id: number } | undefined> => {
+		const [best] = await client
+			.select({ id: s.restaurants.id })
+			.from(s.locations)
+			.crossJoin(s.restaurants)
+			.where(approvedIn(bounds))
+			.orderBy(desc(s.restaurants.ratingAvg), desc(s.restaurants.reviewCount), asc(s.restaurants.id))
+			.limit(1);
+		return best;
+	};
+
+	// An approved restaurant, chosen by a fraction from 0 up to 1, such as one from Math.random(). The fraction
+	// picks an id between the first and the last approved restaurant, and the approved restaurant with that id
+	// or the next one is chosen. So it reads three rows, however many restaurants there are. A restaurant
+	// after ids that are not approved is chosen a little more often than the others.
+	const pickApproved = async (fraction: number): Promise<{ id: number } | undefined> => {
+		const columns = { id: true } as const;
+		const [first, last] = await Promise.all([
+			client.query.restaurants.findFirst({ columns, where: { status: "approved" }, orderBy: { id: "asc" } }),
+			client.query.restaurants.findFirst({ columns, where: { status: "approved" }, orderBy: { id: "desc" } }),
+		]);
+		if (!first || !last) return undefined;
+		const share = Math.min(Math.max(fraction, 0), 1 - Number.EPSILON);
+		const from = first.id + Math.floor(share * (last.id - first.id + 1));
+		return client.query.restaurants.findFirst({ columns, where: { status: "approved", id: { gte: from } }, orderBy: { id: "asc" } });
+	};
+
 	return {
 		// The approved restaurants whose name or city contains the search.
 		async list(search: string, sort: RestaurantSort, page: PageRequest) {
@@ -112,88 +210,29 @@ export function createRestaurants(client: Client) {
 			});
 		},
 
-		// The approved restaurants in the bounds, as a Cluster for each cell of the grid that has any. Without a
-		// grid, each restaurant is a cluster of its own.
-		//
-		// The relational queries cannot group rows either. The innermost query finds the cell of each restaurant
-		// once, which keeps the values bound to the statement few. Window functions over the restaurants of each
-		// cell then give every row the count, average position and bounds of its cluster, and rank the rows, so
-		// that the first row in the ranking stands for its cluster.
-		async listClusters(bounds: Bounds, grid: ClusterGrid | undefined): Promise<Cluster<ClusterRestaurant>[]> {
-			const cell = grid ? cellOf(grid) : { column: sql<number>`${s.restaurants.id}`, row: sql<number>`0` };
-			const located = client
-				.select({
-					id: s.restaurants.id,
-					name: s.restaurants.name,
-					ratingAvg: s.restaurants.ratingAvg,
-					city: s.locations.city,
-					latitude: s.locations.latitude,
-					longitude: s.locations.longitude,
-					column: cell.column.as("cell_column"),
-					row: cell.row.as("cell_row"),
-				})
-				.from(s.locations)
-				.crossJoin(s.restaurants)
-				.where(approvedIn(bounds))
-				.as("located");
+		listClusters,
+		findBestRatedIn,
+		pickApproved,
 
-			const ofCluster = sql`over (partition by ${located.column}, ${located.row})`;
-			const ranked = client
-				.select({
-					id: located.id,
-					name: located.name,
-					ratingAvg: located.ratingAvg,
-					city: located.city,
-					count: sql<number>`count(*) ${ofCluster}`.as("count"),
-					latitude: sql<number>`avg(${located.latitude}) ${ofCluster}`.as("average_latitude"),
-					longitude: sql<number>`avg(${located.longitude}) ${ofCluster}`.as("average_longitude"),
-					north: sql<number>`max(${located.latitude}) ${ofCluster}`.as("north"),
-					south: sql<number>`min(${located.latitude}) ${ofCluster}`.as("south"),
-					east: sql<number>`max(${located.longitude}) ${ofCluster}`.as("east"),
-					west: sql<number>`min(${located.longitude}) ${ofCluster}`.as("west"),
-					rank: sql<number>`row_number() over (partition by ${located.column}, ${located.row} order by ${located.ratingAvg} desc, ${located.id})`.as(
-						"rank",
-					),
-				})
-				.from(located)
-				.as("ranked");
-
-			const rows = await client.select().from(ranked).where(eq(ranked.rank, 1));
-			return rows.map(({ id, name, ratingAvg, city, count, latitude, longitude, north, south, east, west }) => ({
-				count,
-				center: { latitude, longitude },
-				bounds: { north, south, east, west },
-				best: { id, name, ratingAvg, city },
-			}));
+		// The map of the Explore page, and with a search, the cities it finds. The map is of the city chosen among
+		// them, or of the first, and else the map asked for, if any. One call finds the city and the Clusters on its
+		// map, so the page waits for the database once.
+		async explore({ search, cityId, requested, isVisitor }: ExploreRequest) {
+			const cities = search ? searchCities(client, search, exploreCityLimit) : [];
+			const city = cities.find((match) => match.id === cityId) ?? cities[0];
+			const shown = city ? cityView(city) : requested;
+			if (!shown) return { cities, city, view: undefined, clusters: [] };
+			const view = exploreView(shown, isVisitor);
+			return { cities, city, view, clusters: await clustersOn(exploreViewport(view), listClusters) };
 		},
 
-		// The best-rated approved restaurant in the bounds, the one with more reviews first when two are rated the
-		// same, if there is one.
-		async findBestRatedIn(bounds: Bounds): Promise<{ id: number } | undefined> {
-			const [best] = await client
-				.select({ id: s.restaurants.id })
-				.from(s.locations)
-				.crossJoin(s.restaurants)
-				.where(approvedIn(bounds))
-				.orderBy(desc(s.restaurants.ratingAvg), desc(s.restaurants.reviewCount), asc(s.restaurants.id))
-				.limit(1);
-			return best;
-		},
-
-		// An approved restaurant, chosen by a fraction from 0 up to 1, such as one from Math.random(). The fraction
-		// picks an id between the first and the last approved restaurant, and the approved restaurant with that id
-		// or the next one is chosen. So it reads three rows, however many restaurants there are. A restaurant
-		// after ids that are not approved is chosen a little more often than the others.
-		async pickApproved(fraction: number): Promise<{ id: number } | undefined> {
-			const columns = { id: true } as const;
-			const [first, last] = await Promise.all([
-				client.query.restaurants.findFirst({ columns, where: { status: "approved" }, orderBy: { id: "asc" } }),
-				client.query.restaurants.findFirst({ columns, where: { status: "approved" }, orderBy: { id: "desc" } }),
-			]);
-			if (!first || !last) return undefined;
-			const share = Math.min(Math.max(fraction, 0), 1 - Number.EPSILON);
-			const from = first.id + Math.floor(share * (last.id - first.id + 1));
-			return client.query.restaurants.findFirst({ columns, where: { status: "approved", id: { gte: from } }, orderBy: { id: "asc" } });
+		// “I’m feeling lucky”: the best-rated restaurant of the City a search finds, the one chosen among them or the
+		// first, and without a search any approved restaurant, chosen by the fraction as pickApproved chooses.
+		async feelLucky(search: string, cityId: number | undefined, fraction: number) {
+			if (!search) return { city: undefined, restaurant: await pickApproved(fraction) };
+			const cities = searchCities(client, search, exploreCityLimit);
+			const city = cities.find((match) => match.id === cityId) ?? cities[0];
+			return { city, restaurant: city && (await findBestRatedIn(cityBounds(city))) };
 		},
 
 		// The queue of suggestions is worked through oldest first; decided suggestions show the latest first.

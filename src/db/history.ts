@@ -1,6 +1,8 @@
+import { authorizedRead, findUserSeenBy } from "@src/db/authorize";
 import type { Client } from "@src/db/client";
 import { cursorList } from "@src/db/pagination";
 import * as s from "@src/db/schema";
+import { activeSince } from "@src/db/sessions";
 import type { NewHistoryEntry } from "@src/db/schema";
 import type { PageRequest } from "@src/pagination";
 
@@ -14,12 +16,15 @@ export function createHistory(client: Client) {
 			await client.insert(s.history).values(entry);
 		},
 
-		async listBySession(sessionId: string, page: PageRequest) {
-			return pages(page, (seek) =>
-				client.query.history.findMany({
-					columns: { id: true, requestedAt: true, method: true, path: true, action: true, status: true, prefetched: true },
-					...seek({ sessionId }),
-				}),
+		// The pages an active session of the User named `username` opened, for a viewer who manages their sessions.
+		async listBySession(username: string, sessionId: string, viewerId: number | null, page: PageRequest) {
+			return authorizedRead(client, viewerId, "user:manage-sessions", findUserSeenBy(client, username, viewerId), async (user) =>
+				pages(page, (seek) =>
+					client.query.history.findMany({
+						columns: { id: true, requestedAt: true, method: true, path: true, action: true, status: true, prefetched: true },
+						...seek({ sessionId, session: { userId: user.id, lastVerifiedAt: { gt: activeSince() } } }),
+					}),
+				),
 			);
 		},
 	};

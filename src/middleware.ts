@@ -4,6 +4,7 @@ import { readSession } from "@src/auth/session";
 import { defineMiddleware, sequence } from "astro:middleware";
 import { getActionContext } from "astro:actions";
 import { withChangedHeaders } from "@src/middleware/headers";
+import { measuringDatabase } from "@src/middleware/server-timing";
 import { withSecurityHeaders } from "@src/middleware/security-headers";
 import { answerFormOfVisitor, formPage } from "@src/middleware/forms";
 import { isSpeculative, redirectClearingSpeculations } from "@src/middleware/speculations";
@@ -25,15 +26,19 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 	if (context.isPrerendered) return next();
 
 	const requestedAt = new Date();
-	const db = connectDatabase(Resource.Backend as unknown as DatabaseRpc);
+	const measured = measuringDatabase(Resource.Backend as unknown as DatabaseRpc);
+	const db = connectDatabase(measured.rpc);
 	context.locals.db = db;
-	const session = await readSession(context.cookies, db);
+	// Before the history is written, which happens after the answer and is no part of the wait.
+	const timed = (response: Response) => withChangedHeaders(response, (headers) => headers.append("Server-Timing", measured.header()));
+
+	const session = await readSession(context.cookies, db, { takeActionOutcome: context.request.method === "GET" });
 	context.locals.session = session;
 
 	const { action } = getActionContext(context);
 	const sentFrom = () => formPage(context.request, context.url.origin, context.originPathname);
 
-	if (!session) return action?.calledFrom === "form" ? answerFormOfVisitor(sentFrom()) : next();
+	if (!session) return timed(action?.calledFrom === "form" ? answerFormOfVisitor(sentFrom()) : await next());
 
 	if (action?.calledFrom === "form") {
 		// The handler reads the body, so a copy is kept to give the form back what the user typed if it fails.
@@ -42,15 +47,12 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 		await db.sessions.setActionData(session.id, await toOutcome(action.name, data, error, submitted));
 
 		const location = !error && hasRedirect(data) ? data.redirect : undefined;
-		return redirectClearingSpeculations(location ?? sentFrom());
+		return timed(redirectClearingSpeculations(location ?? sentFrom()));
 	}
 
-	if (context.request.method === "GET" && session.actionData) {
-		await db.sessions.setActionData(session.id, null);
-		context.locals.actionOutcome = session.actionData;
-	}
+	if (session.actionOutcome) context.locals.actionOutcome = session.actionOutcome;
 
-	const response = await next();
+	const response = timed(await next());
 
 	if (isPage(context.routePattern)) {
 		const entry = {

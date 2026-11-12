@@ -31,17 +31,21 @@ export function findCity(tx: Transaction, id: number, name: string): City | unde
 	return row && toCity(row);
 }
 
+// The cities whose name starts with the search, the most populous first.
+export function searchCities(client: Client, query: string, limit: number): City[] {
+	const key = searchKey(query);
+	if (!key) return [];
+	const group = client.query.cityGroups.findFirst({ where: { prefix: groupPrefix(key) } }).sync();
+	return citiesOf(group)
+		.filter((city) => city[7].some((cityKey) => cityKey.startsWith(key)))
+		.slice(0, limit)
+		.map(toCity);
+}
+
 export function createCities(client: Client, wake: () => void) {
 	return {
-		// The cities whose name starts with the search, the most populous first.
 		async search(query: string, limit: number): Promise<City[]> {
-			const key = searchKey(query);
-			if (!key) return [];
-			const group = await client.query.cityGroups.findFirst({ where: { prefix: groupPrefix(key) } });
-			return citiesOf(group)
-				.filter((city) => city[7].some((cityKey) => cityKey.startsWith(key)))
-				.slice(0, limit)
-				.map(toCity);
+			return searchCities(client, query, limit);
 		},
 
 		// The CityList in use, if there is one, whether a newer one is being downloaded, and when the last

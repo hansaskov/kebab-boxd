@@ -1,6 +1,6 @@
 import { and, eq, exists, sql } from "drizzle-orm";
 import { QueryBuilder } from "drizzle-orm/sqlite-core";
-import { authorizedWrite, findTargetRestaurant } from "@src/db/authorize";
+import { authorizedRead, authorizedWrite, findTargetRestaurant, findUserSeenBy } from "@src/db/authorize";
 import type { Client } from "@src/db/client";
 import { cursorList } from "@src/db/pagination";
 import * as s from "@src/db/schema";
@@ -63,17 +63,20 @@ export function createCollections(client: Client) {
 			await client.delete(table).where(and(eq(table.userId, userId), eq(table.restaurantId, restaurantId)));
 		},
 
-		// The approved restaurants in the collection, the latest added first.
-		async list(userId: number, collection: Collection, page: PageRequest) {
-			const rows =
-				collection === "favorites"
-					? await favoritePages(page, (seek) =>
-							client.query.favorites.findMany({ ...listedRestaurant, ...seek({ userId, restaurant: { status: "approved" } }) }),
-						)
-					: await bucketListPages(page, (seek) =>
-							client.query.bucketList.findMany({ ...listedRestaurant, ...seek({ userId, restaurant: { status: "approved" } }) }),
-						);
-			return { ...rows, items: rows.items.map((row) => row.restaurant) };
+		// The approved restaurants in the collection of the User named `username`, the latest added first, as the
+		// viewer, who is null for a Visitor, sees them on the Profile.
+		async list(username: string, collection: Collection, viewerId: number | null, page: PageRequest) {
+			return authorizedRead(client, viewerId, "user:view-profile", findUserSeenBy(client, username, viewerId), async ({ id: userId }) => {
+				const rows =
+					collection === "favorites"
+						? await favoritePages(page, (seek) =>
+								client.query.favorites.findMany({ ...listedRestaurant, ...seek({ userId, restaurant: { status: "approved" } }) }),
+							)
+						: await bucketListPages(page, (seek) =>
+								client.query.bucketList.findMany({ ...listedRestaurant, ...seek({ userId, restaurant: { status: "approved" } }) }),
+							);
+				return { ...rows, items: rows.items.map((row) => row.restaurant) };
+			});
 		},
 	};
 }

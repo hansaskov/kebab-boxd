@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createSession } from "@src/auth/session";
 import { historyRetentionSeconds, inactivityTimeoutSeconds } from "@src/data/retention-periods";
 import * as s from "@src/db/schema";
-import { createTestDatabase, insertUser } from "@src/tests/database";
+import { createTestDatabase, insertUser, setLastVerifiedAt } from "@src/tests/database";
 
 const now = new Date("2026-10-23T12:00:00Z");
 
@@ -16,8 +16,8 @@ describe("the retention purge", () => {
 		const ada = insertUser(client, "ada");
 		const expired = await createSession(db, ada.id);
 		const active = await createSession(db, ada.id);
-		await db.sessions.setLastVerifiedAt(expired.id, secondsBeforeNow(inactivityTimeoutSeconds));
-		await db.sessions.setLastVerifiedAt(active.id, secondsBeforeNow(inactivityTimeoutSeconds - 1));
+		setLastVerifiedAt(client, expired.id, secondsBeforeNow(inactivityTimeoutSeconds));
+		setLastVerifiedAt(client, active.id, secondsBeforeNow(inactivityTimeoutSeconds - 1));
 		const request = { method: "GET", route: "/", path: "/", status: 200 };
 		client.insert(s.history).values([
 			{ ...request, sessionId: expired.id, requestedAt: now },

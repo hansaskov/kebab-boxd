@@ -89,8 +89,8 @@ function mapOf(db: MeasuredDatabase, zoom: number) {
 }
 
 describeCalls("the rows each call of the database reads to show a page", {
-	"sessions.findActiveWithUser, on every page a User opens": {
-		measure: (db) => db.measure("sessions", "findActiveWithUser", db.subjects.sessionId),
+	"sessions.open, on every page a User opens": {
+		measure: (db) => db.measure("sessions", "open", db.subjects.sessionToken, { takeActionOutcome: true }),
 		budget: 30,
 	},
 	"reviews.listEveryone, the Feed of a Visitor": {
@@ -116,12 +116,12 @@ describeCalls("the rows each call of the database reads to show a page", {
 		measure: (db) => db.measure("reviews", "listByRestaurant", db.subjects.restaurantId, null, page),
 		budget: 150,
 	},
-	"reviews.listPublicByAuthor": {
-		measure: (db) => db.measure("reviews", "listPublicByAuthor", db.subjects.authorId, null, page),
+	"reviews.listOnProfile, the Reviews a Visitor sees": {
+		measure: (db) => db.measure("reviews", "listOnProfile", "author", null, page),
 		budget: 150,
 	},
-	"reviews.listAllByAuthor, on the own Profile": {
-		measure: (db) => db.measure("reviews", "listAllByAuthor", db.subjects.authorId, db.subjects.authorId, page),
+	"reviews.listOnProfile, on the own Profile": {
+		measure: (db) => db.measure("reviews", "listOnProfile", "author", db.subjects.authorId, page),
 		budget: 100,
 	},
 	"reviews.findById": {
@@ -171,6 +171,15 @@ describeCalls("the rows each call of the database reads to show a page", {
 		measure: (db) => db.measure("restaurants", "pickApproved", 0.5),
 		budget: 10,
 	},
+	"restaurants.explore, the map of a city a search finds": {
+		measure: (db) => db.measure("restaurants", "explore", { search: "odense", cityId: undefined, requested: undefined, isVisitor: true }),
+		// The map of the whole city shows more of it than the map of its middle.
+		budget: 300,
+	},
+	"restaurants.feelLucky, in a city": {
+		measure: (db) => db.measure("restaurants", "feelLucky", "odense", undefined, 0.5),
+		budget: 250,
+	},
 	"restaurants.listSuggestedBy": {
 		measure: (db) => db.measure("restaurants", "listSuggestedBy", db.subjects.viewerId, page),
 		budget: 25,
@@ -202,23 +211,23 @@ describeCalls("the rows each call of the database reads to show a page", {
 		budget: 5,
 	},
 	"collections.list, the Favorites": {
-		measure: (db) => db.measure("collections", "list", db.subjects.viewerId, "favorites", page),
+		measure: (db) => db.measure("collections", "list", "viewer", "favorites", null, page),
 		budget: 50,
 	},
 	"collections.list, the BucketList": {
-		measure: (db) => db.measure("collections", "list", db.subjects.viewerId, "bucketList", page),
+		measure: (db) => db.measure("collections", "list", "viewer", "bucketList", null, page),
 		budget: 50,
 	},
 	"follows.listFollowers": {
-		measure: (db) => db.measure("follows", "listFollowers", db.subjects.authorId, null, page),
+		measure: (db) => db.measure("follows", "listFollowers", "author", null, page),
 		budget: 60,
 	},
 	"follows.listFollowing": {
-		measure: (db) => db.measure("follows", "listFollowing", db.subjects.viewerId, null, page),
+		measure: (db) => db.measure("follows", "listFollowing", "viewer", null, page),
 		budget: 60,
 	},
 	"follows.listRequests": {
-		measure: (db) => db.measure("follows", "listRequests", db.subjects.privateId, db.subjects.privateId, page),
+		measure: (db) => db.measure("follows", "listRequests", "hidden", db.subjects.privateId, page),
 		budget: 40,
 	},
 	"cities.search": {
@@ -230,15 +239,15 @@ describeCalls("the rows each call of the database reads to show a page", {
 		budget: 10,
 	},
 	"history.listBySession": {
-		measure: (db) => db.measure("history", "listBySession", db.subjects.sessionId, page),
+		measure: (db) => db.measure("history", "listBySession", "viewer", db.subjects.sessionId, db.subjects.viewerId, page),
 		budget: 15,
 	},
 	"sessions.listActive": {
-		measure: (db) => db.measure("sessions", "listActive", db.subjects.viewerId),
+		measure: (db) => db.measure("sessions", "listActive", "viewer", db.subjects.viewerId),
 		budget: 40,
 	},
 	"sessions.findActive": {
-		measure: (db) => db.measure("sessions", "findActive", db.subjects.sessionId, db.subjects.viewerId),
+		measure: (db) => db.measure("sessions", "findActive", "viewer", db.subjects.sessionId, db.subjects.viewerId),
 		budget: 40,
 	},
 	"personalData.findByUser, the download of all data of a User": {
@@ -283,10 +292,9 @@ describeCalls("the rows each call of the database reads for the Admins", {
 		measure: (db) => db.measure("citySearches", "findById", db.subjects.citySearchId),
 		budget: 40,
 	},
-	"citySearches.listRunningCityIds": {
-		measure: (db) => db.measure("citySearches", "listRunningCityIds", [odenseId]),
+	"citySearches.findCities, for an Admin": {
+		measure: (db) => db.measure("citySearches", "findCities", "odense", 20),
 		budget: 5,
-		findsNothing: "the CitySearch of Odense has finished",
 	},
 });
 
@@ -340,12 +348,7 @@ describeCalls("the rows each write to the database reads", {
 		findsNothing: "it returns nothing",
 	},
 	"sessions.setActionData": {
-		measure: (db) => db.measure("sessions", "setActionData", db.subjects.sessionId, null),
-		budget: 5,
-		findsNothing: "it returns nothing",
-	},
-	"sessions.setLastVerifiedAt": {
-		measure: (db) => db.measure("sessions", "setLastVerifiedAt", db.subjects.sessionId, new Date()),
+		measure: (db) => db.measure("sessions", "setActionData", db.subjects.sessionId, { name: "reviews.like", target: db.subjects.reviewId }),
 		budget: 5,
 		findsNothing: "it returns nothing",
 	},

@@ -34,7 +34,7 @@
   },
   "overrides": [
     {
-      "files": ["src/db/**"],
+      "files": ["src/db/**", "tools/page-latency/**"],
       "rules": { "no-restricted-imports": "off" }
     },
     {

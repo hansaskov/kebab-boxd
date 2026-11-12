@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-sqlite";
 import { migrate } from "drizzle-orm/node-sqlite/migrator";
 import { onTestFinished } from "vitest";
@@ -8,7 +9,7 @@ import type { Database } from "@src/db";
 import type { Client } from "@src/db/client";
 import { relations } from "@src/db/relations";
 import { durableSqliteLimits } from "@src/db/limits";
-import { isProblem } from "@src/db/problem";
+import { isProblem, type Problem } from "@src/db/problem";
 import * as s from "@src/db/schema";
 import type { PageRequest } from "@src/pagination";
 import { createPictureStore } from "@src/pictures/store";
@@ -38,6 +39,17 @@ export async function signIn(db: Database, userId: number) {
 	const session = await findSession(db, (await createSession(db, userId)).token);
 	if (!session) throw new Error(`User ${userId} could not sign in.`);
 	return session;
+}
+
+// The items of a page that a read which checks permissions returned. Fails the test when the read was refused.
+export function itemsOf<Item>(result: { items: Item[] } | Problem): Item[] {
+	if (isProblem(result)) throw new Error(`The read was refused: ${result.problem}.`);
+	return result.items;
+}
+
+// Lets the session look as if its browser last came back at the time.
+export function setLastVerifiedAt(client: Client, sessionId: string, lastVerifiedAt: Date) {
+	client.update(s.sessions).set({ lastVerifiedAt }).where(eq(s.sessions.id, sessionId)).run();
 }
 
 // Where a restaurant is when a test does not say, in Odense.

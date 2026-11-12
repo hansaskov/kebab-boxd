@@ -1,5 +1,5 @@
 import type { AstroCookies } from "astro";
-import { constantTimeEqual, generateSecureRandomString, hashSecret } from "@src/auth/hash";
+import { generateSecureRandomString, hashSecret } from "@src/auth/hash";
 import { inactivityTimeoutSeconds } from "@src/data/retention-periods";
 import type { Database } from "@src/db";
 
@@ -11,9 +11,6 @@ import type { Database } from "@src/db";
 // removes it, so nothing else has to know about the cookie.
 
 export const sessionCookieName = "__Host-session";
-
-// Saving the time of every request would cost a write on every page, so the time is saved at most once a day.
-const verifyIntervalMs = 24 * 60 * 60 * 1000;
 
 function setCookie(cookies: AstroCookies, value: string, expires: Date) {
 	cookies.set(sessionCookieName, value, { httpOnly: true, path: "/", secure: true, sameSite: "lax", expires });
@@ -30,18 +27,7 @@ export async function createSession(db: Database, userId: number): Promise<{ id:
 // The session of the token with its user, or null when the token is not one, the session has timed out or its user
 // is banned. Keeps the session alive.
 export async function findSession(db: Database, token: string) {
-	const [id, secret, ...rest] = token.split(".");
-	if (!id || !secret || rest.length > 0) return null;
-
-	const session = await db.sessions.findActiveWithUser(id);
-	if (!session || !constantTimeEqual(hashSecret(secret), session.secretHash)) return null;
-
-	const now = new Date();
-	if (now.getTime() - session.lastVerifiedAt.getTime() >= verifyIntervalMs) {
-		session.lastVerifiedAt = now;
-		await db.sessions.setLastVerifiedAt(id, now);
-	}
-	return session;
+	return db.sessions.open(token, { takeActionOutcome: false });
 }
 
 // Signs the user in on this browser.
@@ -51,12 +37,12 @@ export async function startSession(cookies: AstroCookies, db: Database, userId: 
 }
 
 // The session of this browser, or null. Moves the end of the cookie along with the session, and removes a cookie
-// that has no session.
-export async function readSession(cookies: AstroCookies, db: Database) {
+// that has no session. A page takes the outcome of the form sent before it, so that it shows only once.
+export async function readSession(cookies: AstroCookies, db: Database, { takeActionOutcome }: { takeActionOutcome: boolean }) {
 	const token = cookies.get(sessionCookieName)?.value;
 	if (!token) return null;
 
-	const session = await findSession(db, token);
+	const session = await db.sessions.open(token, { takeActionOutcome });
 	if (session) setCookie(cookies, token, new Date(session.lastVerifiedAt.getTime() + inactivityTimeoutSeconds * 1000));
 	else setCookie(cookies, "", new Date(0));
 	return session;

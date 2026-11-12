@@ -70,7 +70,8 @@ describe("a CitySearch", () => {
 		await startSearch(db, admin.id);
 
 		expect(await db.citySearches.start(admin.id, odense.id, odense.name)).toEqual({ problem: "city-search-running" });
-		expect(await db.citySearches.listRunningCityIds([odense.id, copenhagen.id])).toEqual([odense.id]);
+		const isSearching = async (city: typeof odense) => (await db.citySearches.findCities(city.name, 20)).find((match) => match.id === city.id)?.isSearching;
+		expect({ odense: await isSearching(odense), copenhagen: await isSearching(copenhagen) }).toEqual({ odense: true, copenhagen: false });
 		expect(await startSearch(db, admin.id, copenhagen)).toEqual(expect.any(Number));
 	});
 

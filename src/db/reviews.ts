@@ -1,6 +1,7 @@
 import { and, eq, exists, sql } from "drizzle-orm";
 import { QueryBuilder } from "drizzle-orm/sqlite-core";
-import { authorizedWrite, findTargetRestaurant, findTargetReview } from "@src/db/authorize";
+import { can } from "@src/auth/permissions";
+import { authorizedRead, authorizedWrite, findTargetRestaurant, findTargetReview, findUserSeenBy } from "@src/db/authorize";
 import { refreshAuthorStats, refreshLikeCounts, refreshRestaurantStats } from "@src/db/cached-stats";
 import type { Client, Transaction } from "@src/db/client";
 import { notify, withdraw } from "@src/db/notifications";
@@ -92,14 +93,14 @@ export function createReviews(client: Client, pictures: PictureStore) {
 			return list(viewerId, { ...listedTo(viewerId), restaurantId }, page);
 		},
 
-		// Includes the reviews that are not public, so it is only for a viewer with the permission user:view-hidden-reviews.
-		async listAllByAuthor(authorId: number, viewerId: number, page: PageRequest) {
-			return list(viewerId, { authorId }, page);
-		},
-
-		// Only for a viewer with the permission user:view-reviews on the author.
-		async listPublicByAuthor(authorId: number, viewerId: number | null, page: PageRequest) {
-			return list(viewerId, { authorId, RAW: (review) => isPublicReview(review) }, page);
+		// The Reviews on the Profile of the User named `username`: on their own Profile all of them, also those that are
+		// not public, and else the public ones, when the User shares them with the viewer, who is null for a Visitor.
+		async listOnProfile(username: string, viewerId: number | null, page: PageRequest) {
+			return authorizedRead(client, viewerId, "user:view-profile", findUserSeenBy(client, username, viewerId), async (author, viewer) => {
+				if (can(viewer, "user:view-hidden-reviews", author)) return list(viewerId, { authorId: author.id }, page);
+				if (!can(viewer, "user:view-reviews", author)) return { problem: "forbidden", permission: "user:view-reviews" } as const;
+				return list(viewerId, { authorId: author.id, RAW: (review) => isPublicReview(review) }, page);
+			});
 		},
 
 		async create(authorId: number, restaurantId: number, content: ReviewContent, files: File[]) {

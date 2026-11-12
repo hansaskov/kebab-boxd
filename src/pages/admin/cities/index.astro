@@ -32,10 +32,9 @@ const query = parseSearch(Astro.url.searchParams);
 const { cities, citySearches } = Astro.locals.db;
 const [list, results, searches] = await Promise.all([
   cities.status(),
-  query ? cities.search(query, maxResults) : [],
+  query ? citySearches.findCities(query, maxResults) : [],
   citySearches.list(parsePageRequest(Astro.url)),
 ]);
-const running = new Set(await citySearches.listRunningCityIds(results.map((city) => city.id)));
 
 const people = new Intl.NumberFormat("en");
 type SearchRow = { status: CitySearchStatus; attempts: number; restaurantCount: number; candidateCount: number };
@@ -87,7 +86,7 @@ const toast =
                 <p class="field-label truncate">{city.name}</p>
                 <p class="t-body-sm truncate text-fg-muted">{regionAndCountry(city)} · {people.format(city.population)} people</p>
               </div>
-              {running.has(city.id) ? (
+              {city.isSearching ? (
                 <span class="tag shrink-0">Searching</span>
               ) : (
                 <form class="shrink-0" method="post" action={actions.admin.startCitySearch}>

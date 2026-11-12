@@ -21,13 +21,15 @@ const viewer = Astro.locals.session?.user ?? null;
 
 const id = parseId(Astro.params.id);
 const { restaurants, reviews } = Astro.locals.db;
-const restaurant = id ? await restaurants.findById(id, viewer?.id ?? null) : undefined;
+// A restaurant that is not approved has no listed reviews, so the reviews come with it in one trip to the database,
+// whoever may see it.
+const [restaurant, page] = id
+  ? await Promise.all([restaurants.findById(id, viewer?.id ?? null), reviews.listByRestaurant(id, viewer?.id ?? null, parsePageRequest(Astro.url))])
+  : [undefined, undefined];
 const refused = refusal(viewer, "restaurant:view", restaurant);
-if (refused || !restaurant) {
+if (refused || !restaurant || !page) {
   return Astro.rewrite(refusalPage[refused ?? "not-found"]);
 }
-
-const page = await reviews.listByRestaurant(restaurant.id, viewer?.id ?? null, parsePageRequest(Astro.url));
 
 const { location } = restaurant;
 const map = viewport(location, restaurantMapZoom, restaurantMapSize);

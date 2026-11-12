@@ -56,6 +56,26 @@ After a change to `src/db/schema.ts`, run `pnpm db:generate`. The Durable Object
 
 `pnpm test` runs without the network. `pnpm test:e2e` runs a city search from start to end against the real GeoNames, Overpass and Nominatim, and takes a few minutes.
 
+## Page latency
+
+Every call of the database is a trip from the Web Worker to the Durable Object, about 35 ms in production. A page takes as long as the trips it waits for one after another, so a signed-in page waits for two: one for the session, and one for everything the page shows. A Visitor's page waits for one. `src/tests/database-trips.test.ts` fails when a page waits for more.
+
+Every page tells how long it waited in its `Server-Timing` header, which the Network panel of the browser shows under Timing:
+
+```bash
+curl -sI https://kebab-boxd.com/feed | grep -i server-timing
+```
+
+`pnpm bench:pages` builds the site and measures every page as a Visitor, a User and an Admin. It runs the Web Worker and the Backend Worker in workerd, with the large database of the row tests and the trip to the database as long as in production. It tells the median time of each page, its calls and its trips. A page should answer within 100 000 µs, and must within 200 000 µs.
+
+```bash
+pnpm bench:pages --only "viewer /feed"      # only the pages whose role and path contain the text
+pnpm bench:pages --round-trip 0 --profile    # the CPU time alone, with a .cpuprofile of each Worker for each page
+node tools/page-latency/flame.ts .cache/page-latency/profiles/viewer-feed.web.cpuprofile
+```
+
+Chrome DevTools and [speedscope](https://www.speedscope.app) show a `.cpuprofile` as a flame graph.
+
 ## Tech Stack
 
 - [Astro](https://astro.build)

@@ -1,6 +1,6 @@
 import { and, eq, gt, sql } from "drizzle-orm";
 import { authorizedSubjectWrite } from "@src/db/authorize";
-import { findCity } from "@src/db/cities";
+import { findCity, searchCities, type City } from "@src/db/cities";
 import type { Client, Transaction } from "@src/db/client";
 import { notify, withdrawCitySearchNotification } from "@src/db/notifications";
 import { cursorList } from "@src/db/pagination";
@@ -113,14 +113,17 @@ export function createCitySearches(client: Client, wake: () => void) {
 			return result;
 		},
 
-		// The ids of the cities a search is running for.
-		async listRunningCityIds(cityIds: number[]): Promise<number[]> {
-			if (cityIds.length === 0) return [];
+		// The cities whose name starts with the search, the most populous first, each with whether a search for it
+		// is running.
+		async findCities(query: string, limit: number): Promise<(City & { isSearching: boolean })[]> {
+			const cities = searchCities(client, query, limit);
+			if (cities.length === 0) return [];
 			const running = await client.query.citySearches.findMany({
 				columns: { cityId: true },
-				where: { cityId: { in: cityIds }, status: { in: [...runningStatuses] } },
+				where: { cityId: { in: cities.map((city) => city.id) }, status: { in: [...runningStatuses] } },
 			});
-			return running.map((search) => search.cityId);
+			const runningIds = new Set(running.map((search) => search.cityId));
+			return cities.map((city) => ({ ...city, isSearching: runningIds.has(city.id) }));
 		},
 
 		// The latest searches first, with how many restaurants each added and how many places it has left.

@@ -1,8 +1,8 @@
-import { can, refusal, type Resource, type ResourcePermission, type SubjectPermission, type UserPermission } from "@src/auth/permissions";
+import { can, refusal, type Resource, type ResourcePermission, type SubjectPermission, type UserPermission, type Viewer } from "@src/auth/permissions";
 import type { Client, Transaction } from "@src/db/client";
 import { chunks, durableSqliteLimits } from "@src/db/limits";
 import type { Problem } from "@src/db/problem";
-import { isListedReview, reviewAuthor } from "@src/db/visibility";
+import { isFollowedBy, isListedReview, reviewAuthor } from "@src/db/visibility";
 
 function findActor(tx: Transaction, id: number) {
 	return tx.query.users.findFirst({ columns: { id: true, role: true, bannedAt: true }, where: { id } }).sync();
@@ -75,11 +75,41 @@ export function authorizedWriteAll<P extends ResourcePermission, R extends Resou
 	return client.transaction(run as (tx: Transaction) => Problem) as T | Problem;
 }
 
+// The viewer of a read, as the permissions need them: null for a Visitor, and undefined for a User who is gone or banned.
+function findViewer(client: Client, viewerId: number | null): Viewer | undefined {
+	if (viewerId === null) return null;
+	const viewer = client.query.users.findFirst({ columns: { id: true, role: true, bannedAt: true }, where: { id: viewerId } }).sync();
+	return viewer && !viewer.bannedAt ? viewer : undefined;
+}
+
+// A read of what only some may see, such as the sessions of a User. Like a write, it finds the viewer and the resource
+// itself from what the address of the page names, such as a Username. So a page asks for it together with the rest of
+// what it shows, in one trip to the database, instead of waiting to find the resource first.
+export async function authorizedRead<P extends ResourcePermission, R extends Resource<P>, T>(
+	client: Client,
+	viewerId: number | null,
+	permission: P,
+	resource: R | undefined,
+	read: (resource: R, viewer: Viewer) => Promise<T | Problem>,
+): Promise<T | Problem> {
+	const viewer = findViewer(client, viewerId);
+	const refused = viewer === undefined ? "forbidden" : refusal(viewer, permission, resource);
+	return refused ? { problem: refused, permission } : read(resource!, viewer!);
+}
+
 // The user a write is about, as the permissions need them and the action needs them to name the page it goes back to.
 export const targetUserColumns = { id: true, username: true, role: true, bannedAt: true, isPrivate: true } as const;
 
 function findTargetUser(tx: Transaction, username: string) {
 	return tx.query.users.findFirst({ columns: targetUserColumns, where: { username: username.toLowerCase() } }).sync();
+}
+
+// The user named `username` as the viewer, null for a Visitor, sees them: enough for every permission on a User,
+// those on their Reviews too.
+export function findUserSeenBy(client: Client, username: string, viewerId: number | null) {
+	return client.query.users
+		.findFirst({ columns: targetUserColumns, extras: { isFollowedByViewer: isFollowedBy(viewerId) }, where: { username: username.toLowerCase() } })
+		.sync();
 }
 
 // A write on the user named `username`, found inside the transaction. Returns the user it wrote to.

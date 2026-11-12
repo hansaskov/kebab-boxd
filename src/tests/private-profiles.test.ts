@@ -16,6 +16,7 @@ import {
 	refreshAuthorStatsOf,
 	restaurantRow,
 	signIn,
+	itemsOf,
 } from "@src/tests/database";
 
 async function publish(db: Database, authorId: number, restaurantId: number, description: string) {
@@ -88,8 +89,8 @@ describe("A private Profile", () => {
 		const bob = insertUser(client, "bob");
 		await db.users.setPrivacy(bob.id, bob.username, true);
 		const state = async () => ({
-			adaFollows: usernames((await db.follows.listFollowing(ada.id, null, firstPage)).items),
-			bobsRequests: usernames((await db.follows.listRequests(bob.id, bob.id, firstPage)).items),
+			adaFollows: usernames(itemsOf(await db.follows.listFollowing(ada.username, null, firstPage))),
+			bobsRequests: usernames(itemsOf(await db.follows.listRequests(bob.username, bob.id, firstPage))),
 			adaInbox: await inbox(db, ada.id),
 			bobInbox: await inbox(db, bob.id),
 		});
@@ -121,9 +122,9 @@ describe("A private Profile", () => {
 		await db.users.ban(admin.id, eve.username);
 
 		expect({
-			requests: usernames((await db.follows.listRequests(bob.id, bob.id, firstPage)).items),
+			requests: usernames(itemsOf(await db.follows.listRequests(bob.username, bob.id, firstPage))),
 			count: (await db.users.findProfile(bob.username, bob.id))?.followRequestCount,
-			followers: usernames((await db.follows.listFollowers(bob.id, null, firstPage)).items),
+			followers: usernames(itemsOf(await db.follows.listFollowers(bob.username, null, firstPage))),
 			inbox: await inbox(db, bob.id),
 		}).toEqual({ requests: [], count: 0, followers: [], inbox: [] });
 	});
@@ -161,8 +162,8 @@ describe("A private Profile", () => {
 
 		// Bob approved the requests himself by making his Profile public, so he is not told that they follow him.
 		expect({
-			followers: usernames((await db.follows.listFollowers(bob.id, null, firstPage)).items),
-			requests: usernames((await db.follows.listRequests(bob.id, bob.id, firstPage)).items),
+			followers: usernames(itemsOf(await db.follows.listFollowers(bob.username, null, firstPage))),
+			requests: usernames(itemsOf(await db.follows.listRequests(bob.username, bob.id, firstPage))),
 			bobInbox: await inbox(db, bob.id),
 			adaInbox: await inbox(db, ada.id),
 			cleoInbox: await inbox(db, cleo.id),

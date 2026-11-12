@@ -10,6 +10,7 @@ import {
 	refreshAuthorStatsOf,
 	restaurantRow,
 	writeReview,
+	itemsOf,
 } from "@src/tests/database";
 
 const day = 24 * 60 * 60 * 1000;
@@ -107,10 +108,10 @@ describe("the Profile", () => {
 		await db.users.ban(admin.id, bob.username);
 
 		const profile = await db.users.findProfile(bob.username, admin.id);
-		const listed = await db.reviews.listPublicByAuthor(bob.id, admin.id, firstPage);
+		const listed = itemsOf(await db.reviews.listOnProfile(bob.username, admin.id, firstPage));
 
-		expect(listed.items.map((review) => review.id)).toEqual(window.toReversed().map((review) => review.id));
-		expect(profile?.publicReviewCount).toBe(listed.items.length);
+		expect(listed.map((review) => review.id)).toEqual(window.toReversed().map((review) => review.id));
+		expect(profile?.publicReviewCount).toBe(listed.length);
 	});
 
 	it("lists and counts all Reviews of its own User, also the hidden ones", async () => {
@@ -122,11 +123,11 @@ describe("the Profile", () => {
 		written.push(insertReview(client, bob.id, pending.id, 4, daysAgo(1)));
 
 		const profile = await db.users.findProfile(bob.username, bob.id);
-		const listed = await db.reviews.listAllByAuthor(bob.id, bob.id, firstPage);
+		const listed = itemsOf(await db.reviews.listOnProfile(bob.username, bob.id, firstPage));
 
-		expect(listed.items.map((review) => review.id)).toEqual(written.toReversed().map((review) => review.id));
-		expect(listed.items.filter((review) => !review.isListed)).toHaveLength(2);
-		expect(profile?.allReviewCount).toBe(listed.items.length);
+		expect(listed.map((review) => review.id)).toEqual(written.toReversed().map((review) => review.id));
+		expect(listed.filter((review) => !review.isListed)).toHaveLength(2);
+		expect(profile?.allReviewCount).toBe(listed.length);
 	});
 });
 

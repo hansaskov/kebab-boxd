@@ -7,19 +7,18 @@ import MapView from "@src/components/MapView.astro";
 import SearchForm from "@src/components/SearchForm.astro";
 import TabNav from "@src/components/TabNav.astro";
 import LoginDialog from "@src/components/LoginDialog.astro";
-import { defaultMapZoom, exploreCityLimit, exploreGridStep, exploreMapCells, exploreMapSize } from "@src/data/map";
-import type { City } from "@src/db/cities";
+import { defaultMapZoom, exploreMapCells } from "@src/data/map";
 import { successToast } from "@src/format/action-toast";
 import { regionAndCountry } from "@src/format/country";
 import { formatDistance } from "@src/format/distance";
 import { formatOffset } from "@src/format/offset";
 import { loginDialogId } from "@src/data/login-reasons";
 import { exploreCityHref, exploreHref, restaurantHref, searchHref } from "@src/hrefs";
-import { clustersOn, openedView } from "@src/map/clusters";
-import { boundsAround, distanceInMeters, type Coordinates } from "@src/map/coordinates";
+import { openedView } from "@src/map/clusters";
+import { distanceInMeters, type Coordinates } from "@src/map/coordinates";
+import { exploreView, exploreViewport } from "@src/map/explore-map";
 import { isShortSearch } from "@src/map/geonames";
-import { searchRadiusMeters } from "@src/map/overpass";
-import { fitBounds, maxZoom, minZoom, snapToGrid, viewport, type MapView as View } from "@src/map/viewport";
+import { maxZoom, minZoom, type MapView as View } from "@src/map/viewport";
 import { parseId } from "@src/validation/id";
 import { parseMapView } from "@src/validation/map-view";
 import { parseSearch, searchMaxLength } from "@src/validation/search-params";
@@ -34,43 +33,38 @@ const home: Coordinates | undefined =
 		: undefined;
 
 // A search moves the map to the most populous City whose name starts with it, or to the one of them the user
-// chose. The map shows the circle a CitySearch finds the Restaurants of the City in. A search that finds no
-// City leaves the map where it was, since the search form keeps the place of the map.
+// chose. The map shows the circle a CitySearch finds the Restaurants of the City in. A search that finds no City
+// leaves the map where it was, since the search form keeps the place of the map.
 const query = parseSearch(params);
-const cities = query ? await Astro.locals.db.cities.search(query, exploreCityLimit) : [];
 const chosenCityId = parseId(params.get("city") ?? undefined);
-const city = cities.find((match) => match.id === chosenCityId) ?? cities[0];
-const cityBounds = (of: City) => boundsAround(of, searchRadiusMeters(of.population));
+const isVisitor = !session;
+const { restaurants } = Astro.locals.db;
 
 // “I’m feeling lucky” skips the map, as Google skips the results, and opens the best-rated Restaurant of the City.
 // When the City has none, it shows the map of the City. Without a search, it opens any approved Restaurant.
 const isLucky = params.has("lucky");
 if (isLucky) {
-	const restaurant = city
-		? await Astro.locals.db.restaurants.findBestRatedIn(cityBounds(city))
-		: query
-			? undefined
-			: await Astro.locals.db.restaurants.pickApproved(Math.random());
+	const { city, restaurant } = await restaurants.feelLucky(query, chosenCityId, Math.random());
 	if (restaurant) return Astro.redirect(restaurantHref(restaurant.id));
 	if (city) return Astro.redirect(exploreCityHref(query, city.id));
 }
 
-// The map of a Visitor stays on the grid, and so do its links. A User's map is where they put it, since they set
-// their location to its middle.
-const onGrid = (requested: View) => (session ? requested : snapToGrid(requested, exploreGridStep));
-const mapHref = (to: View) => exploreHref(onGrid(to));
+const mapHref = (to: View) => exploreHref(exploreView(to, isVisitor));
 
 // Without a City, a place on the map or a location of their own, the user is asked where to look first.
-const requested: View | undefined = city
-	? fitBounds(cityBounds(city), exploreMapSize, 0)
-	: (parseMapView(params, defaultMapZoom) ?? (home && { center: home, zoom: defaultMapZoom }));
+const requested: View | undefined = parseMapView(params, defaultMapZoom) ?? (home && { center: home, zoom: defaultMapZoom });
+// Without a search or a map there is nothing to show yet, and nothing to ask the database.
+const { cities, city, view, clusters: found } =
+	query || requested
+		? await restaurants.explore({ search: query, cityId: chosenCityId, requested, isVisitor })
+		: { cities: [], city: undefined, view: undefined, clusters: [] };
 
-async function exploreMap(view: View) {
-	const map = viewport(view.center, view.zoom, exploreMapSize);
+function exploreMap(shown: View) {
+	const map = exploreViewport(shown);
 
 	// Each Cluster is a marker on the map and a row of the list below it. A cluster of one restaurant leads to the
 	// restaurant, and a larger one zooms in on its restaurants.
-	const clusters = (await clustersOn(map, Astro.locals.db.restaurants.listClusters)).map((cluster) => {
+	const clusters = found.map((cluster) => {
 		const isRestaurant = cluster.count === 1;
 		return {
 			...cluster,
@@ -106,7 +100,7 @@ async function exploreMap(view: View) {
 	};
 }
 
-const explored = requested && (await exploreMap(onGrid(requested)));
+const explored = view && exploreMap(view);
 
 const problem =
 	query && !city

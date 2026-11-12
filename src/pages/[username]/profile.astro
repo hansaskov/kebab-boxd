@@ -11,6 +11,7 @@ import RestaurantList from "@src/components/RestaurantList.astro";
 import ReviewList from "@src/components/ReviewList.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { can } from "@src/auth/permissions";
+import { isProblem } from "@src/db/problem";
 import { successToast } from "@src/format/action-toast";
 import { loginDialogId } from "@src/data/login-reasons";
 import { feedHref, profileHref, searchHref, settingsHref } from "@src/hrefs";
@@ -24,8 +25,34 @@ if (!username) {
 }
 
 const viewer = Astro.locals.session?.user ?? null;
+const viewerId = viewer?.id ?? null;
 const { users, reviews, collections, follows } = Astro.locals.db;
-const user = await users.findProfile(username, viewer?.id ?? null);
+
+const profileTabs = ["reviews", "favorites", "bucket-list", "followers", "following", "requests"] as const;
+type ProfileTab = (typeof profileTabs)[number];
+const pageRequest = parsePageRequest(Astro.url);
+
+// The list of a tab. Each list checks itself whether the viewer may see it, so the page asks for it together with the
+// Profile, in one trip to the database.
+const listOf = async (option: ProfileTab) => {
+  switch (option) {
+    case "reviews":
+      return { reviews: await reviews.listOnProfile(username, viewerId, pageRequest) };
+    case "favorites":
+      return { restaurants: await collections.list(username, "favorites", viewerId, pageRequest) };
+    case "bucket-list":
+      return { restaurants: await collections.list(username, "bucketList", viewerId, pageRequest) };
+    case "followers":
+      return { people: await follows.listFollowers(username, viewerId, pageRequest) };
+    case "following":
+      return { people: await follows.listFollowing(username, viewerId, pageRequest) };
+    case "requests":
+      return { people: await follows.listRequests(username, viewerId, pageRequest) };
+  }
+};
+
+const requestedTab = parseOption(Astro.url.searchParams, "tab", profileTabs, "reviews");
+const [user, requestedList] = await Promise.all([users.findProfile(username, viewerId), listOf(requestedTab)]);
 
 if (!user) {
   return Astro.rewrite("/404");
@@ -38,43 +65,17 @@ if (user.username !== username) {
 const isOwnProfile = viewer?.id === user.id;
 const canEditProfile = can(viewer, "user:edit-settings", user);
 const canView = can(viewer, "user:view-profile", user);
-const canViewReviews = can(viewer, "user:view-reviews", user);
 const canViewHiddenReviews = can(viewer, "user:view-hidden-reviews", user);
 const canViewRequests = can(viewer, "user:view-follow-requests", user);
 
-const profileTabs = ["reviews", "favorites", "bucket-list", "followers", "following", "requests"] as const;
-type ProfileTab = (typeof profileTabs)[number];
 const openTabs = profileTabs.filter((option) => option !== "requests" || canViewRequests);
-
 const tab = parseOption(Astro.url.searchParams, "tab", openTabs, "reviews");
-const pageRequest = parsePageRequest(Astro.url);
-let reviewPage;
-let restaurantPage;
-let personPage;
-
-if (canView) {
-  switch (tab) {
-    case "reviews":
-      if (canViewHiddenReviews) reviewPage = await reviews.listAllByAuthor(user.id, user.id, pageRequest);
-      else if (canViewReviews) reviewPage = await reviews.listPublicByAuthor(user.id, viewer?.id ?? null, pageRequest);
-      break;
-    case "favorites":
-      restaurantPage = await collections.list(user.id, "favorites", pageRequest);
-      break;
-    case "bucket-list":
-      restaurantPage = await collections.list(user.id, "bucketList", pageRequest);
-      break;
-    case "followers":
-      personPage = await follows.listFollowers(user.id, viewer?.id ?? null, pageRequest);
-      break;
-    case "following":
-      personPage = await follows.listFollowing(user.id, viewer?.id ?? null, pageRequest);
-      break;
-    case "requests":
-      personPage = await follows.listRequests(user.id, user.id, pageRequest);
-      break;
-  }
-}
+// Only the User opens their follow requests. Anyone else who asks for them sees the Reviews instead.
+const list = tab === requestedTab ? requestedList : await listOf(tab);
+// A list the viewer may not see is left out, and the page tells why.
+const reviewPage = "reviews" in list && !isProblem(list.reviews) ? list.reviews : undefined;
+const restaurantPage = "restaurants" in list && !isProblem(list.restaurants) ? list.restaurants : undefined;
+const personPage = "people" in list && !isProblem(list.people) ? list.people : undefined;
 
 const tabs: Record<ProfileTab, { label: string; total: number; empty: string }> = {
   reviews: { label: "Reviews", total: canViewHiddenReviews ? user.allReviewCount : user.publicReviewCount, empty: "No reviews yet." },
