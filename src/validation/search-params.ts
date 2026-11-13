@@ -10,6 +10,6 @@ export function parseOption<const Option extends string>(params: URLSearchParams
 	return options.find((option) => option === params.get(name)) ?? fallback;
 }
 
-// What the search page looks for: restaurants and people together, or one of them on pages of its own.
-export const searchTypes = ["all", "restaurants", "people"] as const;
+// What the search page looks for: cities, restaurants and people together, or one of them on pages of its own.
+export const searchTypes = ["all", "cities", "restaurants", "people"] as const;
 export type SearchType = (typeof searchTypes)[number];

@@ -9,6 +9,7 @@ import TabNav from "@src/components/TabNav.astro";
 import LoginDialog from "@src/components/LoginDialog.astro";
 import { defaultMapZoom, exploreMapCells } from "@src/data/map";
 import { successToast } from "@src/format/action-toast";
+import { noCityText } from "@src/format/city";
 import { regionAndCountry } from "@src/format/country";
 import { formatDistance } from "@src/format/distance";
 import { formatOffset } from "@src/format/offset";
@@ -17,7 +18,6 @@ import { exploreCityHref, exploreHref, restaurantHref, searchHref } from "@src/h
 import { openedView } from "@src/map/clusters";
 import { distanceInMeters, type Coordinates } from "@src/map/coordinates";
 import { exploreView, exploreViewport } from "@src/map/explore-map";
-import { isShortSearch } from "@src/map/geonames";
 import { maxZoom, minZoom, type MapView as View } from "@src/map/viewport";
 import { parseId } from "@src/validation/id";
 import { parseMapView } from "@src/validation/map-view";
@@ -104,9 +104,7 @@ const explored = view && exploreMap(view);
 
 const problem =
 	query && !city
-		? isShortSearch(query)
-			? "Type at least two letters."
-			: `No city starts with “${query}”.`
+		? noCityText(query)
 		: isLucky
 			? "There are no restaurants yet."
 			: undefined;

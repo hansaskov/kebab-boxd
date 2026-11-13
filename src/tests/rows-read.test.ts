@@ -234,6 +234,10 @@ describeCalls("the rows each call of the database reads to show a page", {
 		measure: (db) => db.measure("cities", "search", "odense", 5),
 		budget: 2,
 	},
+	"cities.list, the cities of the search page": {
+		measure: (db) => db.measure("cities", "list", "odense", preview),
+		budget: 2,
+	},
 	"suggestionQueue.listBy": {
 		measure: (db) => db.measure("suggestionQueue", "listBy", db.subjects.viewerId),
 		budget: 10,

@@ -10,7 +10,7 @@ import * as s from "@src/db/schema";
 import type { RestaurantStatus } from "@src/db/schema";
 import type { RestaurantSort } from "@src/data/options";
 import { exploreCityLimit } from "@src/data/map";
-import { searchCities } from "@src/db/cities";
+import { chooseCity } from "@src/db/cities";
 import { clustersOn, type Cluster } from "@src/map/clusters";
 import { cityBounds, cityView, exploreView, exploreViewport } from "@src/map/explore-map";
 import type { Bounds } from "@src/map/coordinates";
@@ -217,8 +217,7 @@ export function createRestaurants(client: Client) {
 		// them, or of the first, and else the map asked for, if any. One call finds the city and the Clusters on its
 		// map, so the page waits for the database once.
 		async explore({ search, cityId, requested, isVisitor }: ExploreRequest) {
-			const cities = search ? searchCities(client, search, exploreCityLimit) : [];
-			const city = cities.find((match) => match.id === cityId) ?? cities[0];
+			const { cities, city } = chooseCity(client, search, exploreCityLimit, cityId);
 			const shown = city ? cityView(city) : requested;
 			if (!shown) return { cities, city, view: undefined, clusters: [] };
 			const view = exploreView(shown, isVisitor);
@@ -229,8 +228,7 @@ export function createRestaurants(client: Client) {
 		// first, and without a search any approved restaurant, chosen by the fraction as pickApproved chooses.
 		async feelLucky(search: string, cityId: number | undefined, fraction: number) {
 			if (!search) return { city: undefined, restaurant: await pickApproved(fraction) };
-			const cities = searchCities(client, search, exploreCityLimit);
-			const city = cities.find((match) => match.id === cityId) ?? cities[0];
+			const { city } = chooseCity(client, search, exploreCityLimit, cityId);
 			return { city, restaurant: city && (await findBestRatedIn(cityBounds(city))) };
 		},
 

@@ -1,0 +1,25 @@
+---
+import type { HTMLAttributes } from "astro/types";
+import type { City } from "@src/db/cities";
+import { regionAndCountry } from "@src/format/country";
+import { exploreCityHref } from "@src/hrefs";
+
+interface Props extends HTMLAttributes<"ul"> {
+  cities: City[];
+  // The search that found the cities, which the explore map finds each of them by again.
+  search: string;
+}
+
+const { cities, search, class: className, ...props } = Astro.props;
+---
+
+<ul class:list={["list", className]} {...props}>
+  {cities.map((city) => (
+    <li class="list-row">
+      <div class="min-w-0 flex-1">
+        <a class="list-row-link field-label block truncate" href={exploreCityHref(search, city.id)}>{city.name}</a>
+        <p class="t-body-sm truncate text-fg-muted">{regionAndCountry(city)}</p>
+      </div>
+    </li>
+  ))}
+</ul>

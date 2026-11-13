@@ -1,30 +1,38 @@
 ---
 import BaseLayout from "@src/layouts/BaseLayout.astro";
+import CityList from "@src/components/CityList.astro";
 import PagedSection from "@src/components/PagedSection.astro";
 import PersonList from "@src/components/PersonList.astro";
 import RestaurantList from "@src/components/RestaurantList.astro";
 import SearchForm from "@src/components/SearchForm.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { personSorts, restaurantSorts, type PersonSort, type RestaurantSort } from "@src/data/options";
-import { firstPageHref, parsePageRequest, type PageRequest } from "@src/pagination";
+import type { City } from "@src/db/cities";
+import { noCityText } from "@src/format/city";
+import { firstPageHref, parsePageRequest, type Page, type PageRequest } from "@src/pagination";
 import { parseOption, parseSearch, searchTypes, type SearchType } from "@src/validation/search-params";
 
 const viewer = Astro.locals.session?.user ?? null;
 
 const search = parseSearch(Astro.url.searchParams);
 const type = parseOption(Astro.url.searchParams, "type", searchTypes, "all");
-// Searching for both shows each in the order its sort tabs start with.
+// Searching for all of them shows each in the order its sort tabs start with.
 const restaurantSort = type === "restaurants" ? parseOption(Astro.url.searchParams, "sort", restaurantSorts, restaurantSorts[0]) : restaurantSorts[0];
 const personSort = type === "people" ? parseOption(Astro.url.searchParams, "sort", personSorts, personSorts[0]) : personSorts[0];
 
-// Searching for both shows the first few of each, with a link to the pages of the rest.
+// Searching for all of them shows the first few of each, with a link to the pages of the rest.
 const previewRequest: PageRequest = { limit: 5, cursor: undefined };
 const request = type === "all" ? previewRequest : parsePageRequest(Astro.url);
+const shows = (kind: Exclude<SearchType, "all">) => type === "all" || type === kind;
 
-const { restaurants, users } = Astro.locals.db;
-const [restaurantPage, personPage] = await Promise.all([
-  type === "people" ? undefined : restaurants.list(search, restaurantSort, request),
-  type === "restaurants" ? undefined : users.search(search, personSort, viewer?.id ?? null, request),
+// A city is found by the start of its name, so without a search there is none to list.
+const noCities: Page<City> = { items: [], previous: undefined, next: undefined, isPastEnd: false };
+
+const { cities, restaurants, users } = Astro.locals.db;
+const [cityPage, restaurantPage, personPage] = await Promise.all([
+  shows("cities") ? (search ? cities.list(search, request) : noCities) : undefined,
+  shows("restaurants") ? restaurants.list(search, restaurantSort, request) : undefined,
+  shows("people") ? users.search(search, personSort, viewer?.id ?? null, request) : undefined,
 ]);
 
 const noPeople = search ? `No one matches “${search}”.` : "There is no one here yet.";
@@ -35,15 +43,17 @@ const restaurantItems = (restaurantPage?.items ?? []).map((restaurant) => ({
 }));
 
 const typeHref = (option: SearchType) => firstPageHref(Astro.url, { type: option === "all" ? undefined : option, sort: undefined });
-const typeLabels: Record<SearchType, string> = { all: "All", restaurants: "Restaurants", people: "People" };
+const typeLabels: Record<SearchType, string> = { all: "All", cities: "Cities", restaurants: "Restaurants", people: "People" };
 const typeTabs = searchTypes.map((option) => ({ label: typeLabels[option], href: typeHref(option), current: option === type }));
 const searchLabels: Record<SearchType, string> = {
-  all: "Search restaurants and people",
+  all: "Search cities, restaurants and people",
+  cities: "Search cities",
   restaurants: "Search restaurants",
   people: "Search people",
 };
 const placeholders: Record<SearchType, string> = {
-  all: "Search for restaurants, cities or people",
+  all: "Search for cities, restaurants or people",
+  cities: "Search for cities",
   restaurants: "Search for restaurants or cities",
   people: "Search for people",
 };
@@ -67,7 +77,7 @@ const personSortTabs = sortTab(personSorts, personSort, {
 
 <BaseLayout
   title="Search"
-  description="Search for kebab restaurants and people on Kebab Boxd"
+  description="Search for cities, kebab restaurants and people on Kebab Boxd"
   prefetchUrls={typeTabs.filter((tab) => !tab.current).map((tab) => tab.href)}
 >
   <h1 class="sm:sr-only">Search</h1>
@@ -75,36 +85,56 @@ const personSortTabs = sortTab(personSorts, personSort, {
   <SearchForm class="mt-4 sm:mt-0" id="search" label={searchLabels[type]} value={search} placeholder={placeholders[type]} />
   <TabNav class="mt-4" aria-label="Search for" tabs={typeTabs} />
 
-  {type === "all" && restaurantPage && (
-    <section class="mt-6" aria-labelledby="restaurants-heading">
-      <div class="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="restaurants-heading">Restaurants</h2>
-        {restaurantPage.next && <a class="t-body-sm link" href={typeHref("restaurants")}>All restaurants</a>}
-      </div>
-      {restaurantItems.length === 0 ? (
-        <p class="t-body mt-2 text-fg-muted">
-          {search
-            ? <>No restaurants match “{search}”. <a class="link" href="/restaurants/suggest">Suggest it</a>.</>
-            : "There are no restaurants yet."}
-        </p>
-      ) : (
-        <RestaurantList class="mt-3" restaurants={restaurantItems} />
+  {type === "all" && (
+    <div class="mt-6 flex flex-col gap-8">
+      {cityPage && cityPage.items.length > 0 && (
+        <section aria-labelledby="cities-heading">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 id="cities-heading">Cities</h2>
+            {cityPage.next && <a class="t-body-sm link" href={typeHref("cities")}>All cities</a>}
+          </div>
+          <CityList class="mt-3" cities={cityPage.items} search={search} />
+        </section>
       )}
-    </section>
+
+      {restaurantPage && (
+        <section aria-labelledby="restaurants-heading">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 id="restaurants-heading">Restaurants</h2>
+            {restaurantPage.next && <a class="t-body-sm link" href={typeHref("restaurants")}>All restaurants</a>}
+          </div>
+          {restaurantItems.length === 0 ? (
+            <p class="t-body mt-2 text-fg-muted">
+              {search
+                ? <>No restaurants match “{search}”. <a class="link" href="/restaurants/suggest">Suggest it</a>.</>
+                : "There are no restaurants yet."}
+            </p>
+          ) : (
+            <RestaurantList class="mt-3" restaurants={restaurantItems} />
+          )}
+        </section>
+      )}
+
+      {personPage && (
+        <section aria-labelledby="people-heading">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 id="people-heading">People</h2>
+            {personPage.next && <a class="t-body-sm link" href={typeHref("people")}>All people</a>}
+          </div>
+          {personPage.items.length === 0 ? (
+            <p class="t-body mt-2 text-fg-muted">{noPeople}</p>
+          ) : (
+            <PersonList class="mt-3" people={personPage.items} viewer={viewer} />
+          )}
+        </section>
+      )}
+    </div>
   )}
 
-  {type === "all" && personPage && (
-    <section class="mt-8" aria-labelledby="people-heading">
-      <div class="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="people-heading">People</h2>
-        {personPage.next && <a class="t-body-sm link" href={typeHref("people")}>All people</a>}
-      </div>
-      {personPage.items.length === 0 ? (
-        <p class="t-body mt-2 text-fg-muted">{noPeople}</p>
-      ) : (
-        <PersonList class="mt-3" people={personPage.items} viewer={viewer} />
-      )}
-    </section>
+  {type === "cities" && cityPage && (
+    <PagedSection class="mt-4" aria-label="Cities" page={cityPage} empty={search ? noCityText(search) : "Type the name of a city."}>
+      <CityList cities={cityPage.items} search={search} />
+    </PagedSection>
   )}
 
   {type === "restaurants" && restaurantPage && (

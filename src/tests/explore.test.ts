@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { clusterCellSize, clusterMargin, defaultMapZoom, exploreGridStep, exploreMapCells, exploreMapSize } from "@src/data/map";
+import { clusterCellSize, clusterMargin, defaultMapZoom, exploreCityLimit, exploreGridStep, exploreMapCells, exploreMapSize } from "@src/data/map";
 import type { Client } from "@src/db/client";
 import type { Database } from "@src/db";
 import * as s from "@src/db/schema";
@@ -9,7 +9,7 @@ import { clustersOn, openedView } from "@src/map/clusters";
 import type { Coordinates } from "@src/map/coordinates";
 import { maxZoom, snapToGrid, viewport, type MapView } from "@src/map/viewport";
 import ExplorePage from "@src/pages/explore.astro";
-import { loadSampleCityList } from "@src/tests/cities";
+import { loadCityList, loadSampleCityList, namesakeCityList } from "@src/tests/cities";
 import { dialogIn, renderPage } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertUser, signIn } from "@src/tests/database";
 import { coordinatesSchema } from "@src/validation/coordinates";
@@ -367,6 +367,20 @@ describe("a search on the explore map", () => {
 		expect(mapCenterOf(chosen).latitude).toBeCloseTo(texas.latitude, 1);
 		expect(mapCenterOf(chosen).longitude).toBeCloseTo(texas.longitude, 1);
 		expect(chosen).toMatch(/aria-current="page"[^>]*>Paris, Texas, United States</);
+	});
+
+	it("moves the map to the City the user chose when more populous cities of its name are not offered", async () => {
+		const { client, db } = createTestDatabase();
+		await loadCityList(db, insertUser(client, "root_admin", "admin").id, namesakeCityList("Springfield", exploreCityLimit + 1));
+		const [, ...others] = await db.cities.search("spring", exploreCityLimit + 1);
+		const least = others.at(-1);
+		if (!least) throw new Error("The list has more cities than the map offers.");
+
+		const { html } = await renderPage(ExplorePage, { db, session: null }, exploreCityHref("spring", least.id));
+
+		expect(mapCenterOf(html).latitude).toBeCloseTo(least.latitude, 1);
+		expect(mapCenterOf(html).longitude).toBeCloseTo(least.longitude, 1);
+		expect(html).toMatch(new RegExp(`aria-current="page"[^>]*>Springfield, ${least.region}, United States<`));
 	});
 
 	it("leaves the map where it was when no City starts with it", async () => {

@@ -17,7 +17,7 @@ The Google Maps links users have suggested that have not become Restaurants. A u
 _Avoid_: Jobs, Imports, Backlog
 
 **City**:
-A populated place on the CityList, with its name, region, country, coordinates and population. A CitySearch looks for Restaurants around one.
+A populated place on the CityList, with its name, region, country, coordinates and population. A CitySearch looks for Restaurants around one. The search of the site lists the Cities whose name starts with it before the Restaurants and Users it finds, and each leads to its map.
 _Avoid_: Town, Municipality, Place
 
 **CityList**:

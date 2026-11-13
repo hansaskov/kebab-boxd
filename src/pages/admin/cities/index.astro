@@ -10,10 +10,10 @@ import { can } from "@src/auth/permissions";
 import { adminTabs } from "@src/data/admin-tabs";
 import type { CitySearchStatus } from "@src/db/schema";
 import { successToast } from "@src/format/action-toast";
+import { noCityText } from "@src/format/city";
 import { regionAndCountry } from "@src/format/country";
 import { plural } from "@src/format/plural";
 import { adminCitySearchHref, adminRestaurantsHref, profileHref, signInHref } from "@src/hrefs";
-import { isShortSearch } from "@src/map/geonames";
 import { parsePageRequest } from "@src/pagination";
 import { parseSearch } from "@src/validation/search-params";
 
@@ -76,7 +76,7 @@ const toast =
     <>
       <SearchForm class="mt-4" id="city-query" label="Search cities" value={query} placeholder="City" />
       {query && results.length === 0 && (
-        <p class="t-body mt-4 text-fg-muted">{isShortSearch(query) ? "Type at least two letters." : `No city starts with “${query}”.`}</p>
+        <p class="t-body mt-4 text-fg-muted">{noCityText(query)}</p>
       )}
       {results.length > 0 && (
         <ul class="list mt-4" aria-label="Cities">

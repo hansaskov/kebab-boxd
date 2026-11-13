@@ -114,6 +114,8 @@ const pagesOf: Record<"visitor" | keyof Fixture["sessions"], PageCase[]> = {
 		at(ExplorePage, "/explore?lucky="),
 		at(SearchPage, "/search"),
 		at(SearchPage, "/search?q=grill"),
+		at(SearchPage, "/search?q=odense"),
+		at(SearchPage, "/search?q=odense&type=cities"),
 		at(RestaurantPage, "/restaurants/{restaurant}", { id: "{restaurant}" }),
 		at(ReviewPage, "/reviews/{review}", { id: "{review}" }),
 		profileOf("ada"),

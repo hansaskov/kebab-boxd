@@ -18,6 +18,7 @@ import LocationSettingsPage from "@src/pages/[username]/settings/location.astro"
 import RestaurantPage from "@src/pages/restaurants/[id].astro";
 import SearchPage from "@src/pages/search.astro";
 import * as ExportEndpoint from "@src/pages/api/users/[username]/export";
+import { exploreCityHref } from "@src/hrefs";
 import { loadSampleCityList } from "@src/tests/cities";
 import { dialogIn, renderPage, requestEndpoint } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertReview, insertUser, signIn } from "@src/tests/database";
@@ -134,6 +135,30 @@ describe("pages", () => {
 			people: [false, true],
 			hidden: [false, false],
 		});
+	});
+
+	it("find the Cities whose name starts with a search, first, each leading to its map, then Restaurants, then People", async () => {
+		const { client, db } = createTestDatabase();
+		await loadSampleCityList(db, insertUser(client, "root_admin", "admin").id);
+		insertUser(client, "parisian");
+		insertRestaurant(client, "Paris Kebab", { status: "approved" });
+		const [france, texas] = await db.cities.search("pari", 2);
+		if (!france || !texas) throw new Error("The sample has two cities called Paris.");
+
+		const all = (await renderPage(SearchPage, { db, session: null }, "/search?q=pari")).html;
+		const cities = (await renderPage(SearchPage, { db, session: null }, "/search?q=pari&type=cities")).html;
+		const none = (await renderPage(SearchPage, { db, session: null }, "/search?q=kebab")).html;
+		const cityLinks = (html: string) => [...html.matchAll(/href="(\/explore\?[^"]*)"/g)].map((match) => match[1]?.replaceAll("&amp;", "&"));
+		const positions = ["Cities", "Restaurants", "People"].map((heading) => all.indexOf(`>${heading}</h2>`));
+
+		expect(positions.every((position) => position >= 0)).toBe(true);
+		expect(positions).toEqual(positions.toSorted((a, b) => a - b));
+		expect(cityLinks(all)).toEqual([exploreCityHref("pari", france.id), exploreCityHref("pari", texas.id)]);
+		expect(cityLinks(cities)).toEqual(cityLinks(all));
+		expect([cities.includes("Paris Kebab"), cities.includes("@parisian")]).toEqual([false, false]);
+		// A search that finds no City leaves the section out, and the Cities tab says why.
+		expect(none).not.toContain(">Cities</h2>");
+		expect((await renderPage(SearchPage, { db, session: null }, "/search?q=kebab&type=cities")).html).toContain("No city starts with “kebab”.");
 	});
 
 	it("show unbanned Users when the search is empty", async () => {
