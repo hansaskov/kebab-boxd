@@ -94,18 +94,34 @@ type QueryAreas = {
 	[Area in keyof Database as Database[Area] extends (...args: never[]) => unknown ? never : Area]: QueryMethods<Database[Area]>;
 };
 
-export type Queries = Record<string, Query<unknown> | undefined>;
+export class Choice<Result> {
+	declare readonly result: Result;
+	constructor(
+		readonly key: string,
+		readonly chosen: Entry,
+	) {}
+}
 
-type ResultOf<Q> = Q extends Query<infer Result> ? Result : undefined;
+export type Entry = Query<unknown> | Choice<unknown> | Queries | undefined;
+
+export type Queries = { [name: string]: Entry };
+
+type ResultOf<E> = E extends Query<infer Result> ? Result : E extends Choice<infer Result> ? Result : E extends Queries ? Loaded<E> : undefined;
 
 export type Loaded<Q extends Queries> = { [Name in keyof Q]: ResultOf<Q[Name]> };
+
+type Chosen<Options extends Record<Key, Entry>, Key extends string> = { [Option in Key]: { key: Option; result: ResultOf<Options[Option]> } }[Key];
+
+type Choose = <Key extends string, Options extends Record<Key, Entry>>(key: Key, options: Options) => Choice<Chosen<Options, Key>>;
+
+const choose: Choose = (key, options) => new Choice(key, Object.hasOwn(options, key) ? options[key] : undefined);
 
 type Load = {
 	<Q extends Query<unknown>>(query: Q): Promise<ResultOf<Q>>;
 	<Q extends Queries>(queries: Q): Promise<Loaded<Q>>;
 };
 
-export type RemoteDatabase = QueryAreas & { load: Load };
+export type RemoteDatabase = QueryAreas & { load: Load; choose: Choose };
 
 export type PageDatabase = RemoteDatabase & { readonly viewer: SessionViewer };
 
@@ -147,22 +163,33 @@ export interface Trip {
 	session: SessionWithUser | null | undefined;
 }
 
+function queriesIn(entry: Entry): Query<unknown>[] {
+	if (entry === undefined) return [];
+	if (entry instanceof Query) return [entry];
+	if (entry instanceof Choice) return queriesIn(entry.chosen);
+	return Object.values(entry).flatMap(queriesIn);
+}
+
+function answerOf(entry: Entry, values: Iterator<unknown>): unknown {
+	if (entry === undefined) return undefined;
+	if (entry instanceof Query) return values.next().value;
+	if (entry instanceof Choice) return { key: entry.key, result: answerOf(entry.chosen, values) };
+	return Object.fromEntries(Object.entries(entry).map(([name, item]) => [name, answerOf(item, values)]));
+}
+
 type TripPlan = { session: SessionToOpen } | { viewerId: number | null };
 
 export async function sendQueries(rpc: DatabaseRpc, queries: Queries, plan: TripPlan | undefined = undefined): Promise<Trip> {
 	const session = plan && "session" in plan ? plan.session : undefined;
 	const viewerId = plan && "viewerId" in plan ? plan.viewerId : undefined;
-	const sent = Object.entries(queries).filter((entry): entry is [string, Query<unknown>] => entry[1] !== undefined);
 	const calls = await Promise.all(
-		sent.map(async ([, { call }]) => {
+		queriesIn(queries).map(async ({ call }) => {
 			const bound = session ? call : withViewer(call, viewerId);
 			return { ...bound, args: (await pack(bound.args)) as unknown[] };
 		}),
 	);
 	const reply = calls.length > 0 || session ? await rpc.call({ calls, session }) : { values: [], session: undefined };
-	const loaded: Record<string, unknown> = Object.fromEntries(Object.keys(queries).map((name) => [name, undefined]));
-	sent.forEach(([name], index) => (loaded[name] = reply.values[index]));
-	return { loaded, session: reply.session };
+	return { loaded: answerOf(queries, reply.values.values()) as Record<string, unknown>, session: reply.session };
 }
 
 export function loadingWith(send: (queries: Queries) => Promise<Record<string, unknown>>): Load {
@@ -173,11 +200,11 @@ export function loadingWith(send: (queries: Queries) => Promise<Record<string, u
 }
 
 export function connectDatabase(rpc: DatabaseRpc): RemoteDatabase {
-	return databaseWith({ load: loadingWith(async (queries) => (await sendQueries(rpc, queries)).loaded) });
+	return databaseWith({ load: loadingWith(async (queries) => (await sendQueries(rpc, queries)).loaded), choose });
 }
 
 export function pageDatabaseWith(load: Load): PageDatabase {
-	return databaseWith({ load, viewer: sessionViewer });
+	return databaseWith({ load, choose, viewer: sessionViewer });
 }
 
 export function callDatabase(db: Database, { area, method, args }: DatabaseCall): Promise<unknown> {

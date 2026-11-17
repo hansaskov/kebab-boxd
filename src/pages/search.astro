@@ -16,32 +16,41 @@ import { firstPageHref, parsePageRequest, type Page, type PageRequest } from "@s
 
 const search = parseSearch(Astro.url.searchParams);
 const type = parseOption(Astro.url.searchParams, "type", searchTypes, "all");
-const restaurantSort = type === "restaurants" ? parseOption(Astro.url.searchParams, "sort", restaurantSorts, restaurantSorts[0]) : restaurantSorts[0];
-const personSort = type === "people" ? parseOption(Astro.url.searchParams, "sort", personSorts, personSorts[0]) : personSorts[0];
+const restaurantSort = parseOption(Astro.url.searchParams, "sort", restaurantSorts, restaurantSorts[0]);
+const personSort = parseOption(Astro.url.searchParams, "sort", personSorts, personSorts[0]);
 
 const previewRequest: PageRequest = { limit: 5, cursor: undefined };
-const request = type === "all" ? previewRequest : parsePageRequest(Astro.url);
-const shows = (kind: Exclude<SearchType, "all">) => type === "all" || type === kind;
+const pageRequest = parsePageRequest(Astro.url);
 
 const noCities: Page<City> = { items: [], previous: undefined, next: undefined, isPastEnd: false };
 
 const { db } = Astro.locals;
-const loaded = await db.load({
-  cities: shows("cities") && search ? db.cities.list(search, request) : undefined,
-  restaurants: shows("restaurants") ? db.restaurants.list(search, restaurantSort, request) : undefined,
-  people: shows("people") ? db.users.search(search, personSort, db.viewer, request) : undefined,
+const { results } = await db.load({
+  results: db.choose(type, {
+    all: {
+      cities: search ? db.cities.list(search, previewRequest) : undefined,
+      restaurants: db.restaurants.list(search, restaurantSorts[0], previewRequest),
+      people: db.users.search(search, personSorts[0], db.viewer, previewRequest),
+    },
+    cities: search ? db.cities.list(search, pageRequest) : undefined,
+    restaurants: db.restaurants.list(search, restaurantSort, pageRequest),
+    people: db.users.search(search, personSort, db.viewer, pageRequest),
+  }),
 });
 const session = await Astro.locals.session();
 const viewer = session?.user ?? null;
-const cityPage = shows("cities") ? (loaded.cities ?? noCities) : undefined;
-const { restaurants: restaurantPage, people: personPage } = loaded;
+const preview = results.key === "all" ? results.result : undefined;
+const cityPage = results.key === "cities" ? (results.result ?? noCities) : undefined;
+const restaurantPage = results.key === "restaurants" ? results.result : undefined;
+const personPage = results.key === "people" ? results.result : undefined;
 
 const noPeople = search ? `No one matches “${search}”.` : "There is no one here yet.";
 
-const restaurantItems = (restaurantPage?.items ?? []).map((restaurant) => ({
-  ...restaurant,
-  details: [restaurant.location.city, `${restaurant.reviewCount} ${restaurant.reviewCount === 1 ? "review" : "reviews"}`],
-}));
+const withDetails = (restaurants: NonNullable<typeof restaurantPage>["items"]) =>
+  restaurants.map((restaurant) => ({
+    ...restaurant,
+    details: [restaurant.location.city, `${restaurant.reviewCount} ${restaurant.reviewCount === 1 ? "review" : "reviews"}`],
+  }));
 
 const typeHref = (option: SearchType) => firstPageHref(Astro.url, { type: option === "all" ? undefined : option, sort: undefined });
 const typeLabels: Record<SearchType, string> = { all: "All", cities: "Cities", restaurants: "Restaurants", people: "People" };
@@ -87,59 +96,55 @@ const personSortTabs = sortTab(personSorts, personSort, {
   <SearchForm class="mt-4 sm:mt-0" id="search" label={searchLabels[type]} value={search} placeholder={placeholders[type]} />
   <TabNav class="mt-4" aria-label="Search for" tabs={typeTabs} />
 
-  {type === "all" && (
+  {preview && (
     <div class="mt-6 flex flex-col gap-8">
-      {cityPage && cityPage.items.length > 0 && (
+      {preview.cities && preview.cities.items.length > 0 && (
         <section aria-labelledby="cities-heading">
           <div class="flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="cities-heading">Cities</h2>
-            {cityPage.next && <a class="t-body-sm link" href={typeHref("cities")}>All cities</a>}
+            {preview.cities.next && <a class="t-body-sm link" href={typeHref("cities")}>All cities</a>}
           </div>
-          <CityList class="mt-3" cities={cityPage.items} search={search} />
+          <CityList class="mt-3" cities={preview.cities.items} search={search} />
         </section>
       )}
 
-      {restaurantPage && (
-        <section aria-labelledby="restaurants-heading">
-          <div class="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 id="restaurants-heading">Restaurants</h2>
-            {restaurantPage.next && <a class="t-body-sm link" href={typeHref("restaurants")}>All restaurants</a>}
-          </div>
-          {restaurantItems.length === 0 ? (
-            <p class="t-body mt-2 text-fg-muted">
-              {search
-                ? <>No restaurants match “{search}”. <a class="link" href="/restaurants/suggest">Suggest it</a>.</>
-                : "There are no restaurants yet."}
-            </p>
-          ) : (
-            <RestaurantList class="mt-3" restaurants={restaurantItems} />
-          )}
-        </section>
-      )}
+      <section aria-labelledby="restaurants-heading">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="restaurants-heading">Restaurants</h2>
+          {preview.restaurants.next && <a class="t-body-sm link" href={typeHref("restaurants")}>All restaurants</a>}
+        </div>
+        {preview.restaurants.items.length === 0 ? (
+          <p class="t-body mt-2 text-fg-muted">
+            {search
+              ? <>No restaurants match “{search}”. <a class="link" href="/restaurants/suggest">Suggest it</a>.</>
+              : "There are no restaurants yet."}
+          </p>
+        ) : (
+          <RestaurantList class="mt-3" restaurants={withDetails(preview.restaurants.items)} />
+        )}
+      </section>
 
-      {personPage && (
-        <section aria-labelledby="people-heading">
-          <div class="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 id="people-heading">People</h2>
-            {personPage.next && <a class="t-body-sm link" href={typeHref("people")}>All people</a>}
-          </div>
-          {personPage.items.length === 0 ? (
-            <p class="t-body mt-2 text-fg-muted">{noPeople}</p>
-          ) : (
-            <PersonList class="mt-3" people={personPage.items} viewer={viewer} />
-          )}
-        </section>
-      )}
+      <section aria-labelledby="people-heading">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="people-heading">People</h2>
+          {preview.people.next && <a class="t-body-sm link" href={typeHref("people")}>All people</a>}
+        </div>
+        {preview.people.items.length === 0 ? (
+          <p class="t-body mt-2 text-fg-muted">{noPeople}</p>
+        ) : (
+          <PersonList class="mt-3" people={preview.people.items} viewer={viewer} />
+        )}
+      </section>
     </div>
   )}
 
-  {type === "cities" && cityPage && (
+  {cityPage && (
     <PagedSection class="mt-4" aria-label="Cities" page={cityPage} empty={search ? noCityText(search) : "Type the name of a city."}>
       <CityList cities={cityPage.items} search={search} />
     </PagedSection>
   )}
 
-  {type === "restaurants" && restaurantPage && (
+  {restaurantPage && (
     <>
       <TabNav class="mt-4" aria-label="Sort restaurants" tabs={restaurantSortTabs} />
       <PagedSection class="mt-4" aria-label="Restaurants" page={restaurantPage}>
@@ -148,12 +153,12 @@ const personSortTabs = sortTab(personSorts, personSort, {
             ? <>No restaurants match “{search}”. <a class="link" href="/restaurants/suggest">Suggest it</a>.</>
             : "There are no restaurants yet."}
         </Fragment>
-        <RestaurantList restaurants={restaurantItems} />
+        <RestaurantList restaurants={withDetails(restaurantPage.items)} />
       </PagedSection>
     </>
   )}
 
-  {type === "people" && personPage && (
+  {personPage && (
     <>
       <TabNav class="mt-4" aria-label="Sort people" tabs={personSortTabs} />
       <PagedSection class="mt-4" aria-label="People" page={personPage} empty={noPeople}>

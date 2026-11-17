@@ -70,6 +70,52 @@ describe("The database over RPC", () => {
 		expect(loaded).toEqual({ restaurant: expect.objectContaining({ name: "Bosporus Grill" }), user: expect.objectContaining({ username: "ada" }), nothing: undefined });
 	});
 
+	it("sends only the chosen query of a choice, and tells which it chose", async () => {
+		const { client, db } = createTestDatabase();
+		const ada = insertUser(client, "ada");
+		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
+		const { remote, trips } = connectOverClone(db);
+
+		const { shown } = await remote.load({
+			shown: remote.choose("restaurant" as "restaurant" | "user", {
+				restaurant: remote.restaurants.findById(grill.id, ada.id),
+				user: remote.users.findProfile("ada", null),
+			}),
+		});
+
+		expect(trips.flatMap((trip) => trip.calls.map((call) => call.method))).toEqual(["findById"]);
+		expect(shown).toEqual({ key: "restaurant", result: expect.objectContaining({ name: "Bosporus Grill" }) });
+	});
+
+	it("loads every query of a chosen group in the same call as the rest of the load", async () => {
+		const { client, db } = createTestDatabase();
+		const ada = insertUser(client, "ada");
+		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
+		const { remote, trips } = connectOverClone(db);
+
+		const loaded = await remote.load({
+			user: remote.users.findProfile("ada", null),
+			shown: remote.choose("both" as "both" | "none", {
+				both: { restaurant: remote.restaurants.findById(grill.id, ada.id), nothing: undefined },
+				none: undefined,
+			}),
+		});
+
+		expect(trips.map((trip) => trip.calls.length)).toEqual([2]);
+		expect(loaded).toEqual({
+			user: expect.objectContaining({ username: "ada" }),
+			shown: { key: "both", result: { restaurant: expect.objectContaining({ name: "Bosporus Grill" }), nothing: undefined } },
+		});
+	});
+
+	it("sends nothing for a choice of no query", async () => {
+		const { db } = createTestDatabase();
+		const { remote, trips } = connectOverClone(db);
+
+		expect(await remote.load({ shown: remote.choose("none", { none: undefined }) })).toEqual({ shown: { key: "none", result: undefined } });
+		expect(trips).toEqual([]);
+	});
+
 	it("sends nothing for a load with no queries", async () => {
 		const { db } = createTestDatabase();
 		const { remote, trips } = connectOverClone(db);

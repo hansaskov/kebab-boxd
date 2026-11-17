@@ -11,7 +11,7 @@ import RestaurantList from "@src/restaurants/RestaurantList.astro";
 import ReviewList from "@src/reviews/ReviewList.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { can } from "@src/auth/permissions";
-import { isProblem, type Problem } from "@src/db/problem";
+import { isProblem } from "@src/db/problem";
 import { successToast } from "@src/actions/toast";
 import { loginDialogId } from "@src/auth/login-reasons";
 import { feedHref, profileHref, searchHref, settingsHref } from "@src/hrefs";
@@ -30,20 +30,20 @@ const profileTabs = ["reviews", "favorites", "bucket-list", "followers", "follow
 type ProfileTab = (typeof profileTabs)[number];
 const pageRequest = parsePageRequest(Astro.url);
 
-const requestedTab = parseOption(Astro.url.searchParams, "tab", profileTabs, "reviews");
-const asks = (option: ProfileTab) => requestedTab === option;
-const loaded = await db.load({
+const tab = parseOption(Astro.url.searchParams, "tab", profileTabs, "reviews");
+const { user, list } = await db.load({
   user: db.users.findProfile(username, db.viewer),
-  reviews: asks("reviews") ? db.reviews.listOnProfile(username, db.viewer, pageRequest) : undefined,
-  favorites: asks("favorites") ? db.collections.list(username, "favorites", db.viewer, pageRequest) : undefined,
-  bucketList: asks("bucket-list") ? db.collections.list(username, "bucketList", db.viewer, pageRequest) : undefined,
-  followers: asks("followers") ? db.follows.listFollowers(username, db.viewer, pageRequest) : undefined,
-  following: asks("following") ? db.follows.listFollowing(username, db.viewer, pageRequest) : undefined,
-  requests: asks("requests") ? db.follows.listRequests(username, db.viewer, pageRequest) : undefined,
+  list: db.choose(tab, {
+    reviews: db.reviews.listOnProfile(username, db.viewer, pageRequest),
+    favorites: db.collections.list(username, "favorites", db.viewer, pageRequest),
+    "bucket-list": db.collections.list(username, "bucketList", db.viewer, pageRequest),
+    followers: db.follows.listFollowers(username, db.viewer, pageRequest),
+    following: db.follows.listFollowing(username, db.viewer, pageRequest),
+    requests: db.follows.listRequests(username, db.viewer, pageRequest),
+  }),
 });
 const session = await Astro.locals.session();
 const viewer = session?.user ?? null;
-const { user } = loaded;
 
 if (!user) {
   return Astro.rewrite("/404");
@@ -53,7 +53,7 @@ if (user.username !== username) {
   return Astro.redirect(`${profileHref(user.username)}${Astro.url.search}`, 301);
 }
 
-if (isProblem(loaded.requests)) {
+if (list.key === "requests" && isProblem(list.result)) {
   return Astro.redirect(profileHref(user.username));
 }
 
@@ -64,12 +64,6 @@ const canViewHiddenReviews = can(viewer, "user:view-hidden-reviews", user);
 const canViewRequests = can(viewer, "user:view-follow-requests", user);
 
 const openTabs = profileTabs.filter((option) => option !== "requests" || canViewRequests);
-const tab = requestedTab;
-const shown = <List,>(list: List) => (list === undefined || isProblem(list) ? undefined : (list as Exclude<List, Problem | undefined>));
-const reviewPage = tab === "reviews" ? shown(loaded.reviews) : undefined;
-const restaurantPage = tab === "favorites" ? shown(loaded.favorites) : tab === "bucket-list" ? shown(loaded.bucketList) : undefined;
-const personPage =
-  tab === "followers" ? shown(loaded.followers) : tab === "following" ? shown(loaded.following) : tab === "requests" ? shown(loaded.requests) : undefined;
 
 const tabs: Record<ProfileTab, { label: string; total: number; empty: string }> = {
   reviews: { label: "Reviews", total: canViewHiddenReviews ? user.allReviewCount : user.publicReviewCount, empty: "No reviews yet." },
@@ -96,7 +90,7 @@ const layout = canView
       prefetchUrls: [
         ...openTabs.filter((option) => option !== tab).map(tabHref),
         ...(canEditProfile ? [settingsHref(user.username, "profile")] : []),
-        ...(isOwnProfile && reviewPage?.items.length === 0 ? [searchHref("restaurants")] : []),
+        ...(isOwnProfile && list.key === "reviews" && !isProblem(list.result) && list.result.items.length === 0 ? [searchHref("restaurants")] : []),
         feedHref,
       ],
     }
@@ -162,11 +156,11 @@ const layout = canView
 
       <TabNav class="mt-8" aria-label="Profile lists" tabs={listTabs} />
 
-      {tab === "reviews" && !reviewPage && (
+      {list.key === "reviews" && isProblem(list.result) && (
         <p class="t-body mt-4 text-fg-muted">Only the followers of {user.fullname} see their reviews.</p>
       )}
-      {reviewPage && (
-        <PagedSection class="mt-4" aria-label={tabs[tab].label} page={reviewPage}>
+      {list.key === "reviews" && !isProblem(list.result) && (
+        <PagedSection class="mt-4" aria-label={tabs[tab].label} page={list.result}>
           <Fragment slot="empty">
             {isOwnProfile ? (
               <>You have not written a review yet. <a class="link" href={searchHref("restaurants")}>Find a restaurant to review</a>.</>
@@ -174,25 +168,25 @@ const layout = canView
               tabs[tab].empty
             )}
           </Fragment>
-          <ReviewList reviews={reviewPage.items} viewer={viewer} showAuthor={false} />
+          <ReviewList reviews={list.result.items} viewer={viewer} showAuthor={false} />
         </PagedSection>
       )}
-      {restaurantPage && (
-        <PagedSection class="mt-4" aria-label={tabs[tab].label} page={restaurantPage} empty={tabs[tab].empty}>
+      {(list.key === "favorites" || list.key === "bucket-list") && !isProblem(list.result) && (
+        <PagedSection class="mt-4" aria-label={tabs[tab].label} page={list.result} empty={tabs[tab].empty}>
           <RestaurantList
-            restaurants={restaurantPage.items.map((restaurant) => ({ ...restaurant, details: [restaurant.location.city] }))}
+            restaurants={list.result.items.map((restaurant) => ({ ...restaurant, details: [restaurant.location.city] }))}
             remove={isOwnProfile
-              ? tab === "favorites"
+              ? list.key === "favorites"
                 ? { action: actions.restaurants.unfavorite, label: "Remove from favorites" }
                 : { action: actions.restaurants.removeFromBucketList, label: "Remove from bucket list" }
               : undefined}
           />
         </PagedSection>
       )}
-      {personPage && (
-        <PagedSection class="mt-4" aria-label={tabs[tab].label} page={personPage} empty={tabs[tab].empty}>
+      {(list.key === "followers" || list.key === "following" || list.key === "requests") && !isProblem(list.result) && (
+        <PagedSection class="mt-4" aria-label={tabs[tab].label} page={list.result} empty={tabs[tab].empty}>
           <h2 slot="heading" class="mb-3">{tabs[tab].label}</h2>
-          <PersonList people={personPage.items} viewer={viewer} manage={managedList} />
+          <PersonList people={list.result.items} viewer={viewer} manage={managedList} />
         </PagedSection>
       )}
     </>

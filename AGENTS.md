@@ -15,6 +15,7 @@ Single context root `CONTEXT.md`
 - Forms should use Astro Actions. 
 - Database queries should use the Drizzle relational queries v2 syntax.
 - A page waits for the database once: it puts every query in one `Astro.locals.db.load(...)`, and a second load fails. The load also opens the session: pass `db.viewer` where a query needs the viewer, and `await Astro.locals.session()` after the load. Components never load; the page passes them their data, the session too, through props. Each load is a trip to the Durable Object of about 35 ms.
+- When a page shows one of several lists, load it with `db.choose`.
 - Keep each Worker small, since it loads all its code each time Cloudflare starts it.
 - Verify with `pnpm lint`, `pnpm check` and `pnpm test`.
 - Write tests under `@src/tests/`, mocking is forbidden.
