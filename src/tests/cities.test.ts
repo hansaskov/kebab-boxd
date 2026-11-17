@@ -35,18 +35,18 @@ describe("the CityList", () => {
 		const ada = insertUser(client, "ada");
 
 		expect(await db.cities.requestUpdate(ada.id)).toEqual({ problem: "forbidden", permission: "city-list:update" });
-		expect(await db.cities.status()).toEqual({ current: undefined, isUpdating: false, lastFailure: undefined });
+		expect(await db.cities.status(admin.id)).toEqual({ current: undefined, isUpdating: false, lastFailure: undefined });
 
 		await loadSampleCityList(db, admin.id);
 		const first = await db.cities.requestUpdate(admin.id);
 		const second = await db.cities.requestUpdate(admin.id);
 
 		expect(second).toEqual(first);
-		expect(await db.cities.status()).toMatchObject({ current: { cityCount: 8 }, isUpdating: true });
+		expect(await db.cities.status(admin.id)).toMatchObject({ current: { cityCount: 8 }, isUpdating: true });
 
 		if ("id" in first) await db.cities.failUpdate(first.id, "GeoNames answered 503");
 
-		expect(await db.cities.status()).toMatchObject({ current: { cityCount: 8 }, isUpdating: false, lastFailure: { error: "GeoNames answered 503" } });
+		expect(await db.cities.status(admin.id)).toMatchObject({ current: { cityCount: 8 }, isUpdating: false, lastFailure: { error: "GeoNames answered 503" } });
 		expect(await db.cities.search("odense", 10)).toHaveLength(1);
 	});
 });

@@ -1,7 +1,7 @@
 import { DurableObject, WorkerEntrypoint } from "cloudflare:workers";
 import type { Database } from "@src/db";
 import { openDurableDatabase, type CallReport } from "@src/db/durable-object";
-import { callDatabaseAll, type DatabaseCall, type DatabaseReply, type DatabaseRpc } from "@src/db/remote";
+import { answerRequest, type DatabaseReply, type DatabaseRequest, type DatabaseRpc } from "@src/db/remote";
 import { createPictureStore } from "@src/pictures/store";
 import { processDueWork } from "@src/background-work";
 
@@ -32,10 +32,10 @@ export class DatabaseObject extends DurableObject<Env> {
 
 	#hasAnswered = false;
 
-	async call(calls: DatabaseCall[]): Promise<DatabaseReply> {
+	async call(request: DatabaseRequest): Promise<DatabaseReply> {
 		const wokeUp = !this.#hasAnswered;
 		this.#hasAnswered = true;
-		return { values: await callDatabaseAll(this.#db, calls), wokeUp };
+		return { ...(await answerRequest(this.#db, request)), wokeUp };
 	}
 
 	override async alarm() {
@@ -57,7 +57,7 @@ export class DatabaseObject extends DurableObject<Env> {
 }
 
 export default class Backend extends WorkerEntrypoint<Env> implements DatabaseRpc {
-	call(calls: DatabaseCall[]): Promise<DatabaseReply> {
-		return this.env.Database.getByName("main").call(calls);
+	call(request: DatabaseRequest): Promise<DatabaseReply> {
+		return this.env.Database.getByName("main").call(request);
 	}
 }

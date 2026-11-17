@@ -7,23 +7,13 @@ import RelativeTime from "@src/components/RelativeTime.astro";
 import SuggestionDecision from "@src/restaurants/SuggestionDecision.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { submittedForm } from "@src/actions/outcome";
-import { can } from "@src/auth/permissions";
+import { isProblem } from "@src/db/problem";
 import { adminTabs } from "@src/admin/tabs";
 import type { RestaurantStatus } from "@src/db/schema";
 import { regionAndCountry } from "@src/cities/country";
-import { adminCitiesHref, adminRestaurantsHref, googleMapsHref, openStreetMapHref, profileHref, restaurantHref, signInHref } from "@src/hrefs";
+import { adminCitiesHref, adminRestaurantsHref, googleMapsHref, openStreetMapHref, profileHref, refusalPage, restaurantHref, signInHref } from "@src/hrefs";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
 import { parseId, parseOption } from "@src/params";
-
-const session = Astro.locals.session;
-
-if (!session) {
-  return Astro.redirect(signInHref(Astro.url, "admin"));
-}
-
-if (!can(session.user, "admin-console:view")) {
-  return Astro.rewrite("/403");
-}
 
 const { db } = Astro.locals;
 const searchId = parseId(Astro.url.searchParams.get("search") ?? undefined);
@@ -31,10 +21,17 @@ const statuses: readonly [RestaurantStatus, ...RestaurantStatus[]] = searchId ? 
 const [defaultStatus] = statuses;
 const status = parseOption(Astro.url.searchParams, "status", statuses, defaultStatus);
 const { citySearch, page, counts } = await db.load({
-  citySearch: searchId ? db.citySearches.findById(searchId) : undefined,
-  page: db.restaurants.listByStatus(status, parsePageRequest(Astro.url), searchId),
-  counts: db.restaurants.countByStatus(searchId),
+  citySearch: searchId ? db.citySearches.findById(searchId, db.viewer) : undefined,
+  page: db.restaurants.listByStatus(status, db.viewer, parsePageRequest(Astro.url), searchId),
+  counts: db.restaurants.countByStatus(db.viewer, searchId),
 });
+const session = await Astro.locals.session();
+if (!session) {
+  return Astro.redirect(signInHref(Astro.url, "admin"));
+}
+if (isProblem(citySearch) || isProblem(page) || isProblem(counts)) {
+  return Astro.rewrite(refusalPage.forbidden);
+}
 if (searchId && !citySearch) {
   return Astro.rewrite("/404");
 }
@@ -57,6 +54,7 @@ const selectionError = submittedForm(Astro.locals, actions.admin.decideRestauran
 ---
 
 <BaseLayout
+  session={session}
   title="Restaurants"
   description="Approve or reject the restaurants that users suggest and city searches find"
   prefetchUrls={["/admin", adminCitiesHref]}

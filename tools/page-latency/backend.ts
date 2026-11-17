@@ -2,6 +2,7 @@ import { drizzle } from "drizzle-orm/durable-sqlite";
 import { DatabaseObject } from "@src/backend";
 import { createSession } from "@src/auth/session";
 import type { Database } from "@src/db";
+import type { DatabaseRequest } from "@src/db/remote";
 import { relations } from "@src/db/relations";
 import { fillLargeDatabase, type LargeDatabase } from "@src/tests/large-database";
 
@@ -26,7 +27,9 @@ export class BenchDatabase extends DatabaseObject {
 
 	async fill(scale: number): Promise<Bench> {
 		const subjects = await fillLargeDatabase(drizzle(this.ctx.storage, { relations }), scale);
-		const sessions: Pick<Database["sessions"], "create"> = { create: async (session) => void (await super.call("sessions", "create", [session])) };
+		const sessions: Pick<Database["sessions"], "create"> = {
+			create: async (session) => void (await super.call({ calls: [{ area: "sessions", method: "create", args: [session] }] })),
+		};
 		const signIn = async (userId: number) => (await createSession({ sessions } as Database, userId)).token;
 		return {
 			subjects,
@@ -44,13 +47,15 @@ export class BenchDatabase extends DatabaseObject {
 		return taken;
 	}
 
-	override async call(area: string, method: string, args: unknown[]) {
+	override async call(request: DatabaseRequest) {
 		const startedAt = Date.now();
 		if (this.#roundTripMs > 0) await scheduler.wait(this.#roundTripMs);
 		try {
-			return await super.call(area, method, args);
+			return await super.call(request);
 		} finally {
-			this.#calls.push({ call: `${area}.${method}`, startedAt, endedAt: Date.now() });
+			const endedAt = Date.now();
+			const names = [...(request.session ? ["sessions.open"] : []), ...request.calls.map(({ area, method }) => `${area}.${method}`)];
+			this.#calls.push(...names.map((call) => ({ call, startedAt, endedAt })));
 		}
 	}
 }

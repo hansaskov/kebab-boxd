@@ -66,7 +66,7 @@ export class MeasuredDatabase extends DurableObject<Env> {
 	async measure(area: string, method: string, args: string): Promise<string> {
 		this.#rows = [];
 		this.#statements.length = 0;
-		const value = await callDatabase(this.#db, area, method, fromJson(args) as unknown[]);
+		const value = await callDatabase(this.#db, { area, method, args: fromJson(args) as unknown[] });
 		const [rows, ...others] = this.#rows;
 		if (!rows || others.length > 0) throw new Error(`Expected one call of the database, not ${this.#rows.length}.`);
 		const statements: PlannedStatement[] = this.#statements.map(({ query, bindings }) => ({

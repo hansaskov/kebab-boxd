@@ -2,10 +2,12 @@
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import { homeHref } from "@src/hrefs";
 
-const home = homeHref(Astro.locals.session);
+const session = await Astro.locals.session();
+const home = homeHref(session);
 ---
 
 <BaseLayout
+  session={session}
   title="404: Not Found"
   description="Something went wrong"
   prefetchUrls={[home]}

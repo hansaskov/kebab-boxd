@@ -3,7 +3,7 @@ import { processDueWork } from "@src/background-work";
 import type { Database } from "@src/db";
 import { isProblem } from "@src/db/problem";
 import { findKebabPlaces, overpassServers, serverName } from "@src/cities/overpass";
-import { createTestDatabase, insertUser } from "@src/tests/database";
+import { allowed, createTestDatabase, insertUser } from "@src/tests/database";
 
 const odense = { latitude: 55.39594, longitude: 10.38831, population: 180863, countryCode: "DK" };
 
@@ -23,7 +23,7 @@ describe("end to end", () => {
 
 		await runUntilIdle(db, Date.now() + 120_000);
 
-		expect((await db.cities.status()).current?.cityCount).toBeGreaterThan(150_000);
+		expect(allowed(await db.cities.status(admin.id)).current?.cityCount).toBeGreaterThan(150_000);
 		expect((await db.cities.search("odense", 1))[0]).toMatchObject({ name: "Odense", countryCode: "DK" });
 		expect((await db.cities.search("zurich", 1))[0]).toMatchObject({ name: "Zürich", countryCode: "CH" });
 	}, 180_000);
@@ -47,7 +47,7 @@ describe("end to end", () => {
 
 		await runUntilIdle(db, Date.now() + 240_000);
 
-		const search = await db.citySearches.findById(started.id);
+		const search = allowed(await db.citySearches.findById(started.id, admin.id));
 		const restaurants = client.query.restaurants.findMany({ with: { location: true }, where: { citySearchId: started.id } }).sync();
 		const { page } = await db.notifications.show(admin.id, { limit: 10, cursor: undefined });
 		expect(search).toMatchObject({ status: "finished", candidateCount: 0 });

@@ -1,4 +1,5 @@
 import type { Database } from "@src/db";
+import type { SessionWithUser } from "@src/auth/sessions.db";
 
 export interface DatabaseCall {
 	area: string;
@@ -6,13 +7,24 @@ export interface DatabaseCall {
 	args: unknown[];
 }
 
+export interface SessionToOpen {
+	token: string;
+	takeActionOutcome: boolean;
+}
+
+export interface DatabaseRequest {
+	calls: DatabaseCall[];
+	session?: SessionToOpen | undefined;
+}
+
 export interface DatabaseReply {
 	values: unknown[];
+	session?: SessionWithUser | null | undefined;
 	wokeUp: boolean;
 }
 
 export interface DatabaseRpc {
-	call(calls: DatabaseCall[]): Promise<DatabaseReply>;
+	call(request: DatabaseRequest): Promise<DatabaseReply>;
 }
 
 interface PackedFile {
@@ -22,12 +34,24 @@ interface PackedFile {
 	bytes: ArrayBuffer;
 }
 
+const viewerMark = "viewerOfTheSession";
+
+export interface SessionViewer {
+	readonly [viewerMark]: true;
+}
+
+export const sessionViewer: SessionViewer = { [viewerMark]: true };
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && Object.getPrototypeOf(value) === Object.prototype;
 }
 
 function isPackedFile(value: unknown): value is PackedFile {
 	return isPlainObject(value) && value["packedFile"] === true;
+}
+
+function isSessionViewer(value: unknown): value is SessionViewer {
+	return isPlainObject(value) && value[viewerMark] === true;
 }
 
 async function pack(value: unknown): Promise<unknown> {
@@ -44,13 +68,26 @@ function unpack(value: unknown): unknown {
 	return value;
 }
 
+function withViewer(call: DatabaseCall, viewerId: number | null | undefined): DatabaseCall {
+	const args = call.args.map((arg) => {
+		if (!isSessionViewer(arg)) return arg;
+		if (viewerId === undefined) throw new Error(`${call.area}.${call.method} asks for the viewer, but no session was opened for it.`);
+		return viewerId;
+	});
+	return { ...call, args };
+}
+
 export class Query<Result> {
 	declare readonly result: Result;
 	constructor(readonly call: DatabaseCall) {}
 }
 
+type ViewerOr<Arg> = [number | null] extends [Arg] ? Arg | SessionViewer : Arg;
+
+type QueryArgs<Args extends unknown[]> = { [Index in keyof Args]: ViewerOr<Args[Index]> };
+
 type QueryMethods<Area> = {
-	[Method in keyof Area]: Area[Method] extends (...args: infer Args) => infer Result ? (...args: Args) => Query<Awaited<Result>> : never;
+	[Method in keyof Area]: Area[Method] extends (...args: infer Args) => infer Result ? (...args: QueryArgs<Args>) => Query<Awaited<Result>> : never;
 };
 
 type QueryAreas = {
@@ -63,16 +100,26 @@ type ResultOf<Q> = Q extends Query<infer Result> ? Result : undefined;
 
 export type Loaded<Q extends Queries> = { [Name in keyof Q]: ResultOf<Q[Name]> };
 
-export type RemoteDatabase = QueryAreas & {
-	load<Q extends Query<unknown>>(query: Q): Promise<ResultOf<Q>>;
-	load<Q extends Queries>(queries: Q): Promise<Loaded<Q>>;
+type Load = {
+	<Q extends Query<unknown>>(query: Q): Promise<ResultOf<Q>>;
+	<Q extends Queries>(queries: Q): Promise<Loaded<Q>>;
 };
+
+export type RemoteDatabase = QueryAreas & { load: Load };
+
+export type PageDatabase = RemoteDatabase & { readonly viewer: SessionViewer };
+
+const lookedUpByAwait = "then";
+
+function isQueryName(name: string | symbol): name is string {
+	return typeof name === "string" && name !== lookedUpByAwait;
+}
 
 function queryArea(area: string) {
 	return new Proxy(
 		{},
 		{
-			get: (_, method) => (typeof method !== "string" || method === "then" ? undefined : (...args: unknown[]) => new Query({ area, method, args })),
+			get: (_, method) => (isQueryName(method) ? (...args: unknown[]) => new Query({ area, method, args }) : undefined),
 		},
 	);
 }
@@ -81,55 +128,72 @@ function queryAreas(): QueryAreas {
 	const areas = new Map<string, unknown>();
 	return new Proxy({} as QueryAreas, {
 		get: (_, area) => {
-			if (typeof area !== "string" || area === "then") return undefined;
+			if (!isQueryName(area)) return undefined;
 			if (!areas.has(area)) areas.set(area, queryArea(area));
 			return areas.get(area);
 		},
 	});
 }
 
-export function connectDatabase(rpc: DatabaseRpc): RemoteDatabase {
+function databaseWith<Extra extends object>(extra: Extra): QueryAreas & Extra {
 	const areas = queryAreas();
-
-	async function load(queries: Query<unknown> | Queries): Promise<unknown> {
-		if (queries instanceof Query) return (await load({ value: queries }) as { value: unknown }).value;
-
-		const sent = Object.entries(queries).filter((entry): entry is [string, Query<unknown>] => entry[1] !== undefined);
-		const calls = await Promise.all(sent.map(async ([, query]) => ({ ...query.call, args: (await pack(query.call.args)) as unknown[] })));
-		const { values } = calls.length > 0 ? await rpc.call(calls) : { values: [] };
-		const loaded: Record<string, unknown> = Object.fromEntries(Object.keys(queries).map((name) => [name, undefined]));
-		sent.forEach(([name], index) => (loaded[name] = values[index]));
-		return loaded;
-	}
-
 	return new Proxy(areas, {
-		get: (target, name, receiver) => (name === "load" ? load : Reflect.get(target, name, receiver)),
-	}) as RemoteDatabase;
+		get: (target, name, receiver) => (Object.hasOwn(extra, name) ? extra[name as keyof Extra] : Reflect.get(target, name, receiver)),
+	}) as QueryAreas & Extra;
 }
 
-export function loadingOnce(db: RemoteDatabase): RemoteDatabase {
-	let hasLoaded = false;
-	async function load(queries: Query<unknown> | Queries): Promise<unknown> {
-		if (hasLoaded) throw new Error("A page loads from the database once. Put every query of the page in the same load.");
-		hasLoaded = true;
-		return db.load(queries as Queries);
-	}
-	return new Proxy(db, {
-		get: (target, name, receiver) => (name === "load" ? load : Reflect.get(target, name, receiver)),
-	});
+export interface Trip {
+	loaded: Record<string, unknown>;
+	session: SessionWithUser | null | undefined;
 }
 
-export function localDatabase(db: Database): RemoteDatabase {
-	return connectDatabase({ call: async (calls) => ({ values: await callDatabaseAll(db, calls), wokeUp: false }) });
+type TripPlan = { session: SessionToOpen } | { viewerId: number | null };
+
+export async function sendQueries(rpc: DatabaseRpc, queries: Queries, plan: TripPlan | undefined = undefined): Promise<Trip> {
+	const session = plan && "session" in plan ? plan.session : undefined;
+	const viewerId = plan && "viewerId" in plan ? plan.viewerId : undefined;
+	const sent = Object.entries(queries).filter((entry): entry is [string, Query<unknown>] => entry[1] !== undefined);
+	const calls = await Promise.all(
+		sent.map(async ([, { call }]) => {
+			const bound = session ? call : withViewer(call, viewerId);
+			return { ...bound, args: (await pack(bound.args)) as unknown[] };
+		}),
+	);
+	const reply = calls.length > 0 || session ? await rpc.call({ calls, session }) : { values: [], session: undefined };
+	const loaded: Record<string, unknown> = Object.fromEntries(Object.keys(queries).map((name) => [name, undefined]));
+	sent.forEach(([name], index) => (loaded[name] = reply.values[index]));
+	return { loaded, session: reply.session };
 }
 
-export function callDatabase(db: Database, area: string, method: string, args: unknown[]): Promise<unknown> {
+export function loadingWith(send: (queries: Queries) => Promise<Record<string, unknown>>): Load {
+	return (async (queries: Query<unknown> | Queries) => {
+		if (queries instanceof Query) return (await send({ value: queries }))["value"];
+		return send(queries);
+	}) as Load;
+}
+
+export function connectDatabase(rpc: DatabaseRpc): RemoteDatabase {
+	return databaseWith({ load: loadingWith(async (queries) => (await sendQueries(rpc, queries)).loaded) });
+}
+
+export function pageDatabaseWith(load: Load): PageDatabase {
+	return databaseWith({ load, viewer: sessionViewer });
+}
+
+export function callDatabase(db: Database, { area, method, args }: DatabaseCall): Promise<unknown> {
 	const target: unknown = Object.hasOwn(db, area) ? db[area as keyof Database] : undefined;
 	const fn: unknown = isPlainObject(target) && Object.hasOwn(target, method) ? target[method] : undefined;
 	if (typeof fn !== "function") throw new Error(`The database has no method ${area}.${method}.`);
 	return Promise.resolve(fn(...(unpack(args) as unknown[])));
 }
 
-export function callDatabaseAll(db: Database, calls: DatabaseCall[]): Promise<unknown[]> {
-	return Promise.all(calls.map(({ area, method, args }) => callDatabase(db, area, method, args)));
+export async function answerRequest(db: Database, { calls, session: toOpen }: DatabaseRequest): Promise<Omit<DatabaseReply, "wokeUp">> {
+	const session = toOpen && (await db.sessions.open(toOpen.token, { takeActionOutcome: toOpen.takeActionOutcome }));
+	const viewerId = toOpen ? (session?.user.id ?? null) : undefined;
+	const values = await Promise.all(calls.map((call) => callDatabase(db, withViewer(call, viewerId))));
+	return { values, session };
+}
+
+export function localRpc(db: Database): DatabaseRpc {
+	return { call: async (request) => ({ ...(await answerRequest(db, request)), wokeUp: false }) };
 }

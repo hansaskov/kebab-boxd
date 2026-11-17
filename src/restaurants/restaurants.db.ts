@@ -1,6 +1,6 @@
 import { and, asc, between, desc, eq, sql } from "drizzle-orm";
 import type { RestaurantPermission } from "@src/auth/permissions";
-import { authorizedRead, authorizedWriteAll, findTargetRestaurants } from "@src/db/authorize";
+import { authorizedRead, authorizedSubjectRead, authorizedWriteAll, findTargetRestaurants } from "@src/db/authorize";
 import { authorsOfReviewsAt, refreshAuthorStats } from "@src/db/cached-stats";
 import type { Client } from "@src/db/client";
 import { chunks, durableSqliteLimits } from "@src/db/limits";
@@ -12,7 +12,7 @@ import type { RestaurantStatus } from "@src/db/schema";
 import type { RestaurantSort } from "@src/restaurants/restaurants";
 import { chooseCity } from "@src/cities/cities.db";
 import { clustersOn, type Cluster } from "@src/map/clusters";
-import { cityBounds, cityView, exploreView, exploreViewport, exploreCityLimit } from "@src/map/explore";
+import { cityBounds, cityView, defaultMapZoom, exploreView, exploreViewport, exploreCityLimit, homeOf } from "@src/map/explore";
 import type { Bounds } from "@src/map/coordinates";
 import type { ClusterGrid, MapView } from "@src/map/viewport";
 import type { PageRequest } from "@src/pagination";
@@ -41,7 +41,6 @@ export interface ExploreRequest {
 	search: string;
 	cityId: number | undefined;
 	requested: MapView | undefined;
-	isVisitor: boolean;
 }
 
 export interface ClusterRestaurant {
@@ -154,6 +153,13 @@ export function createRestaurants(client: Client) {
 		});
 	};
 
+	const homeViewOf = (viewerId: number | null): MapView | undefined => {
+		if (viewerId === null) return undefined;
+		const viewer = client.query.users.findFirst({ columns: { latitude: true, longitude: true }, where: { id: viewerId } }).sync();
+		const home = viewer && homeOf(viewer);
+		return home && { center: home, zoom: defaultMapZoom };
+	};
+
 	const pickApproved = async (fraction: number): Promise<{ id: number } | undefined> => {
 		const columns = { id: true } as const;
 		const [first, last] = await Promise.all([
@@ -193,11 +199,11 @@ export function createRestaurants(client: Client) {
 		findBestRatedIn,
 		pickApproved,
 
-		async explore({ search, cityId, requested, isVisitor }: ExploreRequest) {
+		async explore({ search, cityId, requested }: ExploreRequest, viewerId: number | null) {
 			const { cities, city } = chooseCity(client, search, exploreCityLimit, cityId);
-			const shown = city ? cityView(city) : requested;
+			const shown = city ? cityView(city) : (requested ?? homeViewOf(viewerId));
 			if (!shown) return { cities, city, view: undefined, clusters: [] };
-			const view = exploreView(shown, isVisitor);
+			const view = exploreView(shown, viewerId === null);
 			return { cities, city, view, clusters: await clustersOn(exploreViewport(view), listClusters) };
 		},
 
@@ -207,33 +213,37 @@ export function createRestaurants(client: Client) {
 			return { city, restaurant: city && (await findBestRatedIn(cityBounds(city))) };
 		},
 
-		async listByStatus(status: RestaurantStatus, page: PageRequest, citySearchId: number | undefined = undefined) {
+		async listByStatus(status: RestaurantStatus, viewerId: number | null, page: PageRequest, citySearchId: number | undefined = undefined) {
 			const read = (seek: Seek<"restaurants">) =>
 				client.query.restaurants.findMany({
 					columns: { ...summary.columns, googleMapsId: true, osmId: true },
 					with: { ...summary.with, suggester: { columns: { username: true, fullname: true } } },
 					...seek({ status, ...(citySearchId !== undefined && { citySearchId }) }),
 				});
-			return status === "pending" ? oldestPages(page, read) : newestPages(page, read);
+			return authorizedSubjectRead(client, viewerId, "admin-console:view", () => (status === "pending" ? oldestPages(page, read) : newestPages(page, read)));
 		},
 
-		async listSuggestedBy(userId: number, page: PageRequest) {
-			return newestPages(page, (seek) =>
-				client.query.restaurants.findMany({
-					...summary,
-					...seek({ suggestedBy: userId }),
-				}),
+		async listSuggestedBy(viewerId: number | null, page: PageRequest) {
+			return authorizedSubjectRead(client, viewerId, "restaurant:suggest", (viewer) =>
+				newestPages(page, (seek) =>
+					client.query.restaurants.findMany({
+						...summary,
+						...seek({ suggestedBy: viewer.id }),
+					}),
+				),
 			);
 		},
 
-		async countByStatus(citySearchId: number | undefined = undefined): Promise<Record<RestaurantStatus, number>> {
+		async countByStatus(viewerId: number | null, citySearchId: number | undefined = undefined) {
 			const found = citySearchId === undefined ? undefined : eq(s.restaurants.citySearchId, citySearchId);
 			const count = (status: RestaurantStatus) => client.$count(s.restaurants, and(eq(s.restaurants.status, status), found));
-			const counts = await client.query.restaurants.findFirst({
-				columns: {},
-				extras: { approved: count("approved"), pending: count("pending"), rejected: count("rejected") },
+			return authorizedSubjectRead(client, viewerId, "admin-console:view", async (): Promise<Record<RestaurantStatus, number>> => {
+				const counts = await client.query.restaurants.findFirst({
+					columns: {},
+					extras: { approved: count("approved"), pending: count("pending"), rejected: count("rejected") },
+				});
+				return counts ?? { approved: 0, pending: 0, rejected: 0 };
 			});
-			return counts ?? { approved: 0, pending: 0, rejected: 0 };
 		},
 
 		async decide(actorId: number, ids: number[], status: "approved" | "rejected") {

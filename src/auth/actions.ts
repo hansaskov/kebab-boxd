@@ -7,7 +7,7 @@ export const sessionActions = {
     accept: "form",
     handler: async (_, { locals }) => {
       const { db } = locals;
-      const session = requireSession(locals);
+      const session = await requireSession(locals);
       await db.load(db.sessions.setTheme(session.id, session.theme === "dark" ? "light" : "dark"));
     },
   }),
@@ -15,7 +15,8 @@ export const sessionActions = {
     accept: "form",
     handler: async (_, { locals }) => {
       const { db } = locals;
-      await db.load(db.sessions.delete(requireSession(locals).id));
+      const session = await requireSession(locals);
+      await db.load(db.sessions.delete(session.id));
       return { redirect: landingHref };
     },
   }),

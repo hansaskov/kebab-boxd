@@ -10,14 +10,14 @@ import { successToast } from "@src/actions/toast";
 import { profileHref, refusalPage, restaurantHref } from "@src/hrefs";
 import { parseId } from "@src/params";
 
-const viewer = Astro.locals.session?.user ?? null;
-
 const id = parseId(Astro.params.id);
 const { db } = Astro.locals;
 if (!id) {
   return Astro.rewrite(refusalPage["not-found"]);
 }
-const review = await db.load(db.reviews.findAllowed(id, viewer?.id ?? null, "review:view"));
+const review = await db.load(db.reviews.findAllowed(id, db.viewer, "review:view"));
+const session = await Astro.locals.session();
+const viewer = session?.user ?? null;
 if (isProblem(review)) {
   return Astro.rewrite(refusalPage[review.problem]);
 }
@@ -31,6 +31,7 @@ const toast =
 ---
 
 <BaseLayout
+  session={session}
   title={`${review.author.fullname} on ${review.restaurant.name}`}
   description={review.description ?? `A review of ${review.restaurant.name}`}
   prefetchUrls={[restaurantHref(review.restaurant.id), profileHref(review.author.username)]}

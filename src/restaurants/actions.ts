@@ -23,7 +23,8 @@ function collectAction(write: "add" | "remove", collection: Collection) {
     input: restaurantTargetSchema,
     handler: async ({ restaurantId }, { locals }) => {
       const { db } = locals;
-      orThrow(await db.load(db.collections[write](requireSession(locals).user.id, restaurantId, collection)));
+      const { user: actor } = await requireSession(locals);
+      orThrow(await db.load(db.collections[write](actor.id, restaurantId, collection)));
     },
   });
 }
@@ -38,7 +39,7 @@ export const restaurantActions = {
     input: suggestionSchema,
     handler: async ({ link }, { locals }) => {
       const { db } = locals;
-      const { user } = requireSession(locals);
+      const { user } = await requireSession(locals);
       requirePermission(user, "restaurant:suggest");
       orThrow(await db.load(db.suggestionQueue.queue(user.id, link)));
     },

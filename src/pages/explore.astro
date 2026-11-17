@@ -11,33 +11,27 @@ import { regionAndCountry } from "@src/cities/country";
 import { noCityText } from "@src/cities/geonames";
 import MapView from "@src/map/MapView.astro";
 import { openedView } from "@src/map/clusters";
-import { distanceInMeters, formatDistance, formatOffset, type Coordinates } from "@src/map/coordinates";
-import { defaultMapZoom, exploreMapCells, exploreMoves, exploreView, exploreViewport, exploreZoomStep, parseMapView } from "@src/map/explore";
+import { distanceInMeters, formatDistance, formatOffset } from "@src/map/coordinates";
+import { defaultMapZoom, exploreMapCells, exploreMoves, exploreView, exploreViewport, exploreZoomStep, homeOf, parseMapView } from "@src/map/explore";
 import { zoomedIn, zoomedOut, type MapView as View } from "@src/map/viewport";
 import AverageRating from "@src/reviews/AverageRating.astro";
 import { exploreCityHref, exploreHref, restaurantHref, searchHref } from "@src/hrefs";
 import { parseId, parseSearch, searchMaxLength } from "@src/params";
 
-const session = Astro.locals.session;
 const params = Astro.url.searchParams;
-
-const home: Coordinates | undefined =
-	session && session.user.latitude !== null && session.user.longitude !== null
-		? { latitude: session.user.latitude, longitude: session.user.longitude }
-		: undefined;
-
 const query = parseSearch(params);
 const chosenCityId = parseId(params.get("city") ?? undefined);
-const isVisitor = !session;
-const { db } = Astro.locals;
-
 const isLucky = params.has("lucky");
+const requested = parseMapView(params, defaultMapZoom);
 
-const requested: View | undefined = parseMapView(params, defaultMapZoom) ?? (home && { center: home, zoom: defaultMapZoom });
-const { lucky, nearby = { cities: [], city: undefined, view: undefined, clusters: [] } } = await db.load({
+const { db } = Astro.locals;
+const { lucky, nearby } = await db.load({
 	lucky: isLucky ? db.restaurants.feelLucky(query, chosenCityId, Math.random()) : undefined,
-	nearby: query || requested ? db.restaurants.explore({ search: query, cityId: chosenCityId, requested, isVisitor }) : undefined,
+	nearby: db.restaurants.explore({ search: query, cityId: chosenCityId, requested }, db.viewer),
 });
+const session = await Astro.locals.session();
+const home = session ? homeOf(session.user) : undefined;
+const isVisitor = !session;
 if (lucky?.restaurant) return Astro.redirect(restaurantHref(lucky.restaurant.id));
 if (lucky?.city) return Astro.redirect(exploreCityHref(query, lucky.city.id));
 
@@ -97,7 +91,7 @@ const problem =
 const toast = successToast(Astro.locals, actions.updateLocation, { title: "Location saved", text: "The map starts here now." });
 ---
 
-<BaseLayout title="Explore" description="Kebab restaurants on a map" prefetchUrls={[searchHref("restaurants")]} toast={toast}>
+<BaseLayout session={session} title="Explore" description="Kebab restaurants on a map" prefetchUrls={[searchHref("restaurants")]} toast={toast}>
 	{explored ? (
 		<>
 			<h1 class="sm:sr-only">Explore</h1>

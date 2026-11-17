@@ -17,8 +17,6 @@ import { viewport } from "@src/map/viewport";
 import { parsePageRequest } from "@src/pagination";
 import { parseId } from "@src/params";
 
-const viewer = Astro.locals.session?.user ?? null;
-
 const id = parseId(Astro.params.id);
 if (!id) {
   return Astro.rewrite(refusalPage["not-found"]);
@@ -26,9 +24,11 @@ if (!id) {
 
 const { db } = Astro.locals;
 const { restaurant, page } = await db.load({
-  restaurant: db.restaurants.findAllowed(id, viewer?.id ?? null, "restaurant:view"),
-  page: db.reviews.listByRestaurant(id, viewer?.id ?? null, parsePageRequest(Astro.url)),
+  restaurant: db.restaurants.findAllowed(id, db.viewer, "restaurant:view"),
+  page: db.reviews.listByRestaurant(id, db.viewer, parsePageRequest(Astro.url)),
 });
+const session = await Astro.locals.session();
+const viewer = session?.user ?? null;
 if (isProblem(restaurant)) {
   return Astro.rewrite(refusalPage[restaurant.problem]);
 }
@@ -50,6 +50,7 @@ const isVisitor = !viewer;
 ---
 
 <BaseLayout
+  session={session}
   title={restaurant.name}
   description={`Reviews of ${restaurant.name}${location.city ? ` in ${location.city}` : ""}`}
   prefetchUrls={[...(canReview ? [newReviewHref(restaurant.id)] : []), searchHref("restaurants")]}

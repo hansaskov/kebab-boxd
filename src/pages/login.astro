@@ -7,7 +7,8 @@ import { parseReturnPath } from "@src/auth/return-path";
 
 const returnPath = parseReturnPath(Astro.url.searchParams.get("next"));
 
-if (Astro.locals.session) {
+const session = await Astro.locals.session();
+if (session) {
   return Astro.redirect(returnPath ?? feedHref);
 }
 
@@ -16,7 +17,7 @@ const message = reason ? signInReasonMessages[reason] : undefined;
 const toast = message && { title: message.title, text: message.text, variant: message.isError ? ("error" as const) : undefined };
 ---
 
-<BaseLayout title="Login" description="Log in to Kebab Boxd with your Google account." prefetchUrls={["/privacy"]} toast={toast}>
+<BaseLayout session={session} title="Login" description="Log in to Kebab Boxd with your Google account." prefetchUrls={["/privacy"]} toast={toast}>
   <link slot="head" rel="preload" href="/fonts/google-sans-medium-latin.woff2" as="font" type="font/woff2" crossorigin />
 
   <div class="flex flex-col items-center gap-8 pt-12 text-center sm:pt-20">

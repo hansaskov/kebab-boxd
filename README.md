@@ -58,7 +58,9 @@ After a change to `src/db/schema.ts`, run `pnpm db:generate`. The Durable Object
 
 ## Page latency
 
-Every call of the database is a trip from the Web Worker to the Durable Object, about 35 ms in production. A page takes as long as the trips it waits for one after another, so a signed-in page waits for two: one for the session, and one for everything the page shows. A Visitor's page waits for one. `src/tests/database-trips.test.ts` fails when a page waits for more.
+Every call of the database is a trip from the Web Worker to the Durable Object, about 35 ms in production. A page takes as long as the trips it waits for one after another, so it waits for one: the trip that brings everything the page shows also takes the session cookie, and the Durable Object opens the session first and gives its viewer to the queries. A Visitor without a cookie sends no session, and a page that shows nothing from the database waits for no trip at all. `src/tests/database-trips.test.ts` fails when a page waits for more.
+
+A page puts every query in one `Astro.locals.db.load(...)` and passes `db.viewer` where a query needs to know who is looking. It reads the session with `await Astro.locals.session()` after the load, which costs nothing then. Read before the load, the session takes the one trip of the page, and the load after it fails. Forms are the exception: the middleware opens the session before the form's action runs, to send a Visitor to sign in.
 
 Every page tells how long it took in its `Server-Timing` header, which the Network panel of the browser shows under Timing. `db` is the time it waited for the database, with its trips, and says when the database woke up. `app` shows only when the Web Worker had to start for the request:
 

@@ -16,9 +16,9 @@ if (!sessionId) {
 
 const settings = await openSettings(Astro, "security", {
   canonicalHref: (canonical) => sessionHistoryHref(canonical, sessionId),
-  load: (db, username, viewerId) => ({
-    device: db.sessions.findActive(username, sessionId, viewerId),
-    page: db.history.listBySession(username, sessionId, viewerId, parsePageRequest(Astro.url)),
+  load: (db, username) => ({
+    device: db.sessions.findActive(username, sessionId, db.viewer),
+    page: db.history.listBySession(username, sessionId, db.viewer, parsePageRequest(Astro.url)),
   }),
 });
 if (settings instanceof Response) {

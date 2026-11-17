@@ -1,4 +1,4 @@
-import { can, refusal, type Resource, type ResourcePermission, type SubjectPermission, type UserPermission, type Viewer } from "@src/auth/permissions";
+import { can, refusal, type Resource, type ResourcePermission, type Subject, type SubjectPermission, type UserPermission, type Viewer } from "@src/auth/permissions";
 import type { Client, Transaction } from "@src/db/client";
 import { chunks, durableSqliteLimits } from "@src/db/limits";
 import type { Problem, Refused } from "@src/db/problem";
@@ -80,6 +80,16 @@ export async function authorizedRead<P extends ResourcePermission, R extends Res
 	const viewer = findViewer(client, viewerId);
 	const refused = viewer === undefined ? "forbidden" : refusal(viewer, permission, resource);
 	return refused ? { problem: refused, permission } : read(resource!, viewer!);
+}
+
+export async function authorizedSubjectRead<T>(
+	client: Client,
+	viewerId: number | null,
+	permission: SubjectPermission,
+	read: (viewer: Subject) => Promise<T>,
+): Promise<T | Refused> {
+	const viewer = findViewer(client, viewerId);
+	return viewer && can(viewer, permission) ? read(viewer) : { problem: "forbidden", permission };
 }
 
 export const targetUserColumns = { id: true, username: true, role: true, bannedAt: true, isPrivate: true } as const;

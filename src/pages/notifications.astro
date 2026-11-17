@@ -10,17 +10,16 @@ import { feedHref, notificationHref, signInHref } from "@src/hrefs";
 import { isSpeculative, refuseSpeculation } from "@src/middleware/speculations";
 import { parsePageRequest } from "@src/pagination";
 
-const session = Astro.locals.session;
-if (!session) {
-  return Astro.redirect(signInHref(Astro.url, "notifications"));
-}
-
 if (isSpeculative(Astro.request)) {
   return refuseSpeculation();
 }
 
 const { db } = Astro.locals;
-const { page, unreadCount } = await db.load(db.notifications.show(session.user.id, parsePageRequest(Astro.url)));
+const { page, unreadCount } = await db.load(db.notifications.show(db.viewer, parsePageRequest(Astro.url)));
+const session = await Astro.locals.session();
+if (!session) {
+  return Astro.redirect(signInHref(Astro.url, "notifications"));
+}
 session.user.unreadNotificationCount = unreadCount;
 
 const unreadHrefs = page.items.filter((notification) => !notification.isRead).map(notificationHref);
@@ -28,6 +27,7 @@ const prefetchUrls = [...new Set(unreadHrefs)].slice(0, 3);
 ---
 
 <BaseLayout
+  session={session}
   title="Notifications"
   description="What happened to your reviews, suggestions and followers"
   prefetchUrls={prefetchUrls.length > 0 ? prefetchUrls : [feedHref]}

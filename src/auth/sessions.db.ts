@@ -99,3 +99,5 @@ export function createSessions(client: Client) {
 		},
 	};
 }
+
+export type SessionWithUser = NonNullable<Awaited<ReturnType<ReturnType<typeof createSessions>["open"]>>>;

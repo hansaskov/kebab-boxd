@@ -11,17 +11,18 @@ import { parseId } from "@src/params";
 import { maxPicturesPerReview } from "@src/reviews/reviews";
 import { createReviewSchema } from "@src/reviews/actions";
 
-const session = Astro.locals.session;
+const restaurantId = parseId(Astro.url.searchParams.get("restaurant") ?? undefined);
+const { db } = Astro.locals;
+const { restaurant } = await db.load({
+  restaurant: restaurantId ? db.restaurants.findAllowed(restaurantId, db.viewer, "restaurant:review") : undefined,
+});
+const session = await Astro.locals.session();
 if (!session) {
   return Astro.redirect(signInHref(Astro.url, "write-review"));
 }
-
-const restaurantId = parseId(Astro.url.searchParams.get("restaurant") ?? undefined);
-const { db } = Astro.locals;
-if (!restaurantId) {
+if (!restaurant) {
   return Astro.rewrite(refusalPage["not-found"]);
 }
-const restaurant = await db.load(db.restaurants.findAllowed(restaurantId, session.user.id, "restaurant:review"));
 if (isProblem(restaurant)) {
   return Astro.rewrite(refusalPage[restaurant.problem]);
 }
@@ -31,6 +32,7 @@ const { shape } = createReviewSchema;
 ---
 
 <BaseLayout
+  session={session}
   title={`Review ${restaurant.name}`}
   description={`Write a review of ${restaurant.name}`}
   prefetchUrls={[restaurantHref(restaurant.id)]}

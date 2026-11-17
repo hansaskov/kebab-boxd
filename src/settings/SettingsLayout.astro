@@ -6,7 +6,7 @@ import type { SettingsSection } from "@src/settings/settings";
 import { adminUserHref, settingsHref } from "@src/hrefs";
 import type { Settings } from "@src/settings/settings";
 
-interface Props extends ComponentProps<typeof BaseLayout> {
+interface Props extends Omit<ComponentProps<typeof BaseLayout>, "session"> {
   settings: Settings;
   section: SettingsSection;
 }
@@ -16,7 +16,7 @@ const { session, user, sections } = settings;
 const isOwnAccount = session.user.id === user.id;
 ---
 
-<BaseLayout {...props}>
+<BaseLayout session={session} {...props}>
   <div class="md:grid md:grid-cols-[11rem_minmax(0,1fr)] md:gap-10">
     <nav class="settings-nav" aria-label="Settings">
       <ul>

@@ -4,32 +4,25 @@ import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
 import TabNav from "@src/components/TabNav.astro";
-import { can } from "@src/auth/permissions";
+import { isProblem } from "@src/db/problem";
 import { adminTabs } from "@src/admin/tabs";
 import { maxCitySearchAttempts as maxAttempts } from "@src/cities/city-searches";
 import { parseId } from "@src/params";
 import { successToast } from "@src/actions/toast";
 import { regionAndCountry } from "@src/cities/country";
 import { plural } from "@src/plural";
-import { adminCitiesHref, adminRestaurantsHref, profileHref, signInHref } from "@src/hrefs";
+import { adminCitiesHref, adminRestaurantsHref, profileHref, refusalPage, signInHref } from "@src/hrefs";
 
-const session = Astro.locals.session;
-
+const id = parseId(Astro.params.id);
+const { db } = Astro.locals;
+const { search } = await db.load({ search: id ? db.citySearches.findById(id, db.viewer) : undefined });
+const session = await Astro.locals.session();
 if (!session) {
   return Astro.redirect(signInHref(Astro.url, "admin"));
 }
-
-if (!can(session.user, "admin-console:view")) {
-  return Astro.rewrite("/403");
+if (isProblem(search)) {
+  return Astro.rewrite(refusalPage[search.problem]);
 }
-
-const id = parseId(Astro.params.id);
-if (!id) {
-  return Astro.rewrite("/404");
-}
-
-const { db } = Astro.locals;
-const search = await db.load(db.citySearches.findById(id));
 if (!search) {
   return Astro.rewrite("/404");
 }
@@ -42,6 +35,7 @@ const restaurants = plural(search.restaurantCount, "restaurant");
 ---
 
 <BaseLayout
+  session={session}
   title={`Search of ${search.name}`}
   description={`The search for kebab restaurants in ${search.name}`}
   prefetchUrls={[adminRestaurantsHref(search.id), adminCitiesHref]}

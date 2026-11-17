@@ -3,10 +3,12 @@ import BaseLayout from "@src/layouts/BaseLayout.astro";
 import { homeHref } from "@src/hrefs";
 Astro.response.status = 403
 
-const home = homeHref(Astro.locals.session);
+const session = await Astro.locals.session();
+const home = homeHref(session);
 ---
 
 <BaseLayout
+  session={session}
   title="403: Forbidden"
   description="You do not have permission to open this page"
   prefetchUrls={[home]}

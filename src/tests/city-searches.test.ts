@@ -7,7 +7,7 @@ import * as s from "@src/db/schema";
 import type { Client } from "@src/db/client";
 import type { KebabPlace } from "@src/cities/overpass";
 import { loadSampleCityList } from "@src/tests/cities";
-import { createTestDatabase, insertRestaurant, insertUser, restaurantRow } from "@src/tests/database";
+import { allowed, createTestDatabase, insertRestaurant, insertUser, restaurantRow } from "@src/tests/database";
 
 const odense = { id: 2615876, name: "Odense" };
 const copenhagen = { id: 2618425, name: "Copenhagen" };
@@ -64,7 +64,7 @@ describe("a CitySearch", () => {
 		await startSearch(db, admin.id);
 
 		expect(await db.citySearches.start(admin.id, odense.id, odense.name)).toEqual({ problem: "city-search-running" });
-		const isSearching = async (city: typeof odense) => (await db.citySearches.findCities(city.name, 20)).find((match) => match.id === city.id)?.isSearching;
+		const isSearching = async (city: typeof odense) => allowed(await db.citySearches.findCities(city.name, 20, admin.id)).find((match) => match.id === city.id)?.isSearching;
 		expect({ odense: await isSearching(odense), copenhagen: await isSearching(copenhagen) }).toEqual({ odense: true, copenhagen: false });
 		expect(await startSearch(db, admin.id, copenhagen)).toEqual(expect.any(Number));
 	});

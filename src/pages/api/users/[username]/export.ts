@@ -2,16 +2,13 @@ import type { APIRoute } from "astro";
 import { isProblem } from "@src/db/problem";
 import { refusalPage, signInHref } from "@src/hrefs";
 
-export const GET = (async ({ params, locals: { db, session }, redirect, rewrite }) => {
+export const GET = (async ({ params, locals, redirect, rewrite }) => {
+	const { db } = locals;
+	const { data } = await db.load({ data: params.username ? db.personalData.exportFor(params.username, db.viewer) : undefined });
+	const session = await locals.session();
 	if (!session) {
 		return redirect(signInHref(undefined, "download-data"));
 	}
-
-	if (!params.username) {
-		return rewrite("/404");
-	}
-
-	const data = await db.load(db.personalData.exportFor(params.username, session.user.id));
 	if (isProblem(data)) {
 		return rewrite(refusalPage[data.problem]);
 	}

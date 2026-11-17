@@ -13,6 +13,7 @@ const isOwnAccount = session.user.id === user.id;
 ---
 
 <BaseLayout
+  session={session}
   title="Settings"
   description={`The settings of ${user.fullname}`}
   prefetchUrls={sections.map(({ href }) => href)}

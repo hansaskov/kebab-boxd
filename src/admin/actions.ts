@@ -32,7 +32,8 @@ function banAction(write: "ban" | "unban") {
     input: targetUserSchema,
     handler: async ({ username }, { locals }) => {
       const { db } = locals;
-      const user = orThrow(await db.load(db.users[write](requireSession(locals).user.id, username)));
+      const { user: actor } = await requireSession(locals);
+      const user = orThrow(await db.load(db.users[write](actor.id, username)));
       return { redirect: adminUserHref(user.username) };
     },
   });
@@ -44,7 +45,8 @@ export const adminActions = {
     input: decisionSchema,
     handler: async ({ restaurantId, status }, { locals }) => {
       const { db } = locals;
-      return orThrow(await db.load(db.restaurants.decide(requireSession(locals).user.id, restaurantId, status)));
+      const { user: actor } = await requireSession(locals);
+      return orThrow(await db.load(db.restaurants.decide(actor.id, restaurantId, status)));
     },
   }),
   startCitySearch: defineAction({
@@ -52,7 +54,8 @@ export const adminActions = {
     input: citySearchSchema,
     handler: async ({ cityId, cityName }, { locals }) => {
       const { db } = locals;
-      orThrow(await db.load(db.citySearches.start(requireSession(locals).user.id, cityId, cityName)));
+      const { user: actor } = await requireSession(locals);
+      orThrow(await db.load(db.citySearches.start(actor.id, cityId, cityName)));
     },
   }),
   retryCitySearch: defineAction({
@@ -60,14 +63,16 @@ export const adminActions = {
     input: citySearchTargetSchema,
     handler: async ({ citySearchId }, { locals }) => {
       const { db } = locals;
-      orThrow(await db.load(db.citySearches.retry(requireSession(locals).user.id, citySearchId)));
+      const { user: actor } = await requireSession(locals);
+      orThrow(await db.load(db.citySearches.retry(actor.id, citySearchId)));
     },
   }),
   updateCityList: defineAction({
     accept: "form",
     handler: async (_input, { locals }) => {
       const { db } = locals;
-      orThrow(await db.load(db.cities.requestUpdate(requireSession(locals).user.id)));
+      const { user: actor } = await requireSession(locals);
+      orThrow(await db.load(db.cities.requestUpdate(actor.id)));
     },
   }),
   banUser: banAction("ban"),
@@ -77,7 +82,8 @@ export const adminActions = {
     input: changeUserRoleSchema,
     handler: async ({ username, role }, { locals }) => {
       const { db } = locals;
-      const user = orThrow(await db.load(db.users.setRole(requireSession(locals).user.id, username, role)));
+      const { user: actor } = await requireSession(locals);
+      const user = orThrow(await db.load(db.users.setRole(actor.id, username, role)));
       return { redirect: adminUserHref(user.username) };
     },
   }),

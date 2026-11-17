@@ -11,7 +11,7 @@ import { can } from "@src/auth/permissions";
 import { isProblem } from "@src/db/problem";
 import { successToast } from "@src/actions/toast";
 import { adminTabs } from "@src/admin/tabs";
-import { adminUserHref, settingsHref, signInHref } from "@src/hrefs";
+import { adminUserHref, refusalPage, settingsHref, signInHref } from "@src/hrefs";
 
 const { username } = Astro.params;
 
@@ -19,22 +19,18 @@ if (!username) {
   return Astro.rewrite("/404");
 }
 
-const session = Astro.locals.session;
-
+const { db } = Astro.locals;
+const { user, devices } = await db.load({
+  user: db.users.findInAdminConsole(username, db.viewer),
+  devices: db.sessions.listActive(username, db.viewer),
+});
+const session = await Astro.locals.session();
 if (!session) {
   return Astro.redirect(signInHref(Astro.url, "admin"));
 }
-
-if (!can(session.user, "admin-console:view")) {
-  return Astro.rewrite("/403");
+if (isProblem(user)) {
+  return Astro.rewrite(refusalPage[user.problem]);
 }
-
-const { db } = Astro.locals;
-const { user, devices } = await db.load({
-  user: db.users.findByUsername(username),
-  devices: db.sessions.listActive(username, session.user.id),
-});
-
 if (!user) {
   return Astro.rewrite("/404");
 }
@@ -64,6 +60,7 @@ const toast =
 ---
 
 <BaseLayout
+  session={session}
   title={user.fullname}
   description={`Manage the account of ${user.fullname}`}
   prefetchUrls={["/admin/users", settingsHref(user.username, "profile"), "/admin"]}

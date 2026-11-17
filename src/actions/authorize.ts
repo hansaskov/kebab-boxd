@@ -77,11 +77,12 @@ export function orThrow<T>(result: T): Exclude<T, Problem> {
   return result as Exclude<T, Problem>;
 }
 
-export function requireSession(locals: App.Locals) {
-  if (!locals.session) {
+export async function requireSession(locals: App.Locals) {
+  const session = await locals.session();
+  if (!session) {
     throw new ActionError({ code: "UNAUTHORIZED", message: "You must be signed in." });
   }
-  return locals.session;
+  return session;
 }
 
 export function requirePermission(subject: Subject, permission: "restaurant:suggest") {

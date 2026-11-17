@@ -1,6 +1,6 @@
 import { and, eq, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import type { UserPermission } from "@src/auth/permissions";
-import { authorizedRead, targetUserColumns, writeOnUser } from "@src/db/authorize";
+import { authorizedRead, authorizedSubjectRead, targetUserColumns, writeOnUser } from "@src/db/authorize";
 import { refreshAuthorStats, refreshLikeCounts, refreshRestaurantStats, restaurantsReviewedBy } from "@src/db/cached-stats";
 import type { Client, Transaction } from "@src/db/client";
 import { collectionCount } from "@src/restaurants/collections.db";
@@ -118,11 +118,13 @@ export function createUsers(client: Client, pictures: PictureStore) {
 	}
 
 	return {
-		async findByUsername(username: string) {
-			return client.query.users.findFirst({ with: { profilePicture: { columns: { url: true } } }, where: byUsername(username) });
+		async findInAdminConsole(username: string, viewerId: number | null) {
+			return authorizedSubjectRead(client, viewerId, "admin-console:view", () =>
+				client.query.users.findFirst({ with: { profilePicture: { columns: { url: true } } }, where: byUsername(username) }),
+			);
 		},
 
-		async findAllowed(username: string, viewerId: number, permission: UserPermission) {
+		async findAllowed(username: string, viewerId: number | null, permission: UserPermission) {
 			const user = await client.query.users.findFirst({ with: { profilePicture: { columns: { url: true } } }, where: byUsername(username) });
 			return authorizedRead(client, viewerId, permission, user, async (found) => found);
 		},
@@ -172,27 +174,31 @@ export function createUsers(client: Client, pictures: PictureStore) {
 			}
 		},
 
-		async list(search: string, filter: UserFilter, page: PageRequest) {
-			const users = await newestPages(page, (seek) =>
-				client.query.users.findMany({
-					columns: { id: true, fullname: true, username: true, email: true, role: true, bannedAt: true, createdAt: true },
-					extras: { total: client.$count(s.users, matching(search, filter, s.users)) },
-					...seek({ RAW: (user) => matching(search, filter, user) ?? sql`true` }),
-				}),
-			);
-			return { ...users, total: users.items[0]?.total ?? 0 };
+		async list(search: string, filter: UserFilter, viewerId: number | null, page: PageRequest) {
+			return authorizedSubjectRead(client, viewerId, "admin-console:view", async () => {
+				const users = await newestPages(page, (seek) =>
+					client.query.users.findMany({
+						columns: { id: true, fullname: true, username: true, email: true, role: true, bannedAt: true, createdAt: true },
+						extras: { total: client.$count(s.users, matching(search, filter, s.users)) },
+						...seek({ RAW: (user) => matching(search, filter, user) ?? sql`true` }),
+					}),
+				);
+				return { ...users, total: users.items[0]?.total ?? 0 };
+			});
 		},
 
-		async countByFilter(): Promise<Record<UserFilter, number>> {
-			const counts = await client.query.users.findFirst({
-				columns: {},
-				extras: {
-					all: client.$count(s.users),
-					admin: client.$count(s.users, filterWhere.admin(s.users)),
-					banned: client.$count(s.users, filterWhere.banned(s.users)),
-				},
+		async countByFilter(viewerId: number | null) {
+			return authorizedSubjectRead(client, viewerId, "admin-console:view", async (): Promise<Record<UserFilter, number>> => {
+				const counts = await client.query.users.findFirst({
+					columns: {},
+					extras: {
+						all: client.$count(s.users),
+						admin: client.$count(s.users, filterWhere.admin(s.users)),
+						banned: client.$count(s.users, filterWhere.banned(s.users)),
+					},
+				});
+				return counts ?? { all: 0, admin: 0, banned: 0 };
 			});
-			return counts ?? { all: 0, admin: 0, banned: 0 };
 		},
 
 		async updateProfile(actorId: number, username: string, profile: Profile) {

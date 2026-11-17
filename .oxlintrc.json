@@ -6,7 +6,8 @@
     "oxc"
   ],
   "jsPlugins": [
-    "./tools/oxlint/comments.ts"
+    "./tools/oxlint/comments.ts",
+    "./tools/oxlint/database.ts"
   ],
   "categories": {
     "correctness": "error",
@@ -53,14 +54,17 @@
               "@src/db/*",
               "@src/**/*.db",
               "!@src/db/problem",
-              "!@src/db/remote"
+              "!@src/db/remote",
+              "!@src/db/page-database"
             ],
             "allowTypeImports": true,
             "message": "The Web Worker would load the database and Drizzle with it. Import its types, or move the value to the .ts module beside the .db.ts one."
           }
         ]
       }
-    ]
+    ],
+    "database/one-load": "error",
+    "database/load-in-pages": "error"
   },
   "overrides": [
     {
@@ -118,6 +122,15 @@
       ],
       "rules": {
         "typescript/triple-slash-reference": "off"
+      }
+    },
+    {
+      "files": [
+        "src/middleware/**",
+        "src/db/**"
+      ],
+      "rules": {
+        "database/one-load": "off"
       }
     }
   ],

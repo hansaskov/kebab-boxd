@@ -24,8 +24,6 @@ if (!username) {
   return Astro.rewrite("/404");
 }
 
-const viewer = Astro.locals.session?.user ?? null;
-const viewerId = viewer?.id ?? null;
 const { db } = Astro.locals;
 
 const profileTabs = ["reviews", "favorites", "bucket-list", "followers", "following", "requests"] as const;
@@ -35,14 +33,16 @@ const pageRequest = parsePageRequest(Astro.url);
 const requestedTab = parseOption(Astro.url.searchParams, "tab", profileTabs, "reviews");
 const asks = (option: ProfileTab) => requestedTab === option;
 const loaded = await db.load({
-  user: db.users.findProfile(username, viewerId),
-  reviews: asks("reviews") ? db.reviews.listOnProfile(username, viewerId, pageRequest) : undefined,
-  favorites: asks("favorites") ? db.collections.list(username, "favorites", viewerId, pageRequest) : undefined,
-  bucketList: asks("bucket-list") ? db.collections.list(username, "bucketList", viewerId, pageRequest) : undefined,
-  followers: asks("followers") ? db.follows.listFollowers(username, viewerId, pageRequest) : undefined,
-  following: asks("following") ? db.follows.listFollowing(username, viewerId, pageRequest) : undefined,
-  requests: asks("requests") ? db.follows.listRequests(username, viewerId, pageRequest) : undefined,
+  user: db.users.findProfile(username, db.viewer),
+  reviews: asks("reviews") ? db.reviews.listOnProfile(username, db.viewer, pageRequest) : undefined,
+  favorites: asks("favorites") ? db.collections.list(username, "favorites", db.viewer, pageRequest) : undefined,
+  bucketList: asks("bucket-list") ? db.collections.list(username, "bucketList", db.viewer, pageRequest) : undefined,
+  followers: asks("followers") ? db.follows.listFollowers(username, db.viewer, pageRequest) : undefined,
+  following: asks("following") ? db.follows.listFollowing(username, db.viewer, pageRequest) : undefined,
+  requests: asks("requests") ? db.follows.listRequests(username, db.viewer, pageRequest) : undefined,
 });
+const session = await Astro.locals.session();
+const viewer = session?.user ?? null;
 const { user } = loaded;
 
 if (!user) {
@@ -103,6 +103,7 @@ const layout = canView
   : { title: "Account suspended", description: "This account has been suspended", prefetchUrls: [feedHref] };
 ---
 <BaseLayout
+  session={session}
   {...layout}
   toast={successToast(Astro.locals, actions.reviews.delete, { title: "Review deleted", text: "The review and its pictures are deleted." })}
 >

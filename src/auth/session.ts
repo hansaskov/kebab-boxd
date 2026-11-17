@@ -2,7 +2,7 @@ import type { AstroCookies } from "astro";
 import { generateSecureRandomString, hashSecret } from "@src/auth/hash";
 import { inactivityTimeoutSeconds } from "@src/privacy/retention";
 import type { Database } from "@src/db";
-import type { RemoteDatabase } from "@src/db/remote";
+import type { SessionWithUser } from "@src/auth/sessions.db";
 
 export const sessionCookieName = "__Host-session";
 
@@ -30,14 +30,11 @@ export function startSession(cookies: AstroCookies, token: string) {
 	setCookie(cookies, token, new Date(Date.now() + inactivityTimeoutSeconds * 1000));
 }
 
-export async function readSession(cookies: AstroCookies, db: RemoteDatabase, { takeActionOutcome }: { takeActionOutcome: boolean }) {
-	const token = cookies.get(sessionCookieName)?.value;
-	if (!token) return null;
-
-	const session = await db.load(db.sessions.open(token, { takeActionOutcome }));
-	if (session) setCookie(cookies, token, new Date(session.lastVerifiedAt.getTime() + inactivityTimeoutSeconds * 1000));
-	else setCookie(cookies, "", new Date(0));
-	return session;
+export function sessionTokenOf(cookies: AstroCookies) {
+	return cookies.get(sessionCookieName)?.value;
 }
 
-export type SessionWithUser = Awaited<ReturnType<typeof readSession>>;
+export function keepSessionCookie(cookies: AstroCookies, token: string, session: SessionWithUser | null) {
+	if (session) setCookie(cookies, token, new Date(session.lastVerifiedAt.getTime() + inactivityTimeoutSeconds * 1000));
+	else setCookie(cookies, "", new Date(0));
+}

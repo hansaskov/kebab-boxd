@@ -14,17 +14,16 @@ import { parseId } from "@src/params";
 import { maxPicturesPerReview } from "@src/reviews/reviews";
 import { updateReviewSchema } from "@src/reviews/actions";
 
-const session = Astro.locals.session;
+const id = parseId(Astro.params.id);
+const { db } = Astro.locals;
+const { review } = await db.load({ review: id ? db.reviews.findAllowed(id, db.viewer, "review:edit") : undefined });
+const session = await Astro.locals.session();
 if (!session) {
   return Astro.redirect(signInHref(Astro.url, "edit-review"));
 }
-
-const id = parseId(Astro.params.id);
-const { db } = Astro.locals;
-if (!id) {
+if (!review) {
   return Astro.rewrite(refusalPage["not-found"]);
 }
-const review = await db.load(db.reviews.findAllowed(id, session.user.id, "review:edit"));
 if (isProblem(review)) {
   return Astro.rewrite(refusalPage[review.problem]);
 }
@@ -34,6 +33,7 @@ const { shape } = updateReviewSchema;
 ---
 
 <BaseLayout
+  session={session}
   title={`Edit review of ${review.restaurant.name}`}
   description={`Change your review of ${review.restaurant.name}`}
   prefetchUrls={[reviewHref(review.id), restaurantHref(review.restaurant.id)]}

@@ -14,8 +14,6 @@ import type { City } from "@src/cities/cities.db";
 import { noCityText } from "@src/cities/geonames";
 import { firstPageHref, parsePageRequest, type Page, type PageRequest } from "@src/pagination";
 
-const viewer = Astro.locals.session?.user ?? null;
-
 const search = parseSearch(Astro.url.searchParams);
 const type = parseOption(Astro.url.searchParams, "type", searchTypes, "all");
 const restaurantSort = type === "restaurants" ? parseOption(Astro.url.searchParams, "sort", restaurantSorts, restaurantSorts[0]) : restaurantSorts[0];
@@ -31,8 +29,10 @@ const { db } = Astro.locals;
 const loaded = await db.load({
   cities: shows("cities") && search ? db.cities.list(search, request) : undefined,
   restaurants: shows("restaurants") ? db.restaurants.list(search, restaurantSort, request) : undefined,
-  people: shows("people") ? db.users.search(search, personSort, viewer?.id ?? null, request) : undefined,
+  people: shows("people") ? db.users.search(search, personSort, db.viewer, request) : undefined,
 });
+const session = await Astro.locals.session();
+const viewer = session?.user ?? null;
 const cityPage = shows("cities") ? (loaded.cities ?? noCities) : undefined;
 const { restaurants: restaurantPage, people: personPage } = loaded;
 
@@ -77,6 +77,7 @@ const personSortTabs = sortTab(personSorts, personSort, {
 ---
 
 <BaseLayout
+  session={session}
   title="Search"
   description="Search for cities, kebab restaurants and people on Kebab Boxd"
   prefetchUrls={typeTabs.filter((tab) => !tab.current).map((tab) => tab.href)}

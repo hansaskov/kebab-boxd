@@ -2,9 +2,10 @@ import { Bell, Download, MapPin, Shield, UserRound } from "@lucide/astro";
 import type { AstroGlobal } from "astro";
 import { can, type UserPermission } from "@src/auth/permissions";
 import { refusalPage, settingsHref, signInHref } from "@src/hrefs";
-import { isProblem } from "@src/db/problem";
+import { isProblem, type Refused } from "@src/db/problem";
+import type { SessionWithUser } from "@src/auth/sessions.db";
 import type { Database } from "@src/db";
-import type { Loaded, Queries, RemoteDatabase } from "@src/db/remote";
+import type { Loaded, PageDatabase, Queries } from "@src/db/remote";
 
 export const settingsSections = ["profile", "location", "notifications", "security", "data"] as const;
 
@@ -18,11 +19,10 @@ export const settingsSectionDetails: Record<SettingsSection, { label: string; ic
 	data: { label: "Your data", icon: Download, permission: "user:export-data" },
 };
 
-type Session = NonNullable<App.Locals["session"]>;
-type User = NonNullable<Awaited<ReturnType<Database["users"]["findByUsername"]>>>;
+type User = Exclude<Awaited<ReturnType<Database["users"]["findAllowed"]>>, Refused | undefined>;
 
 export interface Settings {
-	session: Session;
+	session: SessionWithUser;
 	user: User;
 	sections: { section: SettingsSection; label: string; icon: (typeof settingsSectionDetails)[SettingsSection]["icon"]; href: string }[];
 }
@@ -31,7 +31,7 @@ const overviewPermission: UserPermission = "user:edit-settings";
 
 interface SettingsOptions<Q extends Queries> {
 	canonicalHref?: (username: string) => string;
-	load?: (db: RemoteDatabase, username: string, viewerId: number) => Q;
+	load?: (db: PageDatabase, username: string) => Q;
 }
 
 export async function openSettings<Q extends Queries = Record<never, never>>(
@@ -42,11 +42,11 @@ export async function openSettings<Q extends Queries = Record<never, never>>(
 	const { username } = Astro.params;
 	if (!username) return Astro.rewrite("/404");
 
-	const { session, db } = Astro.locals;
-	if (!session) return Astro.redirect(signInHref(Astro.url, "settings"));
-
+	const { db } = Astro.locals;
 	const permission = section ? settingsSectionDetails[section].permission : overviewPermission;
-	const { user, ...loaded } = await db.load({ ...load?.(db, username, session.user.id), user: db.users.findAllowed(username, session.user.id, permission) });
+	const { user, ...loaded } = await db.load({ ...load?.(db, username), user: db.users.findAllowed(username, db.viewer, permission) });
+	const session = await Astro.locals.session();
+	if (!session) return Astro.redirect(signInHref(Astro.url, "settings"));
 	if (isProblem(user)) return Astro.rewrite(refusalPage[user.problem]);
 
 	if (user.username !== username) return Astro.redirect(`${canonicalHref(user.username)}${Astro.url.search}`, 301);

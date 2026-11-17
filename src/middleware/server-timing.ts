@@ -17,14 +17,14 @@ export function measuringDatabase(rpc: DatabaseRpc) {
 	let wokeUp = false;
 
 	const measured: DatabaseRpc = {
-		async call(batch) {
-			calls += batch.length;
+		async call(request) {
+			calls += request.calls.length;
 			if (running++ === 0) {
 				trips++;
 				waitingSince = performance.now();
 			}
 			try {
-				const reply = await rpc.call(batch);
+				const reply = await rpc.call(request);
 				wokeUp ||= reply.wokeUp;
 				return reply;
 			} finally {

@@ -1,5 +1,5 @@
 import { and, eq, gt, sql } from "drizzle-orm";
-import { authorizedSubjectWrite } from "@src/db/authorize";
+import { authorizedSubjectRead, authorizedSubjectWrite } from "@src/db/authorize";
 import { maxCitySearchAttempts } from "@src/cities/city-searches";
 import { findCity, searchCities, type City } from "@src/cities/cities.db";
 import type { Client, Transaction } from "@src/db/client";
@@ -62,6 +62,23 @@ const listColumns = {
 } as const;
 
 export function createCitySearches(client: Client, wake: () => void) {
+	const findSearch = async (id: number) => {
+		const search = await client.query.citySearches.findFirst({
+			...listColumns,
+			with: {
+				...listColumns.with,
+				events: { columns: { id: true, isError: true, message: true, createdAt: true }, orderBy: { id: "desc" }, limit: maxEventsShown },
+			},
+			where: { id },
+		});
+		if (!search) return undefined;
+		const retryingCandidateCount = await client.$count(
+			s.citySearchCandidates,
+			and(eq(s.citySearchCandidates.citySearchId, id), gt(s.citySearchCandidates.attempts, 0)),
+		);
+		return { ...search, retryingCandidateCount };
+	};
+
 	return {
 		async start(actorId: number, cityId: number, cityName: string): Promise<{ id: number } | Problem> {
 			const result = authorizedSubjectWrite(client, actorId, "city-search:start", (tx): { id: number } | Problem => {
@@ -103,36 +120,27 @@ export function createCitySearches(client: Client, wake: () => void) {
 			return result;
 		},
 
-		async findCities(query: string, limit: number): Promise<(City & { isSearching: boolean })[]> {
-			const cities = searchCities(client, query, limit);
-			if (cities.length === 0) return [];
-			const running = await client.query.citySearches.findMany({
-				columns: { cityId: true },
-				where: { cityId: { in: cities.map((city) => city.id) }, status: { in: [...runningStatuses] } },
+		async findCities(query: string, limit: number, viewerId: number | null) {
+			return authorizedSubjectRead(client, viewerId, "admin-console:view", async (): Promise<(City & { isSearching: boolean })[]> => {
+				const cities = searchCities(client, query, limit);
+				if (cities.length === 0) return [];
+				const running = await client.query.citySearches.findMany({
+					columns: { cityId: true },
+					where: { cityId: { in: cities.map((city) => city.id) }, status: { in: [...runningStatuses] } },
+				});
+				const runningIds = new Set(running.map((search) => search.cityId));
+				return cities.map((city) => ({ ...city, isSearching: runningIds.has(city.id) }));
 			});
-			const runningIds = new Set(running.map((search) => search.cityId));
-			return cities.map((city) => ({ ...city, isSearching: runningIds.has(city.id) }));
 		},
 
-		async list(page: PageRequest) {
-			return pages(page, (seek) => client.query.citySearches.findMany({ ...listColumns, ...seek({}) }));
-		},
-
-		async findById(id: number) {
-			const search = await client.query.citySearches.findFirst({
-				...listColumns,
-				with: {
-					...listColumns.with,
-					events: { columns: { id: true, isError: true, message: true, createdAt: true }, orderBy: { id: "desc" }, limit: maxEventsShown },
-				},
-				where: { id },
-			});
-			if (!search) return undefined;
-			const retryingCandidateCount = await client.$count(
-				s.citySearchCandidates,
-				and(eq(s.citySearchCandidates.citySearchId, id), gt(s.citySearchCandidates.attempts, 0)),
+		async list(viewerId: number | null, page: PageRequest) {
+			return authorizedSubjectRead(client, viewerId, "admin-console:view", () =>
+				pages(page, (seek) => client.query.citySearches.findMany({ ...listColumns, ...seek({}) })),
 			);
-			return { ...search, retryingCandidateCount };
+		},
+
+		async findById(id: number, viewerId: number | null) {
+			return authorizedSubjectRead(client, viewerId, "admin-console:view", () => findSearch(id));
 		},
 
 		async nextSearch() {

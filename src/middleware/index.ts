@@ -1,6 +1,7 @@
 import { env, waitUntil } from "cloudflare:workers";
+import type { APIContext } from "astro";
 import { Resource } from "sst/resource";
-import { readSession } from "@src/auth/session";
+import { keepSessionCookie, sessionTokenOf } from "@src/auth/session";
 import { defineMiddleware, sequence } from "astro:middleware";
 import { getActionContext } from "astro:actions";
 import { withChangedHeaders } from "@src/middleware/headers";
@@ -9,7 +10,8 @@ import { withSecurityHeaders } from "@src/middleware/security-headers";
 import { answerFormOfVisitor, formPage } from "@src/middleware/forms";
 import { isSpeculative, redirectClearingSpeculations } from "@src/middleware/speculations";
 import { visitorCacheOf } from "@src/middleware/visitor-cache";
-import { connectDatabase, loadingOnce, type DatabaseRpc } from "@src/db/remote";
+import { connectDatabase, type DatabaseRpc } from "@src/db/remote";
+import { connectPage, openSession, type PageSession } from "@src/db/page-database";
 import { picturePathPrefix } from "@src/pictures/store";
 import { toOutcome } from "@src/actions/outcome";
 
@@ -25,39 +27,53 @@ function databaseRpc(): DatabaseRpc {
 	return env.Database ? env.Database.getByName("main") : (Resource.Backend as unknown as DatabaseRpc);
 }
 
+function pageSessionOf(context: APIContext, token: string | undefined): PageSession {
+	if (!token) return { opened: null };
+	return {
+		toOpen: { token, takeActionOutcome: context.request.method === "GET" && isPage(context.routePattern) },
+		onOpened: (session) => {
+			keepSessionCookie(context.cookies, token, session);
+			if (session?.actionOutcome) context.locals.actionOutcome = session.actionOutcome;
+		},
+	};
+}
+
 const sessionMiddleware = defineMiddleware(async (context, next) => {
 	if (context.isPrerendered) return next();
 
 	const requestedAt = new Date();
 	const measured = measuringDatabase(databaseRpc());
 	const db = connectDatabase(measured.rpc);
-	context.locals.db = loadingOnce(db);
 	const timed = (response: Response) => withChangedHeaders(response, (headers) => headers.append("Server-Timing", measured.header()));
-
-	const session = await readSession(context.cookies, db, { takeActionOutcome: context.request.method === "GET" });
-	context.locals.session = session;
+	const token = sessionTokenOf(context.cookies);
 
 	const { action } = getActionContext(context);
-	const sentFrom = () => formPage(context.request, context.url.origin, context.originPathname);
-
-	if (!session) return timed(action?.calledFrom === "form" ? answerFormOfVisitor(sentFrom()) : await next());
-
 	if (action?.calledFrom === "form") {
+		const sentFrom = formPage(context.request, context.url.origin, context.originPathname);
+		const session = token ? await openSession(measured.rpc, { token, takeActionOutcome: false }) : null;
+		if (token) keepSessionCookie(context.cookies, token, session);
+		if (!session) return timed(answerFormOfVisitor(sentFrom));
+
+		const page = connectPage(measured.rpc, { opened: session });
+		context.locals.db = page.db;
+		context.locals.session = page.session;
+
 		const submitted = context.request.clone();
 		const { data, error } = await action.handler();
 		await db.load(db.sessions.setActionData(session.id, await toOutcome(action.name, data, error, submitted)));
 
 		const location = !error && hasRedirect(data) ? data.redirect : undefined;
-		return timed(redirectClearingSpeculations(location ?? sentFrom()));
+		return timed(redirectClearingSpeculations(location ?? sentFrom));
 	}
 
-	if (session.actionOutcome) context.locals.actionOutcome = session.actionOutcome;
+	const page = connectPage(measured.rpc, pageSessionOf(context, token));
+	context.locals.db = page.db;
+	context.locals.session = page.session;
 
 	const response = timed(await next());
 
-	if (isPage(context.routePattern)) {
+	if (token && isPage(context.routePattern)) {
 		const entry = {
-			sessionId: session.id,
 			requestedAt,
 			method: context.request.method,
 			route: context.routePattern,
@@ -67,8 +83,14 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 			prefetched: isSpeculative(context.request),
 		};
 
+		const recordHistory = async () => {
+			const opened = page.openedSession();
+			const session = opened === undefined ? await openSession(measured.rpc, { token, takeActionOutcome: false }) : opened;
+			if (session) await db.load(db.history.record({ ...entry, sessionId: session.id }));
+		};
+
 		waitUntil(
-			db.load(db.history.record(entry)).catch((error: unknown) => {
+			recordHistory().catch((error: unknown) => {
 				console.error("Could not record history entry", entry, error);
 			}),
 		);

@@ -6,19 +6,13 @@ import TabNav from "@src/components/TabNav.astro";
 import { searchHref } from "@src/hrefs";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
 import { parseOption } from "@src/params";
+import { feeds, type Feed } from "@src/reviews/reviews";
 
-const session = Astro.locals.session;
-const viewer = session?.user ?? null;
 const { db } = Astro.locals;
-const pageRequest = parsePageRequest(Astro.url);
-
-const feeds = ["following", "everyone"] as const;
-type Feed = (typeof feeds)[number];
-
-const feed: Feed = session ? parseOption(Astro.url.searchParams, "feed", feeds, "following") : "everyone";
-const page = await db.load(
-  session && feed === "following" ? db.reviews.listFollowed(session.user.id, pageRequest) : db.reviews.listEveryone(viewer?.id ?? null, pageRequest),
-);
+const requested = parseOption(Astro.url.searchParams, "feed", feeds, "following");
+const { feed, page } = await db.load(db.reviews.listFeed(requested, db.viewer, parsePageRequest(Astro.url)));
+const session = await Astro.locals.session();
+const viewer = session?.user ?? null;
 
 const feedHref = (option: Feed) => firstPageHref(Astro.url, { feed: option === "following" ? undefined : option });
 const tabs = [
@@ -28,6 +22,7 @@ const tabs = [
 ---
 
 <BaseLayout
+  session={session}
   title="Feed"
   description={session ? "Reviews from the people you follow" : "The latest reviews of kebab restaurants"}
   prefetchUrls={[...(session ? [feedHref(feed === "following" ? "everyone" : "following")] : []), "/explore", searchHref()]}

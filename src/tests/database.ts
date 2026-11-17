@@ -3,6 +3,7 @@ import { drizzle } from "drizzle-orm/node-sqlite";
 import { migrate } from "drizzle-orm/node-sqlite/migrator";
 import { onTestFinished } from "vitest";
 import { createSession, findSession } from "@src/auth/session";
+import type { SessionWithUser } from "@src/auth/sessions.db";
 import { createDatabase } from "@src/db";
 import type { Database } from "@src/db";
 import type { Client } from "@src/db/client";
@@ -32,10 +33,13 @@ export function insertUser(client: Client, username: string, role: "user" | "adm
 		.get();
 }
 
-export async function signIn(db: Database, userId: number) {
-	const session = await findSession(db, (await createSession(db, userId)).token);
+export type TestSession = SessionWithUser & { token: string };
+
+export async function signIn(db: Database, userId: number): Promise<TestSession> {
+	const { token } = await createSession(db, userId);
+	const session = await findSession(db, token);
 	if (!session) throw new Error(`User ${userId} could not sign in.`);
-	return session;
+	return { ...session, token };
 }
 
 export function setLastVerifiedAt(client: Client, sessionId: string, lastVerifiedAt: Date) {

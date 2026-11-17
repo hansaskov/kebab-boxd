@@ -8,7 +8,7 @@ import { settingsSectionDetails, type SettingsSection } from "@src/settings/sett
 import { feedHref, settingsHref, signInHref } from "@src/hrefs";
 import { finishedSuggestionRetentionSeconds, historyRetentionSeconds, inactivityTimeoutSeconds } from "@src/privacy/retention";
 
-const session = Astro.locals.session;
+const session = await Astro.locals.session();
 
 const days = (seconds: number) => `${seconds / (60 * 60 * 24)} days`;
 const minutes = (seconds: number) => `${seconds / 60} minutes`;
@@ -30,6 +30,7 @@ const rights: { text: string; section: SettingsSection }[] = [
 ---
 
 <BaseLayout
+  session={session}
   title="Privacy"
   description="How Kebab Boxd uses your personal data"
   prefetchUrls={session ? [feedHref, settingsHref(session.user.username, "data")] : [signInHref()]}

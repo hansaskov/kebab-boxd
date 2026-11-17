@@ -6,35 +6,32 @@ import PagedSection from "@src/components/PagedSection.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
 import SearchForm from "@src/components/SearchForm.astro";
 import TabNav from "@src/components/TabNav.astro";
-import { can } from "@src/auth/permissions";
+import { isProblem } from "@src/db/problem";
 import { adminTabs } from "@src/admin/tabs";
 import type { CitySearchStatus } from "@src/db/schema";
 import { successToast } from "@src/actions/toast";
 import { noCityText } from "@src/cities/geonames";
 import { regionAndCountry } from "@src/cities/country";
 import { plural } from "@src/plural";
-import { adminCitySearchHref, adminRestaurantsHref, profileHref, signInHref } from "@src/hrefs";
+import { adminCitySearchHref, adminRestaurantsHref, profileHref, refusalPage, signInHref } from "@src/hrefs";
 import { parsePageRequest } from "@src/pagination";
 import { parseSearch } from "@src/params";
-
-const session = Astro.locals.session;
-
-if (!session) {
-  return Astro.redirect(signInHref(Astro.url, "admin"));
-}
-
-if (!can(session.user, "admin-console:view")) {
-  return Astro.rewrite("/403");
-}
 
 const maxResults = 20;
 const query = parseSearch(Astro.url.searchParams);
 const { db } = Astro.locals;
 const { list, results = [], searches } = await db.load({
-  list: db.cities.status(),
-  results: query ? db.citySearches.findCities(query, maxResults) : undefined,
-  searches: db.citySearches.list(parsePageRequest(Astro.url)),
+  list: db.cities.status(db.viewer),
+  results: query ? db.citySearches.findCities(query, maxResults, db.viewer) : undefined,
+  searches: db.citySearches.list(db.viewer, parsePageRequest(Astro.url)),
 });
+const session = await Astro.locals.session();
+if (!session) {
+  return Astro.redirect(signInHref(Astro.url, "admin"));
+}
+if (isProblem(list) || isProblem(results) || isProblem(searches)) {
+  return Astro.rewrite(refusalPage.forbidden);
+}
 
 const people = new Intl.NumberFormat("en");
 type SearchRow = { status: CitySearchStatus; attempts: number; restaurantCount: number; candidateCount: number };
@@ -60,6 +57,7 @@ const toast =
 ---
 
 <BaseLayout
+  session={session}
   title="Cities"
   description="Find the kebab restaurants of a city"
   prefetchUrls={[adminRestaurantsHref()]}

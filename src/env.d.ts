@@ -2,8 +2,8 @@
 
 declare namespace App {
 	interface Locals {
-		db: import("@src/db/remote").RemoteDatabase;
-		session: import("@src/auth/session").SessionWithUser;
+		db: import("@src/db/remote").PageDatabase;
+		session: () => Promise<import("@src/auth/sessions.db").SessionWithUser | null>;
 		actionOutcome?: import("@src/actions/outcome").ActionOutcome | undefined;
 	}
 }

@@ -98,7 +98,7 @@ describe("deleting an account", () => {
 
 		await db.users.delete(ada.id, ada.username);
 
-		expect(await db.users.findByUsername("ada")).toBeUndefined();
+		expect(await db.users.findProfile("ada", null)).toBeUndefined();
 		for (const table of [s.sessions, s.accounts, s.likes, s.followers, s.followRequests, s.favorites, s.bucketList, s.notifications]) {
 			expect(await client.$count(table)).toBe(0);
 		}

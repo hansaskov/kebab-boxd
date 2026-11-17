@@ -28,6 +28,10 @@ export function parseMapView(params: URLSearchParams, fallbackZoom: number): Map
 	return { center: { latitude, longitude }, zoom: clampZoom(parseNumber(params, "zoom", 100) ?? fallbackZoom) };
 }
 
+export function homeOf({ latitude, longitude }: { latitude: number | null; longitude: number | null }): Coordinates | undefined {
+	return latitude !== null && longitude !== null ? { latitude, longitude } : undefined;
+}
+
 type CityPlace = Coordinates & { population: number };
 
 export function cityBounds(city: CityPlace): Bounds {

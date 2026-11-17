@@ -138,7 +138,8 @@ function toNotification(row: Row): Notification {
 
 export function createNotifications(client: Client) {
 	return {
-		async show(recipientId: number, page: PageRequest): Promise<{ page: Page<Notification>; unreadCount: number }> {
+		async show(recipientId: number | null, page: PageRequest): Promise<{ page: Page<Notification>; unreadCount: number }> {
+			if (recipientId === null) return { page: { items: [], previous: undefined, next: undefined, isPastEnd: false }, unreadCount: 0 };
 			const rows = await pages(page, listRows(client, recipientId));
 			const shownUnread = rows.items.filter((row) => row.readAt === null).map((row) => row.id);
 			if (shownUnread.length > 0) {

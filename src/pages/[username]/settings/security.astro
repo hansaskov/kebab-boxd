@@ -9,7 +9,7 @@ import { isProblem } from "@src/db/problem";
 import { openSettings, otherSectionHrefs } from "@src/settings/settings";
 
 const settings = await openSettings(Astro, "security", {
-  load: (db, username, viewerId) => ({ devices: db.sessions.listActive(username, viewerId) }),
+  load: (db, username) => ({ devices: db.sessions.listActive(username, db.viewer) }),
 });
 if (settings instanceof Response) {
   return settings;

@@ -1,5 +1,8 @@
+import { readdirSync } from "node:fs";
+import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import type { Database } from "@src/db";
+import type { DatabaseRequest } from "@src/db/remote";
 import AdminPage from "@src/pages/admin/index.astro";
 import AdminCitiesPage from "@src/pages/admin/cities/index.astro";
 import AdminCitySearchPage from "@src/pages/admin/cities/searches/[id].astro";
@@ -29,32 +32,6 @@ import SessionPage from "@src/pages/[username]/settings/sessions/[sessionId].ast
 import { loadSampleCityList } from "@src/tests/cities";
 import { renderPage } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertUser, signIn, writeReview } from "@src/tests/database";
-
-function countingTrips(db: Database) {
-	let running = 0;
-	const trips: string[][] = [];
-	const areas = Object.entries(db).map(([area, methods]) => {
-		if (typeof methods !== "object" || methods === null) return [area, methods];
-		const counted = Object.entries(methods).map(([method, fn]) => {
-			if (typeof fn !== "function") return [method, fn];
-			return [
-				method,
-				async (...args: unknown[]) => {
-					if (running === 0) trips.push([]);
-					trips.at(-1)!.push(`${area}.${method}`);
-					running++;
-					try {
-						return await (fn as (...args: unknown[]) => Promise<unknown>)(...args);
-					} finally {
-						running--;
-					}
-				},
-			];
-		});
-		return [area, Object.fromEntries(counted)];
-	});
-	return { db: Object.fromEntries(areas) as Database, trips };
-}
 
 async function setUp() {
 	const { client, db } = createTestDatabase();
@@ -160,16 +137,38 @@ const pagesOf: Record<"visitor" | keyof Fixture["sessions"], PageCase[]> = {
 
 const cases = Object.entries(pagesOf).flatMap(([who, pages]) => pages.map((page) => [`${who} ${page.path}`, { who, ...page }] as const));
 
+const root = fileURLToPath(new URL("../..", import.meta.url));
+const errorPage = /^src\/pages\/\d{3}\.astro$/;
+
+function pageFiles() {
+	return readdirSync(join(root, "src", "pages"), { recursive: true, encoding: "utf8" })
+		.filter((path) => path.endsWith(".astro"))
+		.map((path) => join("src", "pages", path))
+		.filter((path) => !errorPage.test(path));
+}
+
+function fileOf(page: Page) {
+	return relative(root, (page as unknown as { moduleId: string }).moduleId);
+}
+
 describe("every page", () => {
-	it.each(cases)("waits for the database once after the session: %s", async (_name, { who, page, path, params }) => {
+	it("is among the pages whose trips are counted", () => {
+		const counted = new Set(Object.values(pagesOf).flatMap((pages) => pages.map(({ page }) => fileOf(page))));
+
+		expect(pageFiles().filter((path) => !counted.has(path))).toEqual([]);
+	});
+
+	it.each(cases)("waits for the database once, with its session: %s", async (_name, { who, page, path, params }) => {
 		const fixture = await setUp();
-		const { db, trips } = countingTrips(fixture.db);
+		const trips: DatabaseRequest[] = [];
 		const session = who === "visitor" ? null : fixture.sessions[who as keyof Fixture["sessions"]];
 		const filledParams = Object.fromEntries(Object.entries(params ?? {}).map(([name, value]) => [name, fill(value, fixture)]));
 
-		const { response } = await renderPage(page, { db, session }, fill(path, fixture), filledParams);
+		const { response } = await renderPage(page, { db: fixture.db, session, onTrip: (trip) => trips.push(trip) }, fill(path, fixture), filledParams);
 
+		const calls = trips.map((trip) => trip.calls.map(({ area, method }) => `${area}.${method}`));
 		expect(response.status).toBeLessThan(400);
-		expect(trips.length, `the trips: ${JSON.stringify(trips)}`).toBeLessThanOrEqual(1);
+		expect(trips.length, `the trips: ${JSON.stringify(calls)}`).toBeLessThanOrEqual(1);
+		if (session) expect(trips[0]?.session?.token).toBe(session.token);
 	});
 });

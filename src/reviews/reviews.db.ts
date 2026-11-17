@@ -13,7 +13,7 @@ import type { Review } from "@src/db/schema";
 import { isListedReview, isListedReviewFor, isPublicReview, ofViewer, reviewAuthor } from "@src/db/visibility";
 import type { PageItem, PageRequest } from "@src/pagination";
 import type { PictureStore } from "@src/pictures/store";
-import { maxPicturesPerReview } from "@src/reviews/reviews";
+import { maxPicturesPerReview, type Feed } from "@src/reviews/reviews";
 
 export type ReviewContent = Pick<Review, "rating" | "description">;
 
@@ -67,6 +67,9 @@ function attachAddedPictures(tx: Transaction, changes: PictureChanges, reviewId:
 export function createReviews(client: Client, pictures: PictureStore) {
 	const list = (viewerId: number | null, where: Filter<"reviews">, page: PageRequest) =>
 		pages(page, (seek) => client.query.reviews.findMany({ ...reviewCard(viewerId), ...seek(where) }));
+	const listEveryone = (viewerId: number | null, page: PageRequest) => list(viewerId, listedTo(viewerId), page);
+	const listFollowed = (viewerId: number, page: PageRequest) =>
+		list(viewerId, { ...listedTo(viewerId), author: { followers: { followerId: viewerId } } }, page);
 
 	return {
 		async findById(id: number, viewerId: number | null) {
@@ -78,12 +81,12 @@ export function createReviews(client: Client, pictures: PictureStore) {
 			return authorizedRead(client, viewerId, permission, review, async (found) => found);
 		},
 
-		async listEveryone(viewerId: number | null, page: PageRequest) {
-			return list(viewerId, listedTo(viewerId), page);
-		},
+		listEveryone,
+		listFollowed,
 
-		async listFollowed(viewerId: number, page: PageRequest) {
-			return list(viewerId, { ...listedTo(viewerId), author: { followers: { followerId: viewerId } } }, page);
+		async listFeed(requested: Feed, viewerId: number | null, page: PageRequest) {
+			if (viewerId === null || requested === "everyone") return { feed: "everyone" as Feed, page: await listEveryone(viewerId, page) };
+			return { feed: requested, page: await listFollowed(viewerId, page) };
 		},
 
 		async listByRestaurant(restaurantId: number, viewerId: number | null, page: PageRequest) {

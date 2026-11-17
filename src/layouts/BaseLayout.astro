@@ -9,8 +9,10 @@ import SpeculationsAPI from "@src/components/SpeculationsAPI.astro";
 import { can } from "@src/auth/permissions";
 import { failureToast } from "@src/actions/toast";
 import { feedHref, homeHref, profileHref, searchHref, settingsHref, signInHref } from "@src/hrefs";
+import type { SessionWithUser } from "@src/auth/sessions.db";
 
 interface Props extends ComponentProps<typeof SpeculationsAPI> {
+  session: SessionWithUser | null;
   title: string;
   description: string;
   preview?: string;
@@ -20,9 +22,8 @@ interface Props extends ComponentProps<typeof SpeculationsAPI> {
   refreshSeconds?: number | undefined;
 }
 
-const { session } = Astro.locals;
-const user = session?.user;
 const {
+  session,
   title,
   description,
   preview = "/preview.webp",
@@ -32,6 +33,7 @@ const {
   class: className,
   ...props
 } = Astro.props;
+const user = session?.user;
 
 const { pathname, search } = Astro.url;
 const pageUrl = new URL(`${pathname}${search}`, Astro.site ?? Astro.url);

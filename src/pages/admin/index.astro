@@ -1,25 +1,22 @@
 ---
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import TabNav from "@src/components/TabNav.astro";
-import { can } from "@src/auth/permissions";
+import { isProblem } from "@src/db/problem";
 import { adminTabs } from "@src/admin/tabs";
-import { signInHref } from "@src/hrefs";
-
-const session = Astro.locals.session;
-
-if (!session) {
-  return Astro.redirect(signInHref(Astro.url, "admin"));
-}
-
-if (!can(session.user, "admin-console:view")) {
-  return Astro.rewrite("/403");
-}
+import { refusalPage, signInHref } from "@src/hrefs";
 
 const { db } = Astro.locals;
 const { users, restaurants } = await db.load({
-  users: db.users.countByFilter(),
-  restaurants: db.restaurants.countByStatus(),
+  users: db.users.countByFilter(db.viewer),
+  restaurants: db.restaurants.countByStatus(db.viewer),
 });
+const session = await Astro.locals.session();
+if (!session) {
+  return Astro.redirect(signInHref(Astro.url, "admin"));
+}
+if (isProblem(users) || isProblem(restaurants)) {
+  return Astro.rewrite(refusalPage.forbidden);
+}
 
 const userGroups = [
   { label: "Users", count: users.all, href: "/admin/users" },
@@ -35,6 +32,7 @@ const restaurantGroups = [
 ---
 
 <BaseLayout
+  session={session}
   title="Admin console"
   description="Manage the users and restaurants of Kebab Boxd"
   prefetchUrls={["/admin/users", "/admin/restaurants"]}

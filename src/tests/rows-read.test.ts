@@ -154,7 +154,7 @@ describeCalls("the rows each call of the database reads to show a page", {
 		budget: 10,
 	},
 	"restaurants.explore, the map of a city a search finds": {
-		measure: (db) => db.measure("restaurants", "explore", { search: "odense", cityId: undefined, requested: undefined, isVisitor: true }),
+		measure: (db) => db.measure("restaurants", "explore", { search: "odense", cityId: undefined, requested: undefined }, null),
 		budget: 300,
 	},
 	"restaurants.feelLucky, in a city": {
@@ -186,10 +186,6 @@ describeCalls("the rows each call of the database reads to show a page", {
 	"users.findProfile": {
 		measure: (db) => db.measure("users", "findProfile", "author", null),
 		budget: 80,
-	},
-	"users.findByUsername": {
-		measure: (db) => db.measure("users", "findByUsername", "author"),
-		budget: 5,
 	},
 	"collections.list, the Favorites": {
 		measure: (db) => db.measure("collections", "list", "viewer", "favorites", null, page),
@@ -243,42 +239,46 @@ describeCalls("the rows each call of the database reads to show a page", {
 
 describeCalls("the rows each call of the database reads for the Admins", {
 	"users.list": {
-		measure: (db) => db.measure("users", "list", "", "all", page),
+		measure: (db) => db.measure("users", "list", "", "all", db.subjects.adminId, page),
 		budget: 500,
 		grows: "the list tells how many users match, which counts them",
 		scansTable: "it counts the users that match",
 	},
 	"users.countByFilter": {
-		measure: (db) => db.measure("users", "countByFilter"),
+		measure: (db) => db.measure("users", "countByFilter", db.subjects.adminId),
 		budget: 1500,
 		grows: "it counts the users, the Admins and the banned",
 		scansTable: "it counts the users",
 	},
 	"restaurants.countByStatus": {
-		measure: (db) => db.measure("restaurants", "countByStatus"),
+		measure: (db) => db.measure("restaurants", "countByStatus", db.subjects.adminId),
 		budget: 1800,
 		grows: "it counts the restaurants of each status",
 	},
 	"restaurants.listByStatus": {
-		measure: (db) => db.measure("restaurants", "listByStatus", "pending", page),
+		measure: (db) => db.measure("restaurants", "listByStatus", "pending", db.subjects.adminId, page),
 		budget: 30,
 	},
 	"cities.status": {
-		measure: (db) => db.measure("cities", "status"),
+		measure: (db) => db.measure("cities", "status", db.subjects.adminId),
 		budget: 5,
 		scansTable: "it reads the updates of the CityList from the newest, and stops at the first it needs",
 	},
 	"citySearches.list": {
-		measure: (db) => db.measure("citySearches", "list", page),
+		measure: (db) => db.measure("citySearches", "list", db.subjects.adminId, page),
 		budget: 30,
 		scansTable: "it reads the CitySearches from the newest, and stops when the page is full",
 	},
 	"citySearches.findById": {
-		measure: (db) => db.measure("citySearches", "findById", db.subjects.citySearchId),
+		measure: (db) => db.measure("citySearches", "findById", db.subjects.citySearchId, db.subjects.adminId),
 		budget: 40,
 	},
+	"users.findInAdminConsole": {
+		measure: (db) => db.measure("users", "findInAdminConsole", "author", db.subjects.adminId),
+		budget: 5,
+	},
 	"citySearches.findCities, for an Admin": {
-		measure: (db) => db.measure("citySearches", "findCities", "odense", 20),
+		measure: (db) => db.measure("citySearches", "findCities", "odense", 20, db.subjects.adminId),
 		budget: 5,
 	},
 });

@@ -57,7 +57,8 @@ export const settingsActions = {
     input: updateAccountSchema,
     handler: async ({ currentUsername, bio, ...profile }, { locals }) => {
       const { db } = locals;
-      orThrow(await db.load(db.users.updateProfile(requireSession(locals).user.id, currentUsername, { ...profile, bio: bio || null })));
+      const { user: actor } = await requireSession(locals);
+      orThrow(await db.load(db.users.updateProfile(actor.id, currentUsername, { ...profile, bio: bio || null })));
       return { redirect: settingsHref(profile.username, "profile") };
     },
   }),
@@ -66,7 +67,8 @@ export const settingsActions = {
     input: updateProfilePictureSchema,
     handler: async ({ currentUsername, picture }, { locals }) => {
       const { db } = locals;
-      const user = orThrow(await db.load(db.users.setProfilePicture(requireSession(locals).user.id, currentUsername, picture)));
+      const { user: actor } = await requireSession(locals);
+      const user = orThrow(await db.load(db.users.setProfilePicture(actor.id, currentUsername, picture)));
       return { redirect: settingsHref(user.username, "profile") };
     },
   }),
@@ -75,7 +77,8 @@ export const settingsActions = {
     input: currentUserSchema,
     handler: async ({ currentUsername }, { locals }) => {
       const { db } = locals;
-      const user = orThrow(await db.load(db.users.removeProfilePicture(requireSession(locals).user.id, currentUsername)));
+      const { user: actor } = await requireSession(locals);
+      const user = orThrow(await db.load(db.users.removeProfilePicture(actor.id, currentUsername)));
       return { redirect: settingsHref(user.username, "profile") };
     },
   }),
@@ -84,7 +87,8 @@ export const settingsActions = {
     input: updateLocationSchema,
     handler: async ({ currentUsername, location }, { locals }) => {
       const { db } = locals;
-      orThrow(await db.load(db.users.setLocation(requireSession(locals).user.id, currentUsername, location)));
+      const { user: actor } = await requireSession(locals);
+      orThrow(await db.load(db.users.setLocation(actor.id, currentUsername, location)));
     },
   }),
   updatePrivacy: defineAction({
@@ -92,7 +96,8 @@ export const settingsActions = {
     input: updatePrivacySchema,
     handler: async ({ currentUsername, isPrivate }, { locals }) => {
       const { db } = locals;
-      const user = orThrow(await db.load(db.users.setPrivacy(requireSession(locals).user.id, currentUsername, isPrivate)));
+      const { user: actor } = await requireSession(locals);
+      const user = orThrow(await db.load(db.users.setPrivacy(actor.id, currentUsername, isPrivate)));
       return { redirect: settingsHref(user.username, "profile") };
     },
   }),
@@ -101,7 +106,8 @@ export const settingsActions = {
     input: updateNotificationsSchema,
     handler: async ({ currentUsername, ...preferences }, { locals }) => {
       const { db } = locals;
-      const user = orThrow(await db.load(db.users.setNotificationPreferences(requireSession(locals).user.id, currentUsername, preferences)));
+      const { user: actor } = await requireSession(locals);
+      const user = orThrow(await db.load(db.users.setNotificationPreferences(actor.id, currentUsername, preferences)));
       return { redirect: settingsHref(user.username, "notifications") };
     },
   }),
@@ -110,9 +116,9 @@ export const settingsActions = {
     input: currentUserSchema,
     handler: async ({ currentUsername }, { locals }) => {
       const { db } = locals;
-      const actorId = requireSession(locals).user.id;
-      const user = orThrow(await db.load(db.users.signOutEverywhere(actorId, currentUsername)));
-      return { redirect: user.id === actorId ? landingHref : settingsHref(user.username, "security") };
+      const { user: actor } = await requireSession(locals);
+      const user = orThrow(await db.load(db.users.signOutEverywhere(actor.id, currentUsername)));
+      return { redirect: user.id === actor.id ? landingHref : settingsHref(user.username, "security") };
     },
   }),
   deleteAccount: defineAction({
@@ -120,7 +126,8 @@ export const settingsActions = {
     input: deleteAccountSchema,
     handler: async ({ currentUsername }, { locals }) => {
       const { db } = locals;
-      orThrow(await db.load(db.users.delete(requireSession(locals).user.id, currentUsername)));
+      const { user: actor } = await requireSession(locals);
+      orThrow(await db.load(db.users.delete(actor.id, currentUsername)));
       return { redirect: landingNoticeHref("account-deleted") };
     },
   }),

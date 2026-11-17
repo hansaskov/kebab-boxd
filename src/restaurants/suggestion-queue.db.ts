@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { maxQueuedPerUser } from "@src/restaurants/suggestion-queue";
 import type { Client } from "@src/db/client";
+import { authorizedSubjectRead } from "@src/db/authorize";
 import { enterRestaurant, findExisting } from "@src/restaurants/entered-restaurants.db";
 import { isProblem, problem, type Problem } from "@src/db/problem";
 import * as s from "@src/db/schema";
@@ -20,17 +21,19 @@ const duplicateStatuses = ["approved", "pending"] as const;
 
 export function createSuggestionQueue(client: Client, wake: () => void) {
 	return {
-		async listBy(userId: number) {
-			return client.query.suggestionQueue.findMany({
-				columns: { id: true, link: true, status: true, name: true, createdAt: true },
-				with: { duplicate: { columns: { id: true, status: true } } },
-				where: {
-					userId,
-					OR: [{ status: { ne: "duplicate" } }, { duplicate: { status: { in: ["approved", "pending"] } } }],
-				},
-				orderBy: { createdAt: "desc", id: "desc" },
-				limit: maxListed,
-			});
+		async listBy(viewerId: number | null) {
+			return authorizedSubjectRead(client, viewerId, "restaurant:suggest", (viewer) =>
+				client.query.suggestionQueue.findMany({
+					columns: { id: true, link: true, status: true, name: true, createdAt: true },
+					with: { duplicate: { columns: { id: true, status: true } } },
+					where: {
+						userId: viewer.id,
+						OR: [{ status: { ne: "duplicate" } }, { duplicate: { status: { in: ["approved", "pending"] } } }],
+					},
+					orderBy: { createdAt: "desc", id: "desc" },
+					limit: maxListed,
+				}),
+			);
 		},
 
 		async next() {

@@ -4,28 +4,25 @@ import PagedSection from "@src/components/PagedSection.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
 import SearchForm from "@src/components/SearchForm.astro";
 import TabNav from "@src/components/TabNav.astro";
-import { can } from "@src/auth/permissions";
+import { isProblem } from "@src/db/problem";
 import { adminTabs } from "@src/admin/tabs";
-import { adminUserHref, feedHref, signInHref } from "@src/hrefs";
+import { adminUserHref, feedHref, refusalPage, signInHref } from "@src/hrefs";
 import { userFilters, type UserFilter } from "@src/users/users";
 import { parseOption, parseSearch } from "@src/params";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
-
-const session = Astro.locals.session;
-
-if (!session) {
-  return Astro.redirect(signInHref(Astro.url, "admin"));
-}
-
-if (!can(session.user, "admin-console:view")) {
-  return Astro.rewrite("/403");
-}
 
 const search = parseSearch(Astro.url.searchParams);
 const filter = parseOption(Astro.url.searchParams, "filter", userFilters, "all");
 
 const { db } = Astro.locals;
-const page = await db.load(db.users.list(search, filter, parsePageRequest(Astro.url)));
+const page = await db.load(db.users.list(search, filter, db.viewer, parsePageRequest(Astro.url)));
+const session = await Astro.locals.session();
+if (!session) {
+  return Astro.redirect(signInHref(Astro.url, "admin"));
+}
+if (isProblem(page)) {
+  return Astro.rewrite(refusalPage[page.problem]);
+}
 
 const filterLabels: Record<UserFilter, string> = { all: "All", admin: "Admins", banned: "Banned" };
 const filterTabs = userFilters.map((option) => ({
@@ -43,6 +40,7 @@ const emptyMessage = search ? `No users match “${search}”.` : emptyGroupMess
 ---
 
 <BaseLayout
+  session={session}
   title="Users"
   description="Search and manage the users of Kebab Boxd"
   prefetchUrls={["/admin", feedHref]}

@@ -5,29 +5,30 @@ import FieldInput from "@src/components/FieldInput.astro";
 import Pagination from "@src/components/Pagination.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
 import RestaurantStatusTag from "@src/restaurants/RestaurantStatusTag.astro";
-import { can } from "@src/auth/permissions";
+import { isProblem } from "@src/db/problem";
 import type { QueuedSuggestionStatus } from "@src/db/schema";
 import { successToast } from "@src/actions/toast";
 import { submittedForm } from "@src/actions/outcome";
-import { restaurantHref, searchHref, signInHref } from "@src/hrefs";
+import { refusalPage, restaurantHref, searchHref, signInHref } from "@src/hrefs";
 import { pageNavigation, parsePageRequest } from "@src/pagination";
 import { suggestionSchema } from "@src/restaurants/actions";
-
-const session = Astro.locals.session;
-if (!session) {
-  return Astro.redirect(signInHref(Astro.url, "suggest"));
-}
-
-if (!can(session.user, "restaurant:suggest")) {
-  return Astro.rewrite("/403");
-}
 
 const pageRequest = parsePageRequest(Astro.url);
 const { db } = Astro.locals;
 const { page, queued = [] } = await db.load({
-  page: db.restaurants.listSuggestedBy(session.user.id, pageRequest),
-  queued: pageRequest.cursor ? undefined : db.suggestionQueue.listBy(session.user.id),
+  page: db.restaurants.listSuggestedBy(db.viewer, pageRequest),
+  queued: pageRequest.cursor ? undefined : db.suggestionQueue.listBy(db.viewer),
 });
+const session = await Astro.locals.session();
+if (!session) {
+  return Astro.redirect(signInHref(Astro.url, "suggest"));
+}
+if (isProblem(page)) {
+  return Astro.rewrite(refusalPage[page.problem]);
+}
+if (isProblem(queued)) {
+  return Astro.rewrite(refusalPage[queued.problem]);
+}
 const navigation = pageNavigation(Astro.url, page);
 
 const submitted = submittedForm(Astro.locals, actions.restaurants.suggest);
@@ -44,6 +45,7 @@ const queuedLabels: Record<QueuedSuggestionStatus, string> = {
 ---
 
 <BaseLayout
+  session={session}
   title="Suggest a restaurant"
   description="Suggest a kebab restaurant that is missing from Kebab Boxd"
   prefetchUrls={[searchHref("restaurants")]}

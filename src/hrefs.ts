@@ -4,6 +4,7 @@ import type { SettingsSection } from "@src/settings/settings";
 import type { Notification } from "@src/notifications/notifications.db";
 import type { MapView } from "@src/map/viewport";
 import { returnPathOf } from "@src/auth/return-path";
+import type { SessionWithUser } from "@src/auth/sessions.db";
 
 export const landingHref = "/";
 
@@ -16,7 +17,7 @@ export function landingNoticeHref(notice: LandingNotice) {
 
 export const feedHref = "/feed";
 
-export function homeHref(session: App.Locals["session"] | undefined) {
+export function homeHref(session: SessionWithUser | null) {
 	return session ? feedHref : landingHref;
 }
 

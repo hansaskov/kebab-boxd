@@ -10,10 +10,12 @@ const { error } = Astro.props
 
 console.error(error)
 
-const home = homeHref(Astro.locals.session);
+const session = await Astro.locals.session().catch(() => null);
+const home = homeHref(session);
 ---
 
 <BaseLayout
+  session={session}
   title="500: Internal server error"
   description="Something went wrong"
   prefetchUrls={[home]}

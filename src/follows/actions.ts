@@ -8,7 +8,8 @@ function followAction(write: keyof Pick<Database["follows"], "follow" | "unfollo
     input: targetUserSchema,
     handler: async ({ username }, { locals }) => {
       const { db } = locals;
-      orThrow(await db.load(db.follows[write](requireSession(locals).user.id, username)));
+      const { user: actor } = await requireSession(locals);
+      orThrow(await db.load(db.follows[write](actor.id, username)));
     },
   });
 }

@@ -1,5 +1,5 @@
 import { and, eq, ne } from "drizzle-orm";
-import { authorizedSubjectWrite } from "@src/db/authorize";
+import { authorizedSubjectRead, authorizedSubjectWrite } from "@src/db/authorize";
 import type { Client, Transaction } from "@src/db/client";
 import { isProblem } from "@src/db/problem";
 import * as s from "@src/db/schema";
@@ -114,25 +114,27 @@ export function createCities(client: Client, wake: () => void) {
 			return pageOf(matchingRows(client, query), page);
 		},
 
-		async status() {
-			const [current, latest, queued] = await Promise.all([
-				client.query.cityListUpdates.findFirst({
-					columns: { cityCount: true, updatedAt: true },
-					where: { status: "finished" },
-					orderBy: { id: "desc" },
-				}),
-				client.query.cityListUpdates.findFirst({
-					columns: { status: true, error: true, updatedAt: true },
-					where: { status: { ne: "queued" } },
-					orderBy: { id: "desc" },
-				}),
-				client.query.cityListUpdates.findFirst({ columns: { id: true }, where: { status: "queued" } }),
-			]);
-			return {
-				current: current && { cityCount: current.cityCount ?? 0, updatedAt: current.updatedAt },
-				isUpdating: queued !== undefined,
-				lastFailure: latest?.status === "failed" ? { at: latest.updatedAt, error: latest.error } : undefined,
-			};
+		async status(viewerId: number | null) {
+			return authorizedSubjectRead(client, viewerId, "admin-console:view", async () => {
+				const [current, latest, queued] = await Promise.all([
+					client.query.cityListUpdates.findFirst({
+						columns: { cityCount: true, updatedAt: true },
+						where: { status: "finished" },
+						orderBy: { id: "desc" },
+					}),
+					client.query.cityListUpdates.findFirst({
+						columns: { status: true, error: true, updatedAt: true },
+						where: { status: { ne: "queued" } },
+						orderBy: { id: "desc" },
+					}),
+					client.query.cityListUpdates.findFirst({ columns: { id: true }, where: { status: "queued" } }),
+				]);
+				return {
+					current: current && { cityCount: current.cityCount ?? 0, updatedAt: current.updatedAt },
+					isUpdating: queued !== undefined,
+					lastFailure: latest?.status === "failed" ? { at: latest.updatedAt, error: latest.error } : undefined,
+				};
+			});
 		},
 
 		async requestUpdate(actorId: number) {

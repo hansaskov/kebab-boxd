@@ -92,7 +92,7 @@ export function createPersonalData(client: Client) {
 	return {
 		findByUsername,
 
-		async exportFor(username: string, viewerId: number) {
+		async exportFor(username: string, viewerId: number | null) {
 			return authorizedRead(client, viewerId, "user:export-data", findUserSeenBy(client, username, viewerId), () => findByUsername(username));
 		},
 	};
