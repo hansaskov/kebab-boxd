@@ -9,7 +9,7 @@ import { signInHref } from "@src/hrefs";
 import LoginPage from "@src/pages/login.astro";
 import { renderPage, requestEndpoint } from "@src/tests/container";
 import { createTestDatabase, insertUser, signIn } from "@src/tests/database";
-import { parseReturnPath } from "@src/validation/return-path";
+import { parseReturnPath } from "@src/auth/return-path";
 
 // The cookies as the server adapter sends them.
 function cookiesOf(response: Response) {

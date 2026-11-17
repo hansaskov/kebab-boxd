@@ -1,4 +1,4 @@
-import { sitePath } from "@src/validation/return-path";
+import { sitePath } from "@src/auth/return-path";
 
 // The page on this site that sent the request, or undefined when another site, or no page, sent it.
 export function sameOriginReferer(request: Request, origin: string): string | undefined {

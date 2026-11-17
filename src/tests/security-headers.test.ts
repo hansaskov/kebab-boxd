@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultMapZoom } from "@src/data/map";
+import { defaultMapZoom } from "@src/map/explore";
 import * as s from "@src/db/schema";
 import { withSecurityHeaders } from "@src/middleware/security-headers";
 import { exploreHref } from "@src/hrefs";

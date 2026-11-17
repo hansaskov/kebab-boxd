@@ -1,6 +1,6 @@
 import type { AstroCookies } from "astro";
 import { base64UrlEncode, generateBase64UrlRandomString, hashSecret } from "@src/auth/hash";
-import { parseReturnPath } from "@src/validation/return-path";
+import { parseReturnPath } from "@src/auth/return-path";
 
 // The authorization code flow with PKCE that every Provider signs in through. Between the redirect to the Provider
 // and its callback, the state and the code verifier wait in cookies that serve one attempt.

@@ -1,7 +1,7 @@
 import { feedHref, signInHref } from "@src/hrefs";
 import { sameOriginReferer } from "@src/middleware/referer";
 import { redirectClearingSpeculations } from "@src/middleware/speculations";
-import { isSitePath } from "@src/validation/return-path";
+import { isSitePath } from "@src/auth/return-path";
 
 // The page a form was sent from, which the answer to it leads back to. The form is sent to the address of its page,
 // so that address stands in for a missing Referer. A page at `//evil.com` would send the browser to evil.com, so the

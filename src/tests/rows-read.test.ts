@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { clusterCellSize, exploreMapSize } from "@src/data/map";
+import { clusterCellSize } from "@src/map/clusters";
+import { exploreMapSize } from "@src/map/explore";
 import { isProblem } from "@src/db/problem";
 import { viewport } from "@src/map/viewport";
 import type { PageRequest } from "@src/pagination";

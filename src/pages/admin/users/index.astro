@@ -5,11 +5,11 @@ import RelativeTime from "@src/components/RelativeTime.astro";
 import SearchForm from "@src/components/SearchForm.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { can } from "@src/auth/permissions";
-import { adminTabs } from "@src/data/admin-tabs";
+import { adminTabs } from "@src/admin/tabs";
 import { adminUserHref, feedHref, signInHref } from "@src/hrefs";
-import { userFilters, type UserFilter } from "@src/data/options";
+import { userFilters, type UserFilter } from "@src/users/users";
+import { parseOption, parseSearch } from "@src/params";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
-import { parseOption, parseSearch } from "@src/validation/search-params";
 
 const session = Astro.locals.session;
 

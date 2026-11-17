@@ -1325,8 +1325,8 @@
     opacity: 0.4;
     pointer-events: none;
   }
-  /* The cells under the markers, which each move the map to their middle. The cell under
-     the pointer shows itself. */
+  /* The cells under the markers. Those along the sides move the map, and the cell under the
+     pointer shows itself. */
   .map-cells {
     position: absolute;
     z-index: 0;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { adminTabs } from "@src/data/admin-tabs";
-import { settingsSections } from "@src/data/settings-sections";
+import { adminTabs } from "@src/admin/tabs";
+import { settingsSections } from "@src/settings/settings";
 import { settingsHref } from "@src/hrefs";
 import LoginPage from "@src/pages/login.astro";
 import SearchPage from "@src/pages/search.astro";

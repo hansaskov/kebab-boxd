@@ -89,6 +89,16 @@ export function clampZoom(zoom: number) {
 	return clamp(Math.round(zoom), minZoom, maxZoom);
 }
 
+// The zooms a map stops at when it zooms in or out by the step: every step from the smallest zoom, and the largest.
+// A zoom between stops goes to the nearest stop either way, so zooming in and out again returns to the same stop.
+export function zoomedIn(zoom: number, step: number): number | undefined {
+	return zoom < maxZoom ? Math.min(maxZoom, minZoom + (Math.floor((zoom - minZoom) / step) + 1) * step) : undefined;
+}
+
+export function zoomedOut(zoom: number, step: number): number | undefined {
+	return zoom > minZoom ? minZoom + (Math.ceil((zoom - minZoom) / step) - 1) * step : undefined;
+}
+
 // The view moved to the nearest point of a grid over the world, with squares of the step in the pixels of its zoom.
 // A map whose links move it by whole steps then leads only to points of the grid, whichever way it gets there.
 export function snapToGrid({ center, zoom }: MapView, step: number): MapView {
@@ -160,14 +170,10 @@ export function viewport(requestedCenter: Coordinates, requestedZoom: number, si
 			const b = project(to, zoom);
 			return Math.hypot(a.x - b.x, a.y - b.y);
 		},
-		// The middles of the cells of a grid over the viewport, row by row from the north-west.
-		cellCenters(columns: number, rows: number): Coordinates[] {
-			return Array.from({ length: rows * columns }, (_, index) => {
-				const column = index % columns;
-				const row = Math.floor(index / columns);
-				const point = { x: origin.x + ((column + 0.5) * width) / columns, y: origin.y + ((row + 0.5) * height) / rows };
-				return wrapped(unproject(point, zoom));
-			});
+		// The middle of the map after it moves the given pixels east and south. It stops at the poles, as the map does.
+		movedCenter(east: number, south: number): Coordinates {
+			const point = { x: centerPoint.x + east, y: clamp(centerPoint.y + south, height / 2, world - height / 2) };
+			return wrapped(unproject(point, zoom));
 		},
 		// The grid with cells of the given size, in the pixels of the map, that the restaurants in view are clustered on.
 		clusterGrid(cellSize: number): ClusterGrid {

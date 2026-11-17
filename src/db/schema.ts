@@ -1,6 +1,5 @@
 import * as p from "drizzle-orm/sqlite-core";
-import { roles } from "@src/data/options"
-import { pronouns } from "@src/data/pronouns"
+import { roles, pronouns } from "@src/users/users";
 import { sql } from "drizzle-orm";
 import type { ActionOutcome } from "@src/actions/outcome";
 

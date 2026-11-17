@@ -1,16 +1,18 @@
 ---
 import BaseLayout from "@src/layouts/BaseLayout.astro";
-import CityList from "@src/components/CityList.astro";
+import CityList from "@src/cities/CityList.astro";
 import PagedSection from "@src/components/PagedSection.astro";
-import PersonList from "@src/components/PersonList.astro";
-import RestaurantList from "@src/components/RestaurantList.astro";
+import PersonList from "@src/users/PersonList.astro";
+import RestaurantList from "@src/restaurants/RestaurantList.astro";
 import SearchForm from "@src/components/SearchForm.astro";
 import TabNav from "@src/components/TabNav.astro";
-import { personSorts, restaurantSorts, type PersonSort, type RestaurantSort } from "@src/data/options";
-import type { City } from "@src/db/cities";
-import { noCityText } from "@src/format/city";
+import { personSorts, type PersonSort } from "@src/users/users";
+import { restaurantSorts, type RestaurantSort } from "@src/restaurants/restaurants";
+import { parseOption, parseSearch } from "@src/params";
+import { searchTypes, type SearchType } from "@src/hrefs";
+import type { City } from "@src/cities/cities.db";
+import { noCityText } from "@src/cities/geonames";
 import { firstPageHref, parsePageRequest, type Page, type PageRequest } from "@src/pagination";
-import { parseOption, parseSearch, searchTypes, type SearchType } from "@src/validation/search-params";
 
 const viewer = Astro.locals.session?.user ?? null;
 

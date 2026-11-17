@@ -1,11 +1,11 @@
 ---
 import { Check, MapPinned, TriangleAlert, X } from "@lucide/astro";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
-import Avatar from "@src/components/Avatar.astro";
-import FollowRequestButtons from "@src/components/FollowRequestButtons.astro";
+import Avatar from "@src/users/Avatar.astro";
+import FollowRequestButtons from "@src/follows/FollowRequestButtons.astro";
 import PagedSection from "@src/components/PagedSection.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
-import { plural } from "@src/format/plural";
+import { plural } from "@src/plural";
 import { feedHref, notificationHref, signInHref } from "@src/hrefs";
 import { isSpeculative, refuseSpeculation } from "@src/middleware/speculations";
 import { parsePageRequest } from "@src/pagination";

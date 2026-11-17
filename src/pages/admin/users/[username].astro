@@ -5,12 +5,12 @@ import TabNav from "@src/components/TabNav.astro";
 import FieldSelect from "@src/components/FieldSelect.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
 import Stat from "@src/components/Stat.astro";
-import { changeUserRoleSchema } from "@src/actions/admin";
+import { changeUserRoleSchema } from "@src/admin/actions";
 import { submittedForm } from "@src/actions/outcome";
 import { can } from "@src/auth/permissions";
 import { isProblem } from "@src/db/problem";
-import { successToast } from "@src/format/action-toast";
-import { adminTabs } from "@src/data/admin-tabs";
+import { successToast } from "@src/actions/toast";
+import { adminTabs } from "@src/admin/tabs";
 import { adminUserHref, settingsHref, signInHref } from "@src/hrefs";
 
 const { username } = Astro.params;

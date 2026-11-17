@@ -1,18 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { clusterCellSize, clusterMargin, defaultMapZoom, exploreCityLimit, exploreGridStep, exploreMapCells, exploreMapSize } from "@src/data/map";
+import { defaultMapZoom, exploreCityLimit, exploreGridStep, exploreMapCells, exploreMapSize, exploreZoomStep } from "@src/map/explore";
+import { coordinatesSchema } from "@src/settings/actions";
 import type { Client } from "@src/db/client";
 import type { Database } from "@src/db";
 import * as s from "@src/db/schema";
 import { exploreCityHref, exploreHref, restaurantHref } from "@src/hrefs";
-import { clustersOn, openedView } from "@src/map/clusters";
+import { clustersOn, openedView, clusterCellSize, clusterMargin } from "@src/map/clusters";
 import type { Coordinates } from "@src/map/coordinates";
-import { maxZoom, snapToGrid, viewport, type MapView } from "@src/map/viewport";
+import { maxZoom, minZoom, snapToGrid, viewport, type MapView } from "@src/map/viewport";
 import ExplorePage from "@src/pages/explore.astro";
 import { loadCityList, loadSampleCityList, namesakeCityList } from "@src/tests/cities";
 import { dialogIn, renderPage } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertUser, signIn } from "@src/tests/database";
-import { coordinatesSchema } from "@src/validation/coordinates";
 
 const metersPerDegree = 111_320;
 
@@ -41,11 +41,28 @@ function hrefs(html: string, pattern: RegExp) {
 
 const markersOf = (html: string) => hrefs(html, /<li class="map-(?:pin|cluster)"[^>]*><a href="([^"]*)"/g);
 const rowsOf = (html: string) => hrefs(html, /<a class="list-row-link[^"]*" href="([^"]*)"/g);
-const cellsOf = (html: string) =>
-	[...html.matchAll(/<a class="map-cell" href="([^"]*)"[^>]*><span class="sr-only">([^<]*)<\/span>/g)].map(([, href = "", label = ""]) => ({
-		params: new URL(href.replaceAll("&amp;", "&"), "http://localhost").searchParams,
-		label,
-	}));
+// The links over the map that move it, with the cell each covers, counted from 0 at the north-west.
+const movesOf = (html: string) =>
+	[...html.matchAll(/<a class="map-cell" href="([^"]*)" style="grid-area:(\d+)\/(\d+)"[^>]*>\s*<span class="sr-only">([^<]*)<\/span>/g)].map(
+		([, href = "", row = "", column = "", label = ""]) => {
+			const params = new URL(href.replaceAll("&amp;", "&"), "http://localhost").searchParams;
+			return {
+				href: href.replaceAll("&amp;", "&"),
+				row: Number(row) - 1,
+				column: Number(column) - 1,
+				center: { latitude: Number(params.get("lat")), longitude: Number(params.get("lng")) },
+				zoom: Number(params.get("zoom")),
+				label,
+			};
+		},
+	);
+
+// The cells along the sides of the explore map, row by row from the north-west.
+const sideCells = Array.from({ length: exploreMapCells.rows }, (_, row) =>
+	Array.from({ length: exploreMapCells.columns }, (_, column) => ({ row, column })),
+)
+	.flat()
+	.filter(({ row, column }) => row === 0 || row === exploreMapCells.rows - 1 || column === 0 || column === exploreMapCells.columns - 1);
 
 const defaultMap = () => viewport(defaultMapCenter, defaultMapZoom, exploreMapSize);
 
@@ -138,7 +155,11 @@ describe("the explore map", () => {
 
 		const before = await clustersAround(corner);
 		const map = viewport(corner, defaultMapZoom, exploreMapSize);
-		const afterEachMove = await Promise.all(map.cellCenters(exploreMapCells.columns, exploreMapCells.rows).map(clustersAround));
+		// Moves of an odd number of half cells, along the grid of a Visitor's map, as far as the restaurants stay in view.
+		const oddHalfCells = (count: number) => Array.from({ length: count }, (_, index) => (2 * index - count + 1) * exploreGridStep);
+		const afterEachMove = await Promise.all(
+			oddHalfCells(6).flatMap((east) => oddHalfCells(4).map((south) => clustersAround(map.movedCenter(east, south)))),
+		);
 
 		expect(before).toEqual(["Kebab -40 -40 12: 3", "Kebab -40 40 12: 3", "Kebab 40 -40 12: 3", "Kebab 40 40 12: 3"]);
 		for (const after of afterEachMove) expect(after).toEqual(before);
@@ -167,24 +188,60 @@ describe("the explore map", () => {
 		expect(clusters.map((cluster) => cluster.count)).toEqual([2]);
 	});
 
-	it("moves to the middle of the cell the user clicks, which tells how far and which way", async () => {
+	it("moves to the middle of the cell on a side of the map the user clicks, which tells how far and which way", async () => {
 		const { db } = createTestDatabase();
 		const map = visitorMap({ center: defaultMapCenter, zoom: defaultMapZoom });
+		const { columns, rows } = exploreMapCells;
 
-		const cells = cellsOf((await renderPage(ExplorePage, { db, session: null }, odense)).html);
-		const placements = cells.map(({ params }) => map.place({ latitude: Number(params.get("lat")), longitude: Number(params.get("lng")) }));
+		const moves = movesOf((await renderPage(ExplorePage, { db, session: null }, odense)).html);
 
-		expect(cells).toHaveLength(exploreMapCells.columns * exploreMapCells.rows);
-		expect(cells.every(({ params }) => params.get("zoom") === String(map.zoom))).toBe(true);
-		for (const [index, { left, top }] of placements.entries()) {
-			const column = index % exploreMapCells.columns;
-			const row = Math.floor(index / exploreMapCells.columns);
-			expect(left).toBeCloseTo(((column + 0.5) / exploreMapCells.columns) * 100, 1);
-			expect(top).toBeCloseTo(((row + 0.5) / exploreMapCells.rows) * 100, 1);
+		expect(moves.map(({ row, column }) => ({ row, column }))).toEqual(sideCells);
+		expect(moves.every(({ zoom }) => zoom === map.zoom)).toBe(true);
+		for (const { row, column, center } of moves) {
+			const { left, top } = map.place(center);
+			expect(left).toBeCloseTo(((column + 0.5) / columns) * 100, 1);
+			expect(top).toBeCloseTo(((row + 0.5) / rows) * 100, 1);
 		}
-		expect(new Set(cells.map(({ label }) => label)).size).toBe(cells.length);
-		expect(cells[0]?.label).toMatch(/^Move [\d.]+ k?m north and [\d.]+ k?m west$/);
-		expect(cells.at(-1)?.label).toMatch(/^Move [\d.]+ k?m south and [\d.]+ k?m east$/);
+		expect(new Set(moves.map(({ label }) => label)).size).toBe(moves.length);
+		expect(moves[0]?.label).toMatch(/^Move [\d.]+ k?m north and [\d.]+ k?m west$/);
+		expect(moves.at(-1)?.label).toMatch(/^Move [\d.]+ k?m south and [\d.]+ k?m east$/);
+	});
+
+	it("stops moving north at the edge of the world, as the map does", async () => {
+		const { client, db } = createTestDatabase();
+		// A User's map is not kept on the grid, so its moves show where the map stops.
+		const session = await signIn(db, insertUser(client, "ada").id);
+		const atTheTop = exploreHref({ center: { latitude: 85.05, longitude: 0 }, zoom: defaultMapZoom });
+
+		const { html } = await renderPage(ExplorePage, { db, session }, atTheTop);
+		const moves = movesOf(html);
+		const top = mapCenterOf(html).latitude;
+
+		expect(moves.filter(({ row }) => row === 0).map(({ center }) => center.latitude)).toEqual(sideCells.filter(({ row }) => row === 0).map(() => top));
+		expect(moves.filter(({ row }) => row === exploreMapCells.rows - 1).every(({ center }) => center.latitude < top)).toBe(true);
+		expect(moves[0]?.label).toMatch(/^Move [\d.]+ k?m west$/);
+	});
+
+	it("zooms in and out by a step of several zooms, which stops at the smallest and the largest zoom", async () => {
+		const { db } = createTestDatabase();
+		const zoomsFrom = async (zoom: number) => {
+			const { html } = await renderPage(ExplorePage, { db, session: null }, exploreHref({ center: defaultMapCenter, zoom }));
+			const zoomOf = (title: string) => {
+				const [href] = hrefs(html, new RegExp(`<a class="icon-btn" href="([^"]*)"[^>]*title="${title}"`, "g"));
+				return href ? Number(new URL(href, "http://localhost").searchParams.get("zoom")) : undefined;
+			};
+			return { in: zoomOf("Zoom in"), out: zoomOf("Zoom out") };
+		};
+
+		expect(exploreZoomStep).toBeGreaterThan(1);
+		expect(await zoomsFrom(defaultMapZoom)).toEqual({ in: defaultMapZoom + exploreZoomStep, out: defaultMapZoom - exploreZoomStep });
+		// A zoom between the stops, as opening a Cluster may give, goes to the nearest stop either way.
+		expect(await zoomsFrom(minZoom + 1)).toEqual({ in: minZoom + exploreZoomStep, out: minZoom });
+		expect(await zoomsFrom(minZoom)).toEqual({ in: minZoom + exploreZoomStep, out: undefined });
+		// The step from the last stop before the largest zoom may be shorter, and leads back to that stop.
+		const lastStop = maxZoom - ((maxZoom - minZoom) % exploreZoomStep || exploreZoomStep);
+		expect(await zoomsFrom(lastStop)).toEqual({ in: maxZoom, out: lastStop - exploreZoomStep });
+		expect(await zoomsFrom(maxZoom)).toEqual({ in: undefined, out: lastStop });
 	});
 
 	it("keeps the map of a Visitor on a grid, so that every way to a place leads to the same address", async () => {
@@ -197,9 +254,7 @@ describe("the explore map", () => {
 		const visit = async (path: string) => (await renderPage(ExplorePage, { db, session: null }, path)).html;
 		const zoomLink = (html: string, title: "Zoom in" | "Zoom out") =>
 			hrefs(html, new RegExp(`<a class="icon-btn" href="([^"]*)"[^>]*title="${title}"`, "g"))[0]!.replaceAll("&amp;", "&");
-		// The links of the map come in order: the cluster on it, the two zooms, the cells and the cluster in the list.
-		const firstCell = 3;
-		const cellLink = (html: string, row: number, column: number) => mapLinksOf(html)[firstCell + row * exploreMapCells.columns + column]!;
+		const moveLink = (html: string, row: number, column: number) => movesOf(html).find((move) => move.row === row && move.column === column)!.href;
 		const onGrid = (href: string) => {
 			const params = new URL(href, "http://localhost").searchParams;
 			const center = { latitude: Number(params.get("lat")), longitude: Number(params.get("lng")) };
@@ -209,12 +264,14 @@ describe("the explore map", () => {
 		const page = await visit(exploreHref(shared));
 		const links = mapLinksOf(page);
 
-		// The cluster on the map and in the list, the two zooms and the cells.
-		expect(links).toHaveLength(2 + 2 + exploreMapCells.columns * exploreMapCells.rows);
+		// The cluster on the map and in the list, the two zooms and the cells along the sides.
+		expect(links).toHaveLength(2 + 2 + sideCells.length);
 		for (const link of links) expect(link).toBe(onGrid(link));
 		expect(zoomLink(await visit(zoomLink(page, "Zoom in")), "Zoom out")).toBe(here);
-		// Half a cell north-west, and back south-east.
-		expect(cellLink(await visit(cellLink(page, 1, 2)), 2, 3)).toBe(here);
+		// North-west through a corner, and back through the opposite one; west through a side, and back through the other.
+		const [lastRow, lastColumn] = [exploreMapCells.rows - 1, exploreMapCells.columns - 1];
+		expect(moveLink(await visit(moveLink(page, 0, 0)), lastRow, lastColumn)).toBe(here);
+		expect(moveLink(await visit(moveLink(page, 1, 0)), 2, lastColumn)).toBe(here);
 	});
 
 	it("has the browser load a page of the map in advance only when the user is about to open it", async () => {
@@ -229,7 +286,7 @@ describe("the explore map", () => {
 		const rules = JSON.parse(html.match(/<script type="speculationrules">([^<]*)<\/script>/)?.[1] ?? "{}");
 		const onIntent = { selector_matches: '[data-eagerness="moderate"]' };
 
-		expect(links.length).toBeGreaterThan(exploreMapCells.columns * exploreMapCells.rows);
+		expect(links.length).toBeGreaterThan(sideCells.length);
 		expect(links.filter((link) => !link.includes('data-eagerness="moderate"'))).toEqual([]);
 		expect(rules.prerender).toEqual([
 			{ where: { and: expect.arrayContaining([{ not: onIntent }]) }, eagerness: "eager" },

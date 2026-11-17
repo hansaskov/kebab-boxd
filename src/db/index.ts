@@ -1,22 +1,23 @@
-import { createAccounts } from "@src/db/accounts";
-import { createCities } from "@src/db/cities";
-import { createCitySearches } from "@src/db/city-searches";
+import { createAccounts } from "@src/auth/accounts.db";
+import { createCities } from "@src/cities/cities.db";
+import { createCitySearches } from "@src/cities/city-searches.db";
 import type { Client } from "@src/db/client";
-import { createCollections } from "@src/db/collections";
-import { createFollows } from "@src/db/follows";
-import { createHistory } from "@src/db/history";
-import { createNotifications } from "@src/db/notifications";
-import { createPersonalData } from "@src/db/personal-data";
-import { createRestaurants } from "@src/db/restaurants";
-import { createRetention } from "@src/db/retention";
-import { createReviews } from "@src/db/reviews";
-import { createSessions } from "@src/db/sessions";
-import { createSuggestionQueue } from "@src/db/suggestion-queue";
-import { createUsers } from "@src/db/users";
+import { createCollections } from "@src/restaurants/collections.db";
+import { createFollows } from "@src/follows/follows.db";
+import { createHistory } from "@src/auth/history.db";
+import { createNotifications } from "@src/notifications/notifications.db";
+import { createPersonalData } from "@src/privacy/personal-data.db";
+import { createRestaurants } from "@src/restaurants/restaurants.db";
+import { createRetention } from "@src/privacy/retention.db";
+import { createReviews } from "@src/reviews/reviews.db";
+import { createSessions } from "@src/auth/sessions.db";
+import { createSuggestionQueue } from "@src/restaurants/suggestion-queue.db";
+import { createUsers } from "@src/users/users.db";
 import type { PictureStore } from "@src/pictures/store";
 
-// One module for each concept of CONTEXT.md, which both reads and writes it. The rules that more than one of
-// them needs live in visibility.ts, authorize.ts and cached-stats.ts.
+// Each concept of CONTEXT.md has a .db.ts module in the folder of its feature, which both reads and writes it.
+// The rules that more than one of them needs live beside this file, in visibility.ts, authorize.ts and
+// cached-stats.ts.
 //
 // The pictures belong here because the rows that point to them are written here: whatever removes a
 // picture from the database removes its file too.

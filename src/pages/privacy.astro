@@ -4,9 +4,9 @@ import BaseLayout from "@src/layouts/BaseLayout.astro";
 import { authorizationCookieMaxAgeSeconds, returnPathCookieName } from "@src/auth/oauth";
 import { googleCookieNames } from "@src/auth/providers/google";
 import { sessionCookieName } from "@src/auth/session";
-import { settingsSectionDetails, type SettingsSection } from "@src/data/settings-sections";
+import { settingsSectionDetails, type SettingsSection } from "@src/settings/settings";
 import { feedHref, settingsHref, signInHref } from "@src/hrefs";
-import { finishedSuggestionRetentionSeconds, historyRetentionSeconds, inactivityTimeoutSeconds } from "@src/data/retention-periods";
+import { finishedSuggestionRetentionSeconds, historyRetentionSeconds, inactivityTimeoutSeconds } from "@src/privacy/retention";
 
 const session = Astro.locals.session;
 

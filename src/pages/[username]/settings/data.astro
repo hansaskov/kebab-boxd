@@ -1,13 +1,13 @@
 ---
 import { actions } from "astro:actions";
-import SettingsLayout from "@src/layouts/SettingsLayout.astro";
+import SettingsLayout from "@src/settings/SettingsLayout.astro";
 import DialogDrawer from "@src/components/DialogDrawer.astro";
 import FieldInput from "@src/components/FieldInput.astro";
-import { deleteAccountSchema } from "@src/actions/settings";
+import { deleteAccountSchema } from "@src/settings/actions";
 import { submittedForm } from "@src/actions/outcome";
 import { can } from "@src/auth/permissions";
 import { personalDataExportHref } from "@src/hrefs";
-import { openSettings, otherSectionHrefs } from "@src/settings";
+import { openSettings, otherSectionHrefs } from "@src/settings/settings";
 
 const settings = await openSettings(Astro, "data");
 if (settings instanceof Response) {

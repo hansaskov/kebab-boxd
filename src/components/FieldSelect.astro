@@ -4,8 +4,7 @@ import type { ComponentProps } from "astro/types";
 import { ZodNullable, type ZodEnum } from "astro/zod";
 import Field from "@src/components/Field.astro";
 import type { SubmittedForm } from "@src/actions/outcome";
-import { describeField } from "@src/format/field";
-import { getConstraintsFromZodSchema } from "@src/validation/constraint";
+import { describeField, getConstraintsFromZodSchema } from "@src/components/field";
 
 interface Props extends Omit<ComponentProps<typeof Field>, "field" | "layout" | "group">, astroHTML.JSX.SelectHTMLAttributes {
     name: string;

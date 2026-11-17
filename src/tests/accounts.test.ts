@@ -4,7 +4,7 @@ import { createSession, findSession } from "@src/auth/session";
 import type { ProviderAccount } from "@src/auth/oauth";
 import type { Database } from "@src/db";
 import * as s from "@src/db/schema";
-import { usernameSchema } from "@src/validation/username";
+import { usernameSchema } from "@src/actions/schemas";
 import { createTestDatabase, insertRestaurant, insertReview, insertUser, restaurantRow, signIn, writeReview } from "@src/tests/database";
 
 function googleAccount(overrides: Partial<ProviderAccount> = {}): ProviderAccount {

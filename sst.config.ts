@@ -54,7 +54,7 @@ export default $config({
             worker: (args) => {
               const secretBindings = Object.entries(secrets).map(([name, secret]) => ({ type: "secret_text", name, text: secret.value }));
               // The Web Worker calls the Durable Object of the Backend Worker itself, which spares each call of the database
-              // a trip through the Backend Worker. src/middleware.ts uses it when it is there, which it is not in `sst dev`.
+              // a trip through the Backend Worker. src/middleware/index.ts uses it when it is there, which it is not in `sst dev`.
               const databaseBinding = {
                 type: "durable_object_namespace",
                 name: "Database",

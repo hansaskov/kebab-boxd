@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { processNextCandidate, processNextWork } from "@src/background-work";
 import type { Database } from "@src/db";
-import { maxCitySearchAttempts as maxAttempts } from "@src/data/limits";
+import { maxCitySearchAttempts as maxAttempts } from "@src/cities/city-searches";
 import { isProblem } from "@src/db/problem";
 import * as s from "@src/db/schema";
 import type { Client } from "@src/db/client";
-import { findKebabPlaces, kebabQuery, OverpassUnavailableError, readKebabPlaces, searchRadiusMeters, type KebabPlace } from "@src/map/overpass";
+import { findKebabPlaces, kebabQuery, OverpassUnavailableError, readKebabPlaces, searchRadiusMeters, type KebabPlace } from "@src/cities/overpass";
 import { loadSampleCityList } from "@src/tests/cities";
 import { createTestDatabase, insertRestaurant, insertUser, restaurantRow } from "@src/tests/database";
 

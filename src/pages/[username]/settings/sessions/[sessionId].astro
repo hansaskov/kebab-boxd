@@ -1,13 +1,13 @@
 ---
-import SettingsLayout from "@src/layouts/SettingsLayout.astro";
+import SettingsLayout from "@src/settings/SettingsLayout.astro";
 import PagedSection from "@src/components/PagedSection.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
 import Stat from "@src/components/Stat.astro";
 import { parsePageRequest } from "@src/pagination";
-import { deviceName } from "@src/format/device-name";
+import { deviceName } from "@src/auth/device-name";
 import { sessionHistoryHref, settingsHref } from "@src/hrefs";
 import { isProblem } from "@src/db/problem";
-import { openSettings } from "@src/settings";
+import { openSettings } from "@src/settings/settings";
 
 const { sessionId } = Astro.params;
 if (!sessionId) {

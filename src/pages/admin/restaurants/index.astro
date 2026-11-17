@@ -4,17 +4,16 @@ import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import PagedSection from "@src/components/PagedSection.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
-import SuggestionDecision from "@src/components/SuggestionDecision.astro";
+import SuggestionDecision from "@src/restaurants/SuggestionDecision.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { submittedForm } from "@src/actions/outcome";
 import { can } from "@src/auth/permissions";
-import { adminTabs } from "@src/data/admin-tabs";
+import { adminTabs } from "@src/admin/tabs";
 import type { RestaurantStatus } from "@src/db/schema";
-import { regionAndCountry } from "@src/format/country";
+import { regionAndCountry } from "@src/cities/country";
 import { adminCitiesHref, adminRestaurantsHref, googleMapsHref, openStreetMapHref, profileHref, restaurantHref, signInHref } from "@src/hrefs";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
-import { parseId } from "@src/validation/id";
-import { parseOption } from "@src/validation/search-params";
+import { parseId, parseOption } from "@src/params";
 
 const session = Astro.locals.session;
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { isProblem } from "@src/db/problem";
-import { defaultMapZoom } from "@src/data/map";
+import { defaultMapZoom } from "@src/map/explore";
 import * as s from "@src/db/schema";
 import { exploreHref } from "@src/hrefs";
 import ExplorePage from "@src/pages/explore.astro";

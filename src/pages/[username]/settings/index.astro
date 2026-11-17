@@ -2,7 +2,7 @@
 import { ChevronRight } from "@lucide/astro";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import { adminUserHref } from "@src/hrefs";
-import { openSettings } from "@src/settings";
+import { openSettings } from "@src/settings/settings";
 
 const settings = await openSettings(Astro, undefined);
 if (settings instanceof Response) {

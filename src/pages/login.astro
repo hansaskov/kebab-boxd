@@ -1,9 +1,9 @@
 ---
 import BaseLayout from "@src/layouts/BaseLayout.astro";
-import GoogleSignInButton from "@src/components/GoogleSignInButton.astro";
-import { signInReasonMessages, signInReasons } from "@src/data/login-reasons";
+import GoogleSignInButton from "@src/auth/GoogleSignInButton.astro";
+import { signInReasonMessages, signInReasons } from "@src/auth/login-reasons";
 import { feedHref } from "@src/hrefs";
-import { parseReturnPath } from "@src/validation/return-path";
+import { parseReturnPath } from "@src/auth/return-path";
 
 const returnPath = parseReturnPath(Astro.url.searchParams.get("next"));
 

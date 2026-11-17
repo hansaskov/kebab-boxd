@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Database } from "@src/db";
-import type { Notification } from "@src/db/notifications";
+import type { Notification } from "@src/notifications/notifications.db";
 import NotificationsPage from "@src/pages/notifications.astro";
 import { renderPage } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertUser, signIn } from "@src/tests/database";

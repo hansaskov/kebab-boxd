@@ -2,14 +2,14 @@
 import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import FieldFile from "@src/components/FieldFile.astro";
-import FieldRating from "@src/components/FieldRating.astro";
+import FieldRating from "@src/reviews/FieldRating.astro";
 import FieldTextArea from "@src/components/FieldTextArea.astro";
 import { refusal } from "@src/auth/permissions";
 import { submittedForm } from "@src/actions/outcome";
 import { refusalPage, restaurantHref, signInHref } from "@src/hrefs";
-import { parseId } from "@src/validation/id";
-import { maxPicturesPerReview } from "@src/data/limits";
-import { createReviewSchema } from "@src/validation/review";
+import { parseId } from "@src/params";
+import { maxPicturesPerReview } from "@src/reviews/reviews";
+import { createReviewSchema } from "@src/reviews/actions";
 
 const session = Astro.locals.session;
 if (!session) {

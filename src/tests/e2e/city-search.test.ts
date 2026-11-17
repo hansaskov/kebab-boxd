@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { processDueWork } from "@src/background-work";
 import type { Database } from "@src/db";
 import { isProblem } from "@src/db/problem";
-import { findKebabPlaces, overpassServers, serverName } from "@src/map/overpass";
+import { findKebabPlaces, overpassServers, serverName } from "@src/cities/overpass";
 import { createTestDatabase, insertUser } from "@src/tests/database";
 
 // These tests ask the real services, the way the Durable Object does, but from this machine: a server that

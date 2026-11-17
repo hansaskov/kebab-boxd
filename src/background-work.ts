@@ -1,9 +1,9 @@
 import type { Database } from "@src/db";
-import { maxCitySearchAttempts as maxCandidateAttempts } from "@src/data/limits";
-import { downloadCityList } from "@src/map/geonames";
-import { findPlace } from "@src/map/google-maps";
-import { type Address, findAddress } from "@src/map/nominatim";
-import { findKebabPlaces, isCompleteAddress, OverpassUnavailableError } from "@src/map/overpass";
+import { maxCitySearchAttempts as maxCandidateAttempts } from "@src/cities/city-searches";
+import { downloadCityList } from "@src/cities/geonames";
+import { findPlace } from "@src/restaurants/google-maps";
+import { type Address, findAddress } from "@src/restaurants/nominatim";
+import { findKebabPlaces, isCompleteAddress, OverpassUnavailableError } from "@src/cities/overpass";
 
 // The work the Durable Object does between requests: the links in the SuggestionQueue, the CitySearches and
 // the downloads of the CityList. It does one step at a time, and sleeps while no step is due.

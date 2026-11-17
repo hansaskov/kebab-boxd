@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createSession, findSession } from "@src/auth/session";
-import { inactivityTimeoutSeconds } from "@src/data/retention-periods";
+import { inactivityTimeoutSeconds } from "@src/privacy/retention";
 import { createTestDatabase, insertUser, setLastVerifiedAt } from "@src/tests/database";
 
 describe("a session", () => {

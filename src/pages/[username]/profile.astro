@@ -1,22 +1,22 @@
 ---
 import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
-import Avatar from "@src/components/Avatar.astro";
-import FollowButton from "@src/components/FollowButton.astro";
-import LoginDialog from "@src/components/LoginDialog.astro";
+import Avatar from "@src/users/Avatar.astro";
+import FollowButton from "@src/follows/FollowButton.astro";
+import LoginDialog from "@src/auth/LoginDialog.astro";
 import PagedSection from "@src/components/PagedSection.astro";
-import PersonList from "@src/components/PersonList.astro";
+import PersonList from "@src/users/PersonList.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
-import RestaurantList from "@src/components/RestaurantList.astro";
-import ReviewList from "@src/components/ReviewList.astro";
+import RestaurantList from "@src/restaurants/RestaurantList.astro";
+import ReviewList from "@src/reviews/ReviewList.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { can } from "@src/auth/permissions";
 import { isProblem } from "@src/db/problem";
-import { successToast } from "@src/format/action-toast";
-import { loginDialogId } from "@src/data/login-reasons";
+import { successToast } from "@src/actions/toast";
+import { loginDialogId } from "@src/auth/login-reasons";
 import { feedHref, profileHref, searchHref, settingsHref } from "@src/hrefs";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
-import { parseOption } from "@src/validation/search-params";
+import { parseOption } from "@src/params";
 
 const { username } = Astro.params;
 

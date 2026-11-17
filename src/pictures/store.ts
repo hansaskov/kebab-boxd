@@ -3,6 +3,22 @@ import { generateSecureRandomString } from "@src/auth/hash";
 export const picturePathPrefix = "/pictures/";
 export const pictureContentType = "image/webp";
 
+// Every format the browser offers in a file picker that Cloudflare Images can decode, with the name people know it by.
+const pictureFormats = {
+	"image/jpeg": "JPEG",
+	"image/png": "PNG",
+	"image/webp": "WebP",
+	"image/avif": "AVIF",
+	"image/gif": "GIF",
+} as const;
+
+export const acceptedPictureTypes = Object.keys(pictureFormats);
+
+export const pictureFormatNames = new Intl.ListFormat("en", { type: "disjunction" }).format(Object.values(pictureFormats));
+
+export const maxPictureMegabytes = 10;
+export const maxPictureBytes = maxPictureMegabytes * 1024 * 1024;
+
 const namePattern = /^[a-z0-9]{24}\.webp$/;
 
 const sizes = {

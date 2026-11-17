@@ -1,8 +1,8 @@
 ---
 import { actions } from "astro:actions";
-import SettingsLayout from "@src/layouts/SettingsLayout.astro";
-import { successToast } from "@src/format/action-toast";
-import { openSettings, otherSectionHrefs } from "@src/settings";
+import SettingsLayout from "@src/settings/SettingsLayout.astro";
+import { successToast } from "@src/actions/toast";
+import { openSettings, otherSectionHrefs } from "@src/settings/settings";
 
 const settings = await openSettings(Astro, "notifications");
 if (settings instanceof Response) {

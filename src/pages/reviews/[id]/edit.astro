@@ -2,17 +2,17 @@
 import { X } from "@lucide/astro";
 import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
-import DeleteReviewButton from "@src/components/DeleteReviewButton.astro";
-import DeleteReviewDialog from "@src/components/DeleteReviewDialog.astro";
+import DeleteReviewButton from "@src/reviews/DeleteReviewButton.astro";
+import DeleteReviewDialog from "@src/reviews/DeleteReviewDialog.astro";
 import FieldFile from "@src/components/FieldFile.astro";
-import FieldRating from "@src/components/FieldRating.astro";
+import FieldRating from "@src/reviews/FieldRating.astro";
 import FieldTextArea from "@src/components/FieldTextArea.astro";
 import { refusal } from "@src/auth/permissions";
 import { submittedForm } from "@src/actions/outcome";
 import { refusalPage, restaurantHref, reviewHref, signInHref } from "@src/hrefs";
-import { parseId } from "@src/validation/id";
-import { maxPicturesPerReview } from "@src/data/limits";
-import { updateReviewSchema } from "@src/validation/review";
+import { parseId } from "@src/params";
+import { maxPicturesPerReview } from "@src/reviews/reviews";
+import { updateReviewSchema } from "@src/reviews/actions";
 
 const session = Astro.locals.session;
 if (!session) {

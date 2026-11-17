@@ -1,12 +1,12 @@
 ---
 import { actions } from "astro:actions";
-import SettingsLayout from "@src/layouts/SettingsLayout.astro";
+import SettingsLayout from "@src/settings/SettingsLayout.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
-import { successToast } from "@src/format/action-toast";
-import { deviceName } from "@src/format/device-name";
+import { successToast } from "@src/actions/toast";
+import { deviceName } from "@src/auth/device-name";
 import { sessionHistoryHref } from "@src/hrefs";
 import { isProblem } from "@src/db/problem";
-import { openSettings, otherSectionHrefs } from "@src/settings";
+import { openSettings, otherSectionHrefs } from "@src/settings/settings";
 
 // The devices check the permission themselves, so they come in the same trip to the database as the settings.
 const [settings, devices] = await Promise.all([

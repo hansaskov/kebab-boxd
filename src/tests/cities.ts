@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import type { Database } from "@src/db";
 import { isProblem } from "@src/db/problem";
 import type { CityGroupRow } from "@src/db/schema";
-import { groupPrefix, readCityList, searchKey, type CityList } from "@src/map/geonames";
+import { groupPrefix, readCityList, searchKey, type CityList } from "@src/cities/geonames";
 
 // A few lines of the GeoNames files, zipped as GeoNames zips them.
 export async function readSampleCityList() {

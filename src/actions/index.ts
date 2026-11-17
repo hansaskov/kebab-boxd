@@ -1,9 +1,9 @@
-import { adminActions } from "@src/actions/admin";
-import { profileActions } from "@src/actions/profile";
-import { restaurantActions } from "@src/actions/restaurants";
-import { reviewActions } from "@src/actions/reviews";
-import { sessionActions } from "@src/actions/session";
-import { settingsActions } from "@src/actions/settings";
+import { adminActions } from "@src/admin/actions";
+import { profileActions } from "@src/follows/actions";
+import { restaurantActions } from "@src/restaurants/actions";
+import { reviewActions } from "@src/reviews/actions";
+import { sessionActions } from "@src/auth/actions";
+import { settingsActions } from "@src/settings/actions";
 
 export const server = {
   ...settingsActions,

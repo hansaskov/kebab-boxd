@@ -1,6 +1,6 @@
 import type { AstroCookies } from "astro";
 import { generateSecureRandomString, hashSecret } from "@src/auth/hash";
-import { inactivityTimeoutSeconds } from "@src/data/retention-periods";
+import { inactivityTimeoutSeconds } from "@src/privacy/retention";
 import type { Database } from "@src/db";
 
 // A session is a row in the database and a cookie in the browser that holds its token, `<id>.<secret>`. Only a

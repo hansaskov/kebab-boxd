@@ -6,11 +6,11 @@ import styles from "@src/styles.css?inline";
 import { Bell, CircleUser, DoorOpen, Lightbulb, LogIn, MapPin, Moon, Rss, Search, Settings, Shield, Sun } from "@lucide/astro";
 import { actions } from "astro:actions";
 import type { ComponentProps } from "astro/types";
-import Avatar from "@src/components/Avatar.astro";
+import Avatar from "@src/users/Avatar.astro";
 import Toast from "@src/components/Toast.astro";
 import SpeculationsAPI from "@src/components/SpeculationsAPI.astro";
 import { can } from "@src/auth/permissions";
-import { failureToast } from "@src/format/action-toast";
+import { failureToast } from "@src/actions/toast";
 import { feedHref, homeHref, profileHref, searchHref, settingsHref, signInHref } from "@src/hrefs";
 
 interface Props extends ComponentProps<typeof SpeculationsAPI> {

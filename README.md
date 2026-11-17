@@ -68,8 +68,8 @@ curl -sI https://kebab-boxd.com/feed | grep -i server-timing
 
 Cloudflare stops a Worker that gets no requests and lets the Durable Object sleep, so the first request after a while waits for them to start. A site with few visitors meets a Worker that must start on many requests, since Cloudflare spreads them over many machines. Both Workers load all their code when they start, so each carries only what it needs:
 
-- The Web Worker never loads the code of the database or Drizzle. A value that the pages and the database share, such as a limit or the options of a list, lives in `src/data`. `pnpm lint` refuses any other import from `src/db` outside it, except types.
-- The Backend Worker never loads Zod or Astro, which only the forms need. `src/tests/backend-bundle.test.ts` checks it, and that it stays small.
+- The Web Worker never loads the code of the database or Drizzle. Database code lives in `.db.ts` files and in `src/db`. A value that the pages and the database share, such as a limit or the options of a list, lives in the `.ts` file beside its `.db.ts` file. `pnpm lint` refuses any other import of database code, except types.
+- The Backend Worker never loads Zod or Astro, which only the forms need. `pnpm lint` refuses them in database code, and `src/tests/backend-bundle.test.ts` checks the whole bundle, and that it stays small.
 - The styles go in each page from one copy in `BaseLayout.astro`. Astro's own inlining kept a copy for every route in the Web Worker.
 
 `pnpm bench:live` measures the live site as a Visitor after it has been idle, and again at once:

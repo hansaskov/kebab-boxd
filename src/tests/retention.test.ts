@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createSession } from "@src/auth/session";
-import { historyRetentionSeconds, inactivityTimeoutSeconds } from "@src/data/retention-periods";
+import { historyRetentionSeconds, inactivityTimeoutSeconds } from "@src/privacy/retention";
 import * as s from "@src/db/schema";
 import { createTestDatabase, insertUser, setLastVerifiedAt } from "@src/tests/database";
 

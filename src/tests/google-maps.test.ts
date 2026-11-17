@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { followRedirect, isGoogleMapsLink, parsePlaceLink, parseQueryLink } from "@src/map/google-maps";
-import { toAddress } from "@src/map/nominatim";
+import { followRedirect, isGoogleMapsLink, parsePlaceLink, parseQueryLink } from "@src/restaurants/google-maps";
+import { toAddress } from "@src/restaurants/nominatim";
 
 // Where https://maps.app.goo.gl/XEqFEXq6aNBqJRFJA redirected to on 27 October 2026.
 const placeLink =

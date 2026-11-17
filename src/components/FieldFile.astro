@@ -1,8 +1,8 @@
 ---
 import { Upload } from "@lucide/astro";
 import type { SubmittedForm } from "@src/actions/outcome";
-import { describeField } from "@src/format/field";
-import { acceptedPictureTypes, maxPictureMegabytes } from "@src/validation/picture";
+import { describeField } from "@src/components/field";
+import { acceptedPictureTypes, maxPictureMegabytes } from "@src/pictures/store";
 
 interface Props extends astroHTML.JSX.InputHTMLAttributes {
     name: string;

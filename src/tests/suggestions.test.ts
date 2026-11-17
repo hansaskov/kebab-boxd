@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { finishedSuggestionRetentionSeconds } from "@src/data/retention-periods";
+import { finishedSuggestionRetentionSeconds } from "@src/privacy/retention";
 import type { Database } from "@src/db";
 import { isProblem } from "@src/db/problem";
-import { maxQueuedPerUser } from "@src/data/limits";
-import { maxAttempts } from "@src/db/suggestion-queue";
-import type { Place } from "@src/map/google-maps";
-import type { Address } from "@src/map/nominatim";
+import { maxQueuedPerUser } from "@src/restaurants/suggestion-queue";
+import { maxAttempts } from "@src/restaurants/suggestion-queue.db";
+import type { Place } from "@src/restaurants/google-maps";
+import type { Address } from "@src/restaurants/nominatim";
 import { processNextSuggestion } from "@src/background-work";
 import { createTestDatabase, insertUser } from "@src/tests/database";
 

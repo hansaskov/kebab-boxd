@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { starFills } from "@src/format/rating";
+import { starFills } from "@src/reviews/rating";
 
 describe("starFills", () => {
 	it("shows the lowest rating as one full star and four empty ones", () => {

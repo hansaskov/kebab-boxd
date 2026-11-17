@@ -1,10 +1,9 @@
 import type { Refusal } from "@src/auth/permissions";
-import type { SignInReason } from "@src/data/login-reasons";
-import type { SettingsSection } from "@src/data/settings-sections";
-import type { Notification } from "@src/db/notifications";
+import type { SignInReason } from "@src/auth/login-reasons";
+import type { SettingsSection } from "@src/settings/settings";
+import type { Notification } from "@src/notifications/notifications.db";
 import type { MapView } from "@src/map/viewport";
-import { returnPathOf } from "@src/validation/return-path";
-import type { SearchType } from "@src/validation/search-params";
+import { returnPathOf } from "@src/auth/return-path";
 
 // The page that tells Visitors what Kebab Boxd is. A User has their Feed instead, and is sent on to it.
 export const landingHref = "/";
@@ -139,6 +138,10 @@ export function notificationHref(notification: Notification) {
 
 // The page that answers a request the user may not make, as `refusal` in the permissions decides.
 export const refusalPage = { "not-found": "/404", forbidden: "/403" } as const satisfies Record<Refusal, string>;
+
+// What the search page looks for: cities, restaurants and people together, or one of them on pages of its own.
+export const searchTypes = ["all", "cities", "restaurants", "people"] as const;
+export type SearchType = (typeof searchTypes)[number];
 
 export function searchHref(type: Exclude<SearchType, "all"> | undefined = undefined) {
 	return type ? `/search?type=${type}` : "/search";

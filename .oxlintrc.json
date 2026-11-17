@@ -24,26 +24,88 @@
     "src/tests/*"
   ],
   "rules": {
-    "no-underscore-dangle": ["error", { "allow": ["_zod"] }],
-    "no-restricted-imports": ["error", {
-      "patterns": [{
-        "group": ["drizzle-orm", "drizzle-orm/*"],
-        "message": "Database access belongs in src/db. Add it to the module of its concept there and call it through Astro.locals.db."
-      }, {
-        "group": ["@src/db/*", "!@src/db/problem", "!@src/db/remote"],
-        "allowTypeImports": true,
-        "message": "The Web Worker would load the code of the database and Drizzle with it. Import its types, or move the value to src/data."
-      }]
-    }]
+    "no-underscore-dangle": [
+      "error",
+      {
+        "allow": [
+          "_zod"
+        ]
+      }
+    ],
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": [
+              "drizzle-orm",
+              "drizzle-orm/*"
+            ],
+            "message": "Only the database uses Drizzle. Put the query in the .db.ts module of its feature and call it through Astro.locals.db."
+          },
+          {
+            "group": [
+              "@src/db",
+              "@src/db/*",
+              "@src/**/*.db",
+              "!@src/db/problem",
+              "!@src/db/remote"
+            ],
+            "allowTypeImports": true,
+            "message": "The Web Worker would load the database and Drizzle with it. Import its types, or move the value to the .ts module beside the .db.ts one."
+          }
+        ]
+      }
+    ]
   },
   "overrides": [
     {
-      "files": ["src/db/**", "src/backend.ts", "src/background-work.ts", "tools/page-latency/**"],
-      "rules": { "no-restricted-imports": "off" }
+      "files": [
+        "src/**/*.db.ts",
+        "src/db/**",
+        "src/backend.ts",
+        "src/background-work.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "astro",
+                  "astro/*",
+                  "astro:*",
+                  "zod",
+                  "zod/*",
+                  "@lucide/*",
+                  "@src/actions/*",
+                  "@src/**/actions",
+                  "@src/**/*.astro"
+                ],
+                "allowTypeImports": true,
+                "message": "The Durable Object would load Astro and Zod, which only the pages and forms need. Move the value to a plain .ts module of its feature."
+              }
+            ]
+          }
+        ]
+      }
     },
     {
-      "files": ["sst.config.ts"],
-      "rules": { "typescript/triple-slash-reference": "off" }
+      "files": [
+        "tools/page-latency/**"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    },
+    {
+      "files": [
+        "sst.config.ts"
+      ],
+      "rules": {
+        "typescript/triple-slash-reference": "off"
+      }
     }
   ],
   "env": {

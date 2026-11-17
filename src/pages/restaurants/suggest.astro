@@ -4,14 +4,14 @@ import BaseLayout from "@src/layouts/BaseLayout.astro";
 import FieldInput from "@src/components/FieldInput.astro";
 import Pagination from "@src/components/Pagination.astro";
 import RelativeTime from "@src/components/RelativeTime.astro";
-import RestaurantStatusTag from "@src/components/RestaurantStatusTag.astro";
+import RestaurantStatusTag from "@src/restaurants/RestaurantStatusTag.astro";
 import { can } from "@src/auth/permissions";
 import type { QueuedSuggestionStatus } from "@src/db/schema";
-import { successToast } from "@src/format/action-toast";
+import { successToast } from "@src/actions/toast";
 import { submittedForm } from "@src/actions/outcome";
 import { restaurantHref, searchHref, signInHref } from "@src/hrefs";
 import { pageNavigation, parsePageRequest } from "@src/pagination";
-import { suggestionSchema } from "@src/validation/restaurant";
+import { suggestionSchema } from "@src/restaurants/actions";
 
 const session = Astro.locals.session;
 if (!session) {

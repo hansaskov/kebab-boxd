@@ -1,10 +1,10 @@
 ---
 import { Heart, MapPin, Star, UsersRound } from "@lucide/astro";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
-import Avatar from "@src/components/Avatar.astro";
-import LoginDialog from "@src/components/LoginDialog.astro";
+import Avatar from "@src/users/Avatar.astro";
+import LoginDialog from "@src/auth/LoginDialog.astro";
 import type { Toast } from "@src/components/Toast.astro";
-import { loginDialogId } from "@src/data/login-reasons";
+import { loginDialogId } from "@src/auth/login-reasons";
 import { feedHref, landingNotices, type LandingNotice } from "@src/hrefs";
 
 // The landing page tells Visitors what Kebab Boxd is. A User knows, so they go on to their Feed.

@@ -6,9 +6,9 @@ import { requestEndpoint } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertUser, writeReview } from "@src/tests/database";
 import { storedPictureNames } from "@src/tests/cloudflare";
 import { nameOf, pictureFile, textFile } from "@src/tests/pictures";
-import { updateProfilePictureSchema } from "@src/actions/settings";
-import { maxPictureBytes } from "@src/validation/picture";
-import { createReviewSchema } from "@src/validation/review";
+import { updateProfilePictureSchema } from "@src/settings/actions";
+import { maxPictureBytes } from "@src/pictures/store";
+import { createReviewSchema } from "@src/reviews/actions";
 
 function requestPicture(db: Database, url: string) {
 	return requestEndpoint(PictureEndpoint, { db, session: null }, url, { name: nameOf(url) });

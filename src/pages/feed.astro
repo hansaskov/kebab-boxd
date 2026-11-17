@@ -1,17 +1,19 @@
 ---
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import PagedSection from "@src/components/PagedSection.astro";
-import ReviewList from "@src/components/ReviewList.astro";
+import ReviewList from "@src/reviews/ReviewList.astro";
 import TabNav from "@src/components/TabNav.astro";
-import { feeds, type Feed } from "@src/data/options";
 import { searchHref } from "@src/hrefs";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
-import { parseOption } from "@src/validation/search-params";
+import { parseOption } from "@src/params";
 
 const session = Astro.locals.session;
 const viewer = session?.user ?? null;
 const { reviews } = Astro.locals.db;
 const pageRequest = parsePageRequest(Astro.url);
+
+const feeds = ["following", "everyone"] as const;
+type Feed = (typeof feeds)[number];
 
 // A Visitor follows no one, so they see the Feed of everyone.
 const feed: Feed = session ? parseOption(Astro.url.searchParams, "feed", feeds, "following") : "everyone";

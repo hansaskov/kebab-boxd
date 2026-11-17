@@ -2,20 +2,19 @@
 import { Bookmark, BookmarkCheck, Heart, SquarePen } from "@lucide/astro";
 import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
-import AverageRating from "@src/components/AverageRating.astro";
-import MapView from "@src/components/MapView.astro";
+import AverageRating from "@src/reviews/AverageRating.astro";
+import MapView from "@src/map/MapView.astro";
 import PagedSection from "@src/components/PagedSection.astro";
-import RestaurantStatusTag from "@src/components/RestaurantStatusTag.astro";
-import ReviewList from "@src/components/ReviewList.astro";
-import SuggestionDecision from "@src/components/SuggestionDecision.astro";
-import LoginDialog from "@src/components/LoginDialog.astro";
+import RestaurantStatusTag from "@src/restaurants/RestaurantStatusTag.astro";
+import ReviewList from "@src/reviews/ReviewList.astro";
+import SuggestionDecision from "@src/restaurants/SuggestionDecision.astro";
+import LoginDialog from "@src/auth/LoginDialog.astro";
 import { canOn, refusal } from "@src/auth/permissions";
-import { restaurantMapSize, restaurantMapZoom } from "@src/data/map";
-import { loginDialogId } from "@src/data/login-reasons";
+import { loginDialogId } from "@src/auth/login-reasons";
 import { exploreHref, newReviewHref, profileHref, refusalPage, searchHref } from "@src/hrefs";
 import { viewport } from "@src/map/viewport";
 import { parsePageRequest } from "@src/pagination";
-import { parseId } from "@src/validation/id";
+import { parseId } from "@src/params";
 
 const viewer = Astro.locals.session?.user ?? null;
 
@@ -31,8 +30,10 @@ if (refused || !restaurant || !page) {
   return Astro.rewrite(refusalPage[refused ?? "not-found"]);
 }
 
+// The map shows the street around the restaurant.
+const restaurantMapZoom = 16;
 const { location } = restaurant;
-const map = viewport(location, restaurantMapZoom, restaurantMapSize);
+const map = viewport(location, restaurantMapZoom, { width: 768, height: 288 });
 const address = [location.addressLine1, location.addressLine2, [location.postalCode, location.city].filter(Boolean).join(" "), location.country]
   .filter(Boolean)
   .join(", ");

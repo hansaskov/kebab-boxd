@@ -1,16 +1,16 @@
 ---
 import { actions } from "astro:actions";
-import SettingsLayout from "@src/layouts/SettingsLayout.astro";
-import Avatar from "@src/components/Avatar.astro";
+import SettingsLayout from "@src/settings/SettingsLayout.astro";
+import Avatar from "@src/users/Avatar.astro";
 import FieldFile from "@src/components/FieldFile.astro";
 import FieldInput from "@src/components/FieldInput.astro";
 import FieldSelect from "@src/components/FieldSelect.astro";
 import FieldTextArea from "@src/components/FieldTextArea.astro";
-import { updateAccountSchema } from "@src/actions/settings";
+import { updateAccountSchema } from "@src/settings/actions";
 import { submittedForm } from "@src/actions/outcome";
-import { successToast } from "@src/format/action-toast";
+import { successToast } from "@src/actions/toast";
 import { profileHref } from "@src/hrefs";
-import { openSettings, otherSectionHrefs } from "@src/settings";
+import { openSettings, otherSectionHrefs } from "@src/settings/settings";
 
 const settings = await openSettings(Astro, "profile");
 if (settings instanceof Response) {

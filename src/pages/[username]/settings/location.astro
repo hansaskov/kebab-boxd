@@ -1,11 +1,12 @@
 ---
 import { actions } from "astro:actions";
-import SettingsLayout from "@src/layouts/SettingsLayout.astro";
+import SettingsLayout from "@src/settings/SettingsLayout.astro";
 import FieldInput from "@src/components/FieldInput.astro";
 import { submittedForm } from "@src/actions/outcome";
-import { successToast } from "@src/format/action-toast";
-import { coordinatesTextSchema, formatCoordinates } from "@src/validation/coordinates";
-import { openSettings, otherSectionHrefs } from "@src/settings";
+import { successToast } from "@src/actions/toast";
+import { coordinatesTextSchema } from "@src/settings/actions";
+import { formatCoordinates } from "@src/map/coordinates";
+import { openSettings, otherSectionHrefs } from "@src/settings/settings";
 
 const settings = await openSettings(Astro, "location");
 if (settings instanceof Response) {

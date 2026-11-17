@@ -1,6 +1,13 @@
-import { clusterCellSize, clusterMargin, clusterMergeDistance } from "@src/data/map";
 import { distanceInMeters, type Bounds, type Coordinates } from "@src/map/coordinates";
 import { clampZoom, fitBounds, maxZoom, type ClusterGrid, type MapView, type Viewport } from "@src/map/viewport";
+
+// The sizes below are in the pixels of the map at its full size, which a small screen shows smaller.
+// Restaurants in the same square of this size are one cluster.
+export const clusterCellSize = 128;
+// Clusters closer than this are one, so that their markers do not cover each other.
+export const clusterMergeDistance = 40;
+// Opening a cluster zooms in until its restaurants are at least this far from the edge of the map.
+export const clusterMargin = 48;
 
 // The restaurants of a Cluster are ranked by their RatingAvg, and those rated alike by which was added first.
 export interface ClusterMember {

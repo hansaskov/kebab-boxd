@@ -2,26 +2,21 @@
 import { Search, ZoomIn } from "@lucide/astro";
 import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
-import AverageRating from "@src/components/AverageRating.astro";
-import MapView from "@src/components/MapView.astro";
 import SearchForm from "@src/components/SearchForm.astro";
 import TabNav from "@src/components/TabNav.astro";
-import LoginDialog from "@src/components/LoginDialog.astro";
-import { defaultMapZoom, exploreMapCells } from "@src/data/map";
-import { successToast } from "@src/format/action-toast";
-import { noCityText } from "@src/format/city";
-import { regionAndCountry } from "@src/format/country";
-import { formatDistance } from "@src/format/distance";
-import { formatOffset } from "@src/format/offset";
-import { loginDialogId } from "@src/data/login-reasons";
-import { exploreCityHref, exploreHref, restaurantHref, searchHref } from "@src/hrefs";
+import { successToast } from "@src/actions/toast";
+import LoginDialog from "@src/auth/LoginDialog.astro";
+import { loginDialogId } from "@src/auth/login-reasons";
+import { regionAndCountry } from "@src/cities/country";
+import { noCityText } from "@src/cities/geonames";
+import MapView from "@src/map/MapView.astro";
 import { openedView } from "@src/map/clusters";
-import { distanceInMeters, type Coordinates } from "@src/map/coordinates";
-import { exploreView, exploreViewport } from "@src/map/explore-map";
-import { maxZoom, minZoom, type MapView as View } from "@src/map/viewport";
-import { parseId } from "@src/validation/id";
-import { parseMapView } from "@src/validation/map-view";
-import { parseSearch, searchMaxLength } from "@src/validation/search-params";
+import { distanceInMeters, formatDistance, formatOffset, type Coordinates } from "@src/map/coordinates";
+import { defaultMapZoom, exploreMapCells, exploreMoves, exploreView, exploreViewport, exploreZoomStep, parseMapView } from "@src/map/explore";
+import { zoomedIn, zoomedOut, type MapView as View } from "@src/map/viewport";
+import AverageRating from "@src/reviews/AverageRating.astro";
+import { exploreCityHref, exploreHref, restaurantHref, searchHref } from "@src/hrefs";
+import { parseId, parseSearch, searchMaxLength } from "@src/params";
 
 const session = Astro.locals.session;
 const params = Astro.url.searchParams;
@@ -75,14 +70,18 @@ function exploreMap(shown: View) {
 		};
 	});
 
+	const zoomTo = (zoom: number | undefined) => zoom === undefined ? undefined : mapHref({ center: map.center, zoom });
+
 	return {
 		map,
 		clusters,
 		navigation: {
-			zoomIn: map.zoom < maxZoom ? mapHref({ center: map.center, zoom: map.zoom + 1 }) : undefined,
-			zoomOut: map.zoom > minZoom ? mapHref({ center: map.center, zoom: map.zoom - 1 }) : undefined,
-			columns: exploreMapCells.columns,
-			cells: map.cellCenters(exploreMapCells.columns, exploreMapCells.rows).map((center) => ({
+			zoomIn: zoomTo(zoomedIn(map.zoom, exploreZoomStep)),
+			zoomOut: zoomTo(zoomedOut(map.zoom, exploreZoomStep)),
+			grid: exploreMapCells,
+			moves: exploreMoves(map).map(({ column, row, center }) => ({
+				column,
+				row,
 				href: mapHref({ center, zoom: map.zoom }),
 				label: `Move ${formatOffset(map.center, center)}`,
 			})),

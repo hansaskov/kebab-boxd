@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { searchKey } from "@src/map/geonames";
+import { searchKey } from "@src/cities/geonames";
 import type { PageRequest } from "@src/pagination";
 import { loadCityList, loadSampleCityList, namesakeCityList, readSampleCityList } from "@src/tests/cities";
 import { createTestDatabase, insertUser } from "@src/tests/database";
