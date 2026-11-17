@@ -19,7 +19,6 @@ interface Statement {
 	bindings: unknown[];
 }
 
-// A statement with how SQLite runs it, one line for each step of EXPLAIN QUERY PLAN, indented under its parent.
 export interface PlannedStatement {
 	query: string;
 	plan: string[];
@@ -40,7 +39,6 @@ function planLines(rows: PlanRow[]): string[] {
 	});
 }
 
-// The storage, keeping each statement the database runs.
 function recordingStatements(storage: DurableObjectStorage, statements: Statement[]): DurableObjectStorage {
 	return withExec(storage, (query, ...bindings) => {
 		statements.push({ query, bindings });
@@ -48,9 +46,6 @@ function recordingStatements(storage: DurableObjectStorage, statements: Statemen
 	});
 }
 
-// The database in a Durable Object, as in production, with the rows of each call counted the way Cloudflare
-// counts them, and the plan of each statement. The tests in Node reach it through Miniflare, which passes text, so
-// values travel as JSON.
 export class MeasuredDatabase extends DurableObject<Env> {
 	readonly #db: Database;
 	readonly #storage: DurableObjectStorage;
@@ -68,8 +63,6 @@ export class MeasuredDatabase extends DurableObject<Env> {
 		return toJson(await fillLargeDatabase(drizzle(this.#storage, { relations }), scale));
 	}
 
-	// Runs one method of the database, and tells what it returned, the rows it read and wrote, and the plan of
-	// each statement it ran.
 	async measure(area: string, method: string, args: string): Promise<string> {
 		this.#rows = [];
 		this.#statements.length = 0;
@@ -83,8 +76,6 @@ export class MeasuredDatabase extends DurableObject<Env> {
 		return toJson({ value, rows, statements });
 	}
 
-	// Counts two pieces of work that run at once: each reads a table, waits for R2, which lets the other run, and
-	// reads its table again. Tells the rows each read.
 	async meterOverlappingWork(): Promise<string> {
 		const meter = meterRows(this.#storage);
 		const rows: Record<string, RowCounts> = {};

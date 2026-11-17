@@ -7,7 +7,7 @@ import DeleteReviewDialog from "@src/reviews/DeleteReviewDialog.astro";
 import FieldFile from "@src/components/FieldFile.astro";
 import FieldRating from "@src/reviews/FieldRating.astro";
 import FieldTextArea from "@src/components/FieldTextArea.astro";
-import { refusal } from "@src/auth/permissions";
+import { isProblem } from "@src/db/problem";
 import { submittedForm } from "@src/actions/outcome";
 import { refusalPage, restaurantHref, reviewHref, signInHref } from "@src/hrefs";
 import { parseId } from "@src/params";
@@ -21,10 +21,12 @@ if (!session) {
 
 const id = parseId(Astro.params.id);
 const { db } = Astro.locals;
-const review = id ? await db.load(db.reviews.findById(id, session.user.id)) : undefined;
-const refused = refusal(session.user, "review:edit", review);
-if (refused || !review) {
-  return Astro.rewrite(refusalPage[refused ?? "not-found"]);
+if (!id) {
+  return Astro.rewrite(refusalPage["not-found"]);
+}
+const review = await db.load(db.reviews.findAllowed(id, session.user.id, "review:edit"));
+if (isProblem(review)) {
+  return Astro.rewrite(refusalPage[review.problem]);
 }
 
 const submitted = submittedForm(Astro.locals, actions.reviews.update);
@@ -60,7 +62,6 @@ const { shape } = updateReviewSchema;
             {review.pictures.map((picture, i) => (
               <li class="relative">
                 <img class="aspect-square w-full rounded-field bg-subtle object-cover" src={picture.url} alt={`Picture ${i + 1}`} />
-                <!-- Sends the form after the review form, so a removal sends no new pictures with it. -->
                 <button
                   class="picture-remove"
                   type="submit"

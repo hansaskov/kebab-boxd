@@ -6,7 +6,6 @@ import { coordinatesPattern, parseCoordinates } from "@src/map/coordinates";
 import { orThrow, requireSession } from "@src/actions/authorize";
 import { landingHref, landingNoticeHref, settingsHref } from "@src/hrefs";
 
-// A location as Google Maps and OpenStreetMap copy it.
 export const coordinatesTextSchema = z
   .string()
   .trim()
@@ -16,7 +15,6 @@ export const coordinatesTextSchema = z
 
 export const coordinatesSchema = coordinatesTextSchema.transform((text) => parseCoordinates(text)!);
 
-// The account whose settings the form changes, which an admin may change for someone else.
 export const currentUserSchema = z.object({
   currentUsername: z.string().trim().min(1).max(50),
 });
@@ -60,7 +58,6 @@ export const settingsActions = {
     handler: async ({ currentUsername, bio, ...profile }, { locals }) => {
       const { db } = locals;
       orThrow(await db.load(db.users.updateProfile(requireSession(locals).user.id, currentUsername, { ...profile, bio: bio || null })));
-      // The address of the settings holds the username, which may have changed.
       return { redirect: settingsHref(profile.username, "profile") };
     },
   }),
@@ -82,7 +79,6 @@ export const settingsActions = {
       return { redirect: settingsHref(user.username, "profile") };
     },
   }),
-  // The location is set in the settings and on the map, and the user goes back to the page they set it on.
   updateLocation: defineAction({
     accept: "form",
     input: updateLocationSchema,
@@ -109,7 +105,6 @@ export const settingsActions = {
       return { redirect: settingsHref(user.username, "notifications") };
     },
   }),
-  // The sessions are gone, so the next page finds none for the cookie and removes it.
   signOutEverywhere: defineAction({
     accept: "form",
     input: currentUserSchema,

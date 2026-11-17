@@ -14,11 +14,9 @@ import { createTestDatabase, insertRestaurant, insertUser, signIn } from "@src/t
 
 const metersPerDegree = 111_320;
 
-// The middle of the map the tests look at, and the address of that map.
 const defaultMapCenter: Coordinates = { latitude: 55.3959, longitude: 10.3883 };
 const odense = exploreHref({ center: defaultMapCenter, zoom: defaultMapZoom });
 
-// The place the given distances north and east of the middle of the default map.
 function near(north: number, east: number): Coordinates {
 	const { latitude, longitude } = defaultMapCenter;
 	return {
@@ -39,15 +37,7 @@ function hrefs(html: string, pattern: RegExp) {
 
 const markersOf = (html: string) => hrefs(html, /<li class="map-(?:pin|cluster)"[^>]*><a href="([^"]*)"/g);
 const rowsOf = (html: string) => hrefs(html, /<a class="list-row-link[^"]*" href="([^"]*)"/g);
-// The links over the map that move it, with the cell each covers, counted from 0 at the north-west.
 
-// The cells along the sides of the explore map, row by row from the north-west.
-
-
-// The map a Visitor sees, on the grid of the explore map.
-
-
-// The middle of the map, which the link to zoom in keeps.
 function mapCenterOf(html: string): Coordinates {
 	const [href = ""] = hrefs(html, /<a class="icon-btn" href="([^"]*)"[^>]*title="Zoom in"/g);
 	const params = new URL(href, "http://localhost").searchParams;
@@ -72,14 +62,11 @@ describe("the explore map", () => {
 		expect(rowsOf(html)).toHaveLength(2);
 		expect(rowsOf(html)[0]).toBe(restaurantHref(lone.id));
 		expect(rowsOf(html)[1]).toMatch(/^\/explore\?/);
-		// A cluster is named after the best-rated of its restaurants.
 		expect(html).toContain("Grill B and 2 more");
 		expect(html).not.toContain("Pending Kebab");
 		expect(html).not.toContain("Copenhagen Kebab");
 	});
 });
-
-// Whether the page asks where to look, instead of showing a map.
 
 describe("feeling lucky on the explore page", () => {
 	async function parisOf(db: Database, client: Client) {

@@ -1,22 +1,19 @@
 import { can, refusal, type Resource, type ResourcePermission, type SubjectPermission, type UserPermission, type Viewer } from "@src/auth/permissions";
 import type { Client, Transaction } from "@src/db/client";
 import { chunks, durableSqliteLimits } from "@src/db/limits";
-import type { Problem } from "@src/db/problem";
+import type { Problem, Refused } from "@src/db/problem";
 import { isFollowedBy, isListedReview, reviewAuthor } from "@src/db/visibility";
 
 function findActor(tx: Transaction, id: number) {
 	return tx.query.users.findFirst({ columns: { id: true, role: true, bannedAt: true }, where: { id } }).sync();
 }
 
-// Why the actor may not have the permission on the resource, as the transaction reads them, or undefined when they may.
 function refusalIn<P extends ResourcePermission>(tx: Transaction, actorId: number, permission: P, resource: Resource<P> | undefined): Problem | undefined {
 	const actor = findActor(tx, actorId);
 	const refused = !actor || actor.bannedAt ? "forbidden" : refusal(actor, permission, resource);
 	return refused ? { problem: refused, permission } : undefined;
 }
 
-// The only check of a permission on a resource: it reads the actor and the resource inside the write
-// transaction, so a role or a resource that changes while the request runs cannot slip through.
 export function authorizedWrite<P extends ResourcePermission, R extends Resource<P>, T>(
 	client: Client,
 	actorId: number,
@@ -28,14 +25,9 @@ export function authorizedWrite<P extends ResourcePermission, R extends Resource
 		const resource = findResource(tx);
 		return refusalIn(tx, actorId, permission, resource) ?? write(tx, resource!);
 	};
-	// The transaction type refuses a generic result because it cannot prove that the result is no promise.
-	// The writes are synchronous, so it is not.
 	return client.transaction(run as (tx: Transaction) => Problem) as T | Problem;
 }
 
-// Why the actor may not have the permission on the resource now, or undefined when they may. Only for work that
-// must not start for a write that would be refused, such as encoding its pictures. The write checks again with
-// authorizedWrite, since the actor or the resource may change before it runs.
 export function refusalBeforeWrite<P extends ResourcePermission>(
 	client: Client,
 	actorId: number,
@@ -45,17 +37,14 @@ export function refusalBeforeWrite<P extends ResourcePermission>(
 	return client.transaction((tx): Problem | undefined => refusalIn(tx, actorId, permission, findResource(tx)));
 }
 
-// A write that needs a permission on no resource, checked against the actor as the transaction reads them.
 export function authorizedSubjectWrite<T>(client: Client, actorId: number, permission: SubjectPermission, write: (tx: Transaction) => T): T | Problem {
 	const run = (tx: Transaction): T | Problem => {
 		const actor = findActor(tx, actorId);
 		return actor && !actor.bannedAt && can(actor, permission) ? write(tx) : { problem: "forbidden", permission };
 	};
-	// As in authorizedWrite, the writes are synchronous, so the result is no promise.
 	return client.transaction(run as (tx: Transaction) => Problem) as T | Problem;
 }
 
-// A write on several resources at once. Every resource must exist and allow the permission, or nothing is written.
 export function authorizedWriteAll<P extends ResourcePermission, R extends Resource<P>, T>(
 	client: Client,
 	actorId: number,
@@ -75,44 +64,36 @@ export function authorizedWriteAll<P extends ResourcePermission, R extends Resou
 	return client.transaction(run as (tx: Transaction) => Problem) as T | Problem;
 }
 
-// The viewer of a read, as the permissions need them: null for a Visitor, and undefined for a User who is gone or banned.
 function findViewer(client: Client, viewerId: number | null): Viewer | undefined {
 	if (viewerId === null) return null;
 	const viewer = client.query.users.findFirst({ columns: { id: true, role: true, bannedAt: true }, where: { id: viewerId } }).sync();
 	return viewer && !viewer.bannedAt ? viewer : undefined;
 }
 
-// A read of what only some may see, such as the sessions of a User. Like a write, it finds the viewer and the resource
-// itself from what the address of the page names, such as a Username. So a page asks for it together with the rest of
-// what it shows, in one trip to the database, instead of waiting to find the resource first.
 export async function authorizedRead<P extends ResourcePermission, R extends Resource<P>, T>(
 	client: Client,
 	viewerId: number | null,
 	permission: P,
 	resource: R | undefined,
-	read: (resource: R, viewer: Viewer) => Promise<T | Problem>,
-): Promise<T | Problem> {
+	read: (resource: R, viewer: Viewer) => Promise<T | Refused>,
+): Promise<T | Refused> {
 	const viewer = findViewer(client, viewerId);
 	const refused = viewer === undefined ? "forbidden" : refusal(viewer, permission, resource);
 	return refused ? { problem: refused, permission } : read(resource!, viewer!);
 }
 
-// The user a write is about, as the permissions need them and the action needs them to name the page it goes back to.
 export const targetUserColumns = { id: true, username: true, role: true, bannedAt: true, isPrivate: true } as const;
 
 function findTargetUser(tx: Transaction, username: string) {
 	return tx.query.users.findFirst({ columns: targetUserColumns, where: { username: username.toLowerCase() } }).sync();
 }
 
-// The user named `username` as the viewer, null for a Visitor, sees them: enough for every permission on a User,
-// those on their Reviews too.
 export function findUserSeenBy(client: Client, username: string, viewerId: number | null) {
 	return client.query.users
 		.findFirst({ columns: targetUserColumns, extras: { isFollowedByViewer: isFollowedBy(viewerId) }, where: { username: username.toLowerCase() } })
 		.sync();
 }
 
-// A write on the user named `username`, found inside the transaction. Returns the user it wrote to.
 export function writeOnUser(
 	client: Client,
 	actorId: number,
@@ -129,7 +110,6 @@ export function findTargetRestaurant(tx: Transaction, id: number) {
 	return tx.query.restaurants.findFirst({ columns: targetRestaurantColumns, where: { id } }).sync();
 }
 
-// One for each id, in the same order, with undefined for an id that has no restaurant.
 export function findTargetRestaurants(tx: Transaction, ids: number[]) {
 	const found = new Map(
 		chunks(ids, durableSqliteLimits.variableNumber)
@@ -139,7 +119,6 @@ export function findTargetRestaurants(tx: Transaction, ids: number[]) {
 	return ids.map((id) => found.get(id));
 }
 
-// As the actor sees it, with its pictures, whose files go when the write removes them.
 export function findTargetReview(tx: Transaction, id: number, actorId: number) {
 	return tx.query.reviews
 		.findFirst({

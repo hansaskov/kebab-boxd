@@ -9,20 +9,16 @@ import type { KebabPlace } from "@src/cities/overpass";
 import { loadSampleCityList } from "@src/tests/cities";
 import { createTestDatabase, insertRestaurant, insertUser, restaurantRow } from "@src/tests/database";
 
-// GeoNames ids of cities in the sample CityList.
 const odense = { id: 2615876, name: "Odense" };
 const copenhagen = { id: 2618425, name: "Copenhagen" };
 
-// A place with a street and a city, which is added without asking Nominatim.
 function kebabPlace(osmId: string, name: string, latitude = 55.396, longitude = 10.388): KebabPlace {
 	return { osmId, name, latitude, longitude, address: { addressLine1: "Vestergade 1", postalCode: "5000", city: "Odense", country: "Denmark" } };
 }
 
-// What a server found, as Overpass gives it.
 function found(places: KebabPlace[]) {
 	return { places, server: "overpass.example", failures: [] };
 }
-
 
 function logOf(client: Client, id: number) {
 	return client.query.citySearchEvents

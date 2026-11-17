@@ -11,7 +11,6 @@ import type { PageItem, PageRequest } from "@src/pagination";
 
 const qb = new QueryBuilder();
 
-// Whether the viewer has asked to follow the user and waits for an answer, as an extra of a query on users.
 export function isRequestedBy(viewerId: number | null) {
 	return (user: typeof s.users) =>
 		ofViewer(viewerId, (id) =>
@@ -24,7 +23,6 @@ export function isRequestedBy(viewerId: number | null) {
 		);
 }
 
-// Everything a user shows in a list of people, and what decides whether the viewer may follow them.
 export function personCard(viewerId: number | null) {
 	return {
 		columns: { id: true, username: true, fullname: true, role: true, bannedAt: true },
@@ -33,13 +31,11 @@ export function personCard(viewerId: number | null) {
 	} as const;
 }
 
-// How many users who are not banned wait for the user to approve them, as an extra of a query on users.
 export function followRequestCount(client: Client) {
 	return (user: typeof s.users) =>
 		client.$count(s.followRequests, and(eq(s.followRequests.followingId, user.id), isUnbannedUser(s.followRequests.followerId)));
 }
 
-// Whether the follower did not follow before. The caller tells whom it concerns.
 function startFollow(tx: Transaction, followerId: number, followingId: number) {
 	const inserted = tx.insert(s.followers).values({ followerId, followingId }).onConflictDoNothing().returning({ followerId: s.followers.followerId }).all();
 	return inserted.length > 0;
@@ -55,7 +51,6 @@ function deleteRequest(tx: Transaction, followerId: number, followingId: number)
 	return deleted.length > 0;
 }
 
-// Ends the Follow, or the request for it, whichever side ends it, and every Notification about it.
 function endFollow(tx: Transaction, followerId: number, followingId: number) {
 	tx.delete(s.followers)
 		.where(and(eq(s.followers.followerId, followerId), eq(s.followers.followingId, followingId)))
@@ -65,15 +60,12 @@ function endFollow(tx: Transaction, followerId: number, followingId: number) {
 	withdraw(tx, { kind: "follow-accepted", recipientId: followerId, actorId: followingId });
 }
 
-// Turns the request into a Follow. The User it waited for approves it themselves, so only the one who asked hears
-// about it.
 function approve(tx: Transaction, followerId: number, followingId: number) {
 	if (deleteRequest(tx, followerId, followingId) && startFollow(tx, followerId, followingId)) {
 		notify(tx, { kind: "follow-accepted", recipientId: followerId, actorId: followingId });
 	}
 }
 
-// When a Profile becomes public, every request that waits for its User is approved.
 export function approveAllFollowRequests(tx: Transaction, followingId: number) {
 	const requests = tx.query.followRequests.findMany({ columns: { followerId: true }, where: { followingId } }).sync();
 	for (const { followerId } of requests) approve(tx, followerId, followingId);
@@ -85,7 +77,6 @@ const requestPages = cursorList("followRequests", ["createdAt", "followerId"], "
 
 export function createFollows(client: Client) {
 	return {
-		// Follows a User with a public Profile at once, and asks one with a private Profile.
 		async follow(followerId: number, username: string) {
 			return writeOnUser(client, followerId, username, "user:follow", (tx, user) => {
 				if (!user.isPrivate) {
@@ -104,23 +95,18 @@ export function createFollows(client: Client) {
 			});
 		},
 
-		// Also takes back a request that waits for an answer.
 		async unfollow(followerId: number, username: string) {
 			return writeOnUser(client, followerId, username, "user:unfollow", (tx, user) => endFollow(tx, followerId, user.id));
 		},
 
-		// The User named `username` asked to follow the actor.
 		async approveRequest(actorId: number, username: string) {
 			return writeOnUser(client, actorId, username, "user:approve-follow-request", (tx, user) => approve(tx, user.id, actorId));
 		},
 
-		// Stops the User named `username` from following the actor, or declines their request.
 		async removeFollower(actorId: number, username: string) {
 			return writeOnUser(client, actorId, username, "user:remove-follower", (tx, user) => endFollow(tx, user.id, actorId));
 		},
 
-		// Banned users are left out of the lists.
-		// The followers of the User named `username`, as the viewer, who is null for a Visitor, sees them on the Profile.
 		async listFollowers(username: string, viewerId: number | null, page: PageRequest) {
 			return authorizedRead(client, viewerId, "user:view-profile", findUserSeenBy(client, username, viewerId), async (user) => {
 				const rows = await followerPages(page, (seek) =>
@@ -134,7 +120,6 @@ export function createFollows(client: Client) {
 			});
 		},
 
-		// The people the User named `username` follows, as the viewer, who is null for a Visitor, sees them on the Profile.
 		async listFollowing(username: string, viewerId: number | null, page: PageRequest) {
 			return authorizedRead(client, viewerId, "user:view-profile", findUserSeenBy(client, username, viewerId), async (user) => {
 				const rows = await followingPages(page, (seek) =>
@@ -148,7 +133,6 @@ export function createFollows(client: Client) {
 			});
 		},
 
-		// The users who wait for the User named `username` to approve them, the latest first. Only the User sees them.
 		async listRequests(username: string, viewerId: number | null, page: PageRequest) {
 			return authorizedRead(client, viewerId, "user:view-follow-requests", findUserSeenBy(client, username, viewerId), async (user) => {
 				const rows = await requestPages(page, (seek) =>

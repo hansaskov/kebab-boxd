@@ -1,16 +1,3 @@
-// Measures how long each page of the site takes to answer, as a user would wait for it.
-//
-//   pnpm bench:pages [--round-trip 35] [--runs 15] [--scale 4] [--only <text>] [--profile] [--skip-build]
-//
-// It builds the site, and runs the Web Worker and the Backend Worker with its Durable Object in workerd, as Cloudflare
-// runs them. The database is the large database of the row tests. Each call of the database waits for the round
-// trip to the Durable Object first: about 35 ms in production, measured as the difference between a page of a
-// Visitor with one call of the database and one without.
-//
-// For each page and each kind of user, it tells the median and the slowest time, the calls of the database and how
-// many of them the page waited for one after another. With --profile, it records where the CPU time goes, in a
-// .cpuprofile of each Worker for each page, which Chrome DevTools or https://www.speedscope.app shows as a flame graph.
-
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -41,11 +28,8 @@ const siteDir = join(outDir, "site");
 const profileDir = join(outDir, "profiles");
 mkdirSync(outDir, { recursive: true });
 
-// Microseconds, as the budgets of the site are written.
 const excellentUs = 100_000;
 const acceptableUs = 200_000;
-
-// ---- Build ----
 
 if (!options["skip-build"]) {
 	console.log("Building the site…");
@@ -73,10 +57,7 @@ const backendBundle = await build({
 	logLevel: "error",
 });
 
-// ---- Workers ----
-
 const inspectorPort = 9239;
-// The settings of the Workers in production, from sst.config.ts.
 const compatibility = { compatibilityDate: "2025-05-05", compatibilityFlags: ["nodejs_compat"] };
 const text = (value: string) => ({ type: "text" as const, value });
 const placeholderSecrets = Object.fromEntries(
@@ -88,7 +69,6 @@ const placeholderSecrets = Object.fromEntries(
 
 const miniflare = new Miniflare({
 	...(options.profile ? { inspectorPort } : {}),
-	// The Backend logs the rows of each call, which would bury the results. Errors still show.
 	handleStructuredLogs: ({ level, message }) => {
 		if (level === "error" || level === "warn") console.error(message);
 	},
@@ -131,8 +111,6 @@ const backendFetch = async (path: string) => {
 console.log(`Filling the database at scale ${scale}…`);
 const { subjects, tokens } = (await (await backendFetch(`/fill?scale=${scale}`)).json()) as Bench;
 await backendFetch(`/round-trip?ms=${roundTripMs}`);
-
-// ---- Pages ----
 
 type Role = "visitor" | keyof Bench["tokens"];
 
@@ -180,11 +158,7 @@ const cases: PageCase[] = [
 		"/admin/cities?q=od", `/admin/cities/searches/${subjects.citySearchId}`].map((path) => ({ role: "admin" as const, path })),
 ].filter(({ role, path }) => !options.only || `${role} ${path}`.includes(options.only));
 
-// ---- Profiler ----
-
-// A connection to the inspector of one Worker, which records the CPU time of the requests in between.
 async function openProfiler(worker: string) {
-	// workerd names the inspector of each Worker after it.
 	const socket = new WebSocket(`ws://127.0.0.1:${inspectorPort}/core:user:${worker}`);
 	await new Promise((resolve, reject) => {
 		socket.addEventListener("open", resolve, { once: true });
@@ -214,8 +188,6 @@ async function openProfiler(worker: string) {
 const profilers = options.profile ? { web: await openProfiler("web"), backend: await openProfiler("backend") } : undefined;
 if (profilers) mkdirSync(profileDir, { recursive: true });
 
-// ---- Measurement ----
-
 const cookieOf = (role: Role) => (role === "visitor" ? {} : { Cookie: `__Host-session=${tokens[role]}` });
 
 async function request({ role, path }: PageCase) {
@@ -223,12 +195,10 @@ async function request({ role, path }: PageCase) {
 	const response = await miniflare.dispatchFetch(`https://kebab-boxd.com${path}`, { headers: cookieOf(role), redirect: "manual" });
 	await response.arrayBuffer();
 	const microseconds = Math.round((performance.now() - startedAt) * 1000);
-	// The history of a request is written after its answer, so it is not part of the wait.
 	const calls = ((await (await backendFetch("/calls")).json()) as CallRecord[]).filter((call) => call.call !== "history.record");
 	return { status: response.status, microseconds, calls };
 }
 
-// The calls a request waited for one after another: a call that started after the last one ended waited for it.
 function sequentialTrips(calls: CallRecord[]) {
 	let trips = 0;
 	let end = Number.NEGATIVE_INFINITY;
@@ -255,7 +225,6 @@ const results: Result[] = [];
 console.log(`Measuring ${cases.length} pages, ${runs} runs each, with a round trip of ${roundTripMs} ms to the database…\n`);
 
 for (const page of cases) {
-	// The first requests compile the code of the page.
 	await request(page);
 	await request(page);
 

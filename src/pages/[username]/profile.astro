@@ -32,14 +32,11 @@ const profileTabs = ["reviews", "favorites", "bucket-list", "followers", "follow
 type ProfileTab = (typeof profileTabs)[number];
 const pageRequest = parsePageRequest(Astro.url);
 
-// Each list checks itself whether the viewer may see it, so the page asks for it together with the Profile, in one
-// trip to the database. Only the User opens their follow requests. Anyone else who asks for them sees the Reviews
-// instead, so the Reviews come along.
 const requestedTab = parseOption(Astro.url.searchParams, "tab", profileTabs, "reviews");
 const asks = (option: ProfileTab) => requestedTab === option;
 const loaded = await db.load({
   user: db.users.findProfile(username, viewerId),
-  reviews: asks("reviews") || asks("requests") ? db.reviews.listOnProfile(username, viewerId, pageRequest) : undefined,
+  reviews: asks("reviews") ? db.reviews.listOnProfile(username, viewerId, pageRequest) : undefined,
   favorites: asks("favorites") ? db.collections.list(username, "favorites", viewerId, pageRequest) : undefined,
   bucketList: asks("bucket-list") ? db.collections.list(username, "bucketList", viewerId, pageRequest) : undefined,
   followers: asks("followers") ? db.follows.listFollowers(username, viewerId, pageRequest) : undefined,
@@ -56,6 +53,10 @@ if (user.username !== username) {
   return Astro.redirect(`${profileHref(user.username)}${Astro.url.search}`, 301);
 }
 
+if (isProblem(loaded.requests)) {
+  return Astro.redirect(profileHref(user.username));
+}
+
 const isOwnProfile = viewer?.id === user.id;
 const canEditProfile = can(viewer, "user:edit-settings", user);
 const canView = can(viewer, "user:view-profile", user);
@@ -63,8 +64,7 @@ const canViewHiddenReviews = can(viewer, "user:view-hidden-reviews", user);
 const canViewRequests = can(viewer, "user:view-follow-requests", user);
 
 const openTabs = profileTabs.filter((option) => option !== "requests" || canViewRequests);
-const tab = parseOption(Astro.url.searchParams, "tab", openTabs, "reviews");
-// A list the viewer may not see is left out, and the page tells why.
+const tab = requestedTab;
 const shown = <List,>(list: List) => (list === undefined || isProblem(list) ? undefined : (list as Exclude<List, Problem | undefined>));
 const reviewPage = tab === "reviews" ? shown(loaded.reviews) : undefined;
 const restaurantPage = tab === "favorites" ? shown(loaded.favorites) : tab === "bucket-list" ? shown(loaded.bucketList) : undefined;
@@ -86,8 +86,6 @@ const listTabs = (["reviews", "favorites", "bucket-list"] as const).map((option)
   href: tabHref(option),
   current: option === tab,
 }));
-// The owner of a private Profile chooses who follows them, so they may remove a follower. On a public Profile, the
-// follower could follow again at once.
 const managedList = isOwnProfile && tab === "requests" ? "requests" : isOwnProfile && user.isPrivate && tab === "followers" ? "followers" : undefined;
 const showsRequests = canViewRequests && (user.followRequestCount > 0 || tab === "requests");
 

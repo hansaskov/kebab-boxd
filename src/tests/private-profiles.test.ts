@@ -18,8 +18,6 @@ async function sessionOf(db: Database, userId: number | null) {
 	return userId === null ? null : signIn(db, userId);
 }
 
-// Where the viewer, null for a Visitor, finds the Review: on the Profile of its author, on its own page, on its
-// Restaurant and in the Feed of everyone.
 async function whereShown(db: Database, viewerId: number | null, review: { id: number; author: string; restaurantId: number; text: string }) {
 	const locals = { db, session: await sessionOf(db, viewerId) };
 	const id = String(review.id);
@@ -31,8 +29,6 @@ async function whereShown(db: Database, viewerId: number | null, review: { id: n
 	return [profile.html, page.response.status === 200 && page.html, restaurant.html, feed.html].map((html) => html !== false && html.includes(review.text));
 }
 
-
-// The notifications of the User, which this marks read.
 async function inbox(db: Database, userId: number) {
 	const { page } = await db.notifications.show(userId, firstPage);
 	return page.items.map((notification) => `${notification.kind}${"actor" in notification ? ` ${notification.actor.username}` : ""}`).toSorted();
@@ -52,7 +48,6 @@ describe("A private Profile", () => {
 
 		await db.users.setPrivacy(bob.id, bob.username, true);
 
-		// [Profile, Review, Restaurant, Feed of everyone]. An Admin reads the Reviews to moderate them, not in the lists.
 		expect({
 			beforeForOthers: before,
 			author: await whereShown(db, bob.id, review),
@@ -79,7 +74,6 @@ describe("A private Profile", () => {
 		await db.follows.follow(ada.id, bob.username);
 		const review = await publish(db, bob.id, grill.id, "Crisp bread");
 		await db.users.setPrivacy(bob.id, bob.username, true);
-		// Ada followed Bob while his Profile was public, so she follows him still, and asks for nothing.
 		await db.follows.follow(ada.id, bob.username);
 		const listedToAda = async () => (await db.reviews.listEveryone(ada.id, firstPage)).items.map((item) => item.id);
 		const followed = await listedToAda();

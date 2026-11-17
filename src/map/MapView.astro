@@ -8,12 +8,10 @@ export interface Marker {
   coordinates: Coordinates;
   href: string;
   label: string;
-  // The number of restaurants of a Cluster, which shows as a bubble instead of a pin.
   count?: number | undefined;
 }
 
 interface Move {
-  // The cell of the grid the link covers, counted from 0 at the north-west.
   column: number;
   row: number;
   href: string;
@@ -23,7 +21,6 @@ interface Move {
 export interface MapNavigation {
   zoomIn: string | undefined;
   zoomOut: string | undefined;
-  // A grid of cells over the map. A cell with a move is a link that moves the map, and the others are empty.
   grid: { columns: number; rows: number };
   moves: Move[];
 }
@@ -42,9 +39,6 @@ const position = ({ left, top }: Placement) => `left:${left.toFixed(3)}%;top:${t
 const herePlacement = here && viewport.place(here);
 const isHereInView = herePlacement !== undefined && herePlacement.left >= 0 && herePlacement.left <= 100 && herePlacement.top >= 0 && herePlacement.top <= 100;
 const compact = new Intl.NumberFormat("en", { notation: "compact" });
-// A map has many links, and a user opens few of them, so each link has the browser load its page in advance
-// only when the user is about to open it. The links that move the map lead to more of them, without end, so
-// crawlers are asked not to follow them.
 ---
 
 <div class:list={["map", className]} style={`aspect-ratio:${width}/${height}`} {...props}>

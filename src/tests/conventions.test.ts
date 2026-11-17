@@ -1,14 +1,12 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
-
-// The rules of AGENTS.md that a reader of the code can check. Each test lists the files that break its rule.
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const src = join(root, "src");
 
-// Every file under a folder, as a path from the root of the project.
 function filesIn(folder: string): string[] {
 	return readdirSync(join(root, folder), { recursive: true, encoding: "utf8" })
 		.map((path) => join(folder, path))
@@ -29,11 +27,8 @@ const testFiles = filesIn(join("src", "tests"));
 
 describe("the browser", () => {
 	it("runs no JavaScript of the site", () => {
-		// A script the browser runs, other than the rules of the Speculation API, which are JSON.
 		const script = /<script(?![^>]*type="speculationrules")/;
-		// An island, which Astro hydrates with JavaScript.
 		const island = /\bclient:[a-z]+/;
-		// An event handler in an attribute, such as onclick.
 		const handler = /\son[a-z]+\s*=/;
 
 		expect(breaking(astroFiles, script)).toEqual([]);
@@ -47,9 +42,7 @@ describe("the markup", () => {
 	it("uses the semantic tokens and leaves the primitives to styles.css", () => {
 		const outsideStyles = sourceFiles.filter((path) => path !== join("src", "styles.css"));
 		const primitive = /--(pr|ds)-/;
-		// A colour of its own, such as bg-[#fff] or text-[oklch(…)].
 		const arbitraryColour = /-\[(#|rgba?\(|hsla?\(|oklch\(|oklab\(|color-mix\()/;
-		// A colour of the default palette of Tailwind, such as text-red-500.
 		const paletteColour =
 			/\b(bg|text|border|ring|outline|fill|stroke|from|via|to|shadow|decoration|accent|caret|divide|placeholder)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b|\b(bg|text|border|fill|stroke)-(white|black)\b/;
 
@@ -86,3 +79,25 @@ describe("the folders of src", () => {
 		expect(folders.toSorted()).toEqual([...features, ...shared].toSorted());
 	});
 });
+
+describe("the code", () => {
+	it("has no comments in the markup, the styles or the tests, which oxlint does not read", () => {
+		const markup = (path: string) => read(path).replace(/^---\n[\s\S]*?\n---/, "");
+		const htmlComment = /<!--|\{\/\*/;
+		const cssComment = /\/\*/;
+		const styles = (path: string) => [...markup(path).matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((match) => match[1] ?? "").join("");
+
+		expect(astroFiles.filter((path) => htmlComment.test(markup(path)) || cssComment.test(styles(path)))).toEqual([]);
+		expect(sourceFiles.filter((path) => path.endsWith(".css") && cssComment.test(read(path)))).toEqual([]);
+		expect(testFiles.filter((path) => path.endsWith(".ts") && hasComment(read(path)))).toEqual([]);
+	});
+});
+
+function hasComment(text: string) {
+	const file = ts.createSourceFile("file.ts", text, ts.ScriptTarget.Latest, true);
+	const commentsAround = (node: ts.Node): boolean =>
+		Boolean(ts.getLeadingCommentRanges(text, node.pos)?.length || ts.getTrailingCommentRanges(text, node.end)?.length) ||
+		node.getChildren(file).some(commentsAround);
+
+	return commentsAround(file);
+}

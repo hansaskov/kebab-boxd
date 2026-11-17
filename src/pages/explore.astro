@@ -21,28 +21,19 @@ import { parseId, parseSearch, searchMaxLength } from "@src/params";
 const session = Astro.locals.session;
 const params = Astro.url.searchParams;
 
-// A Visitor has no location of their own, and neither has a User who has not set one.
 const home: Coordinates | undefined =
 	session && session.user.latitude !== null && session.user.longitude !== null
 		? { latitude: session.user.latitude, longitude: session.user.longitude }
 		: undefined;
 
-// A search moves the map to the most populous City whose name starts with it, or to the one of them the user
-// chose. The map shows the circle a CitySearch finds the Restaurants of the City in. A search that finds no City
-// leaves the map where it was, since the search form keeps the place of the map.
 const query = parseSearch(params);
 const chosenCityId = parseId(params.get("city") ?? undefined);
 const isVisitor = !session;
 const { db } = Astro.locals;
 
-// “I’m feeling lucky” skips the map, as Google skips the results, and opens the best-rated Restaurant of the City.
-// When the City has none, it shows the map of the City. Without a search, it opens any approved Restaurant. The map
-// comes in the same trip to the database, for when there is nothing to open.
 const isLucky = params.has("lucky");
 
-// Without a City, a place on the map or a location of their own, the user is asked where to look first.
 const requested: View | undefined = parseMapView(params, defaultMapZoom) ?? (home && { center: home, zoom: defaultMapZoom });
-// Without a search or a map there is nothing to show yet, and nothing to ask the database.
 const { lucky, nearby = { cities: [], city: undefined, view: undefined, clusters: [] } } = await db.load({
 	lucky: isLucky ? db.restaurants.feelLucky(query, chosenCityId, Math.random()) : undefined,
 	nearby: query || requested ? db.restaurants.explore({ search: query, cityId: chosenCityId, requested, isVisitor }) : undefined,
@@ -56,8 +47,6 @@ const { cities, city, view, clusters: found } = nearby;
 function exploreMap(shown: View) {
 	const map = exploreViewport(shown);
 
-	// Each Cluster is a marker on the map and a row of the list below it. A cluster of one restaurant leads to the
-	// restaurant, and a larger one zooms in on its restaurants.
 	const clusters = found.map((cluster) => {
 		const isRestaurant = cluster.count === 1;
 		return {
@@ -92,8 +81,6 @@ function exploreMap(shown: View) {
 			count: cluster.isRestaurant ? undefined : cluster.count,
 		})),
 		isAtHome: home !== undefined && distanceInMeters(home, map.center) < 1,
-		// The middle of the map, to a tenth of a meter, in the format the location is written in. A fixed number of
-		// decimals keeps a small number from being written as an exponent, which the format does not allow.
 		center: `${map.center.latitude.toFixed(6)}, ${map.center.longitude.toFixed(6)}`,
 	};
 }

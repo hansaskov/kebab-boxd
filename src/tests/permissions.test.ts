@@ -10,7 +10,6 @@ const otherAdmin = { id: 5, role: "admin", bannedAt: null } as const;
 
 type Cases = Record<string, readonly [Viewer, unknown]>;
 
-// For each permission, the cases in which it is granted. Every other case is refused.
 function decide<C extends Cases>(cases: C, permissions: readonly ResourcePermission[]) {
 	return Object.fromEntries(
 		permissions.map((permission) => [
@@ -51,22 +50,17 @@ describe("permissions", () => {
 				"admin on a banned user",
 				"admin on another admin",
 			],
-			// Only the author sees the reviews that are not public on their Profile.
 			"user:view-hidden-reviews": ["user on themselves", "admin on themselves"],
 			"user:view-follow-requests": ["user on themselves", "admin on themselves"],
 			"user:follow": ["user on another user", "admin on a user", "admin on another admin"],
 			"user:unfollow": ["user on another user", "user on a banned user", "admin on a user", "admin on a banned user", "admin on another admin"],
-			// The user is the one who asked to follow the subject.
 			"user:approve-follow-request": ["user on another user", "admin on a user", "admin on another admin"],
 			"user:remove-follower": ["user on another user", "user on a banned user", "admin on a user", "admin on a banned user", "admin on another admin"],
 			"user:edit-settings": ["user on themselves", "admin on themselves", "admin on a user", "admin on a banned user", "admin on another admin"],
-			// Only the User sees their coordinates, not even an Admin.
 			"user:edit-location": ["user on themselves", "admin on themselves"],
 			"user:manage-sessions": ["user on themselves", "admin on themselves", "admin on a user", "admin on a banned user", "admin on another admin"],
 			"user:export-data": ["user on themselves", "admin on themselves"],
-			// An admin cannot delete their account, so an admin always remains.
 			"user:delete-account": ["user on themselves"],
-			// An admin cannot be banned, and a banned user cannot be given the role or lose it.
 			"user:ban": ["admin on a user", "admin on a banned user"],
 			"user:change-role": ["admin on a user", "admin on another admin"],
 		} satisfies Record<string, (keyof typeof cases)[]>;
@@ -130,7 +124,6 @@ describe("permissions", () => {
 				"admin on a hidden review",
 				"admin on a listed review of a private author",
 			],
-			// An admin who may see a review only to moderate it may not like it.
 			"review:like": ["user on a listed review of another", "follower on a listed review of a private author", "admin on a listed review"],
 			"review:unlike": [
 				"user on a listed review of another",

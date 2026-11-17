@@ -7,10 +7,8 @@ import { feedHref, signInHref } from "@src/hrefs";
 import { redirectClearingSpeculations } from "@src/middleware/speculations";
 
 export async function GET(context: APIContext): Promise<Response> {
-	// A user who is sent back to sign in again keeps the page they came from.
 	const returnPath = takeReturnPath(context.cookies);
 	const account = await finishGoogleSignIn(context.cookies, context.url);
-	// The sign-in page tells why the user is back, except when they chose to come back.
 	if (account === "cancelled") return context.redirect(signInHref(returnPath));
 	if (typeof account === "string") return context.redirect(signInHref(returnPath, account));
 
@@ -24,7 +22,6 @@ export async function GET(context: APIContext): Promise<Response> {
 			return new Response("An account with this email already exists. Sign in with the method you used before.", { status: 409 });
 		case "signed-in":
 			startSession(context.cookies, session.token);
-			// The pages the browser loaded in advance show the site to a Visitor, so they must go.
 			return redirectClearingSpeculations(returnPath ?? feedHref);
 	}
 }

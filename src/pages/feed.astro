@@ -15,7 +15,6 @@ const pageRequest = parsePageRequest(Astro.url);
 const feeds = ["following", "everyone"] as const;
 type Feed = (typeof feeds)[number];
 
-// A Visitor follows no one, so they see the Feed of everyone.
 const feed: Feed = session ? parseOption(Astro.url.searchParams, "feed", feeds, "following") : "everyone";
 const page = await db.load(
   session && feed === "following" ? db.reviews.listFollowed(session.user.id, pageRequest) : db.reviews.listEveryone(viewer?.id ?? null, pageRequest),

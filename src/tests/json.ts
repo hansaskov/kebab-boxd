@@ -1,5 +1,3 @@
-// JSON that keeps dates, for values that travel between the tests and a Worker in Miniflare.
-
 const dateKey = "$date";
 
 export function toJson(value: unknown): string {

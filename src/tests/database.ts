@@ -8,7 +8,7 @@ import type { Database } from "@src/db";
 import type { Client } from "@src/db/client";
 import { relations } from "@src/db/relations";
 import { durableSqliteLimits } from "@src/db/limits";
-import { isProblem } from "@src/db/problem";
+import { isProblem, type Problem } from "@src/db/problem";
 import * as s from "@src/db/schema";
 import type { PageRequest } from "@src/pagination";
 import { createPictureStore } from "@src/pictures/store";
@@ -16,8 +16,6 @@ import { images, picturesBucket, removeAllPictures } from "@src/tests/cloudflare
 
 export const firstPage: PageRequest = { limit: 10, cursor: undefined };
 
-// A new, empty database for one test, in memory, with the limits of SQLite in a Durable Object. The pictures
-// it stores are removed when the test ends.
 export function createTestDatabase() {
 	const client = drizzle(":memory:", { relations });
 	Object.assign(client.$client.limits, durableSqliteLimits);
@@ -40,12 +38,10 @@ export async function signIn(db: Database, userId: number) {
 	return session;
 }
 
-// Lets the session look as if its browser last came back at the time.
 export function setLastVerifiedAt(client: Client, sessionId: string, lastVerifiedAt: Date) {
 	client.update(s.sessions).set({ lastVerifiedAt }).where(eq(s.sessions.id, sessionId)).run();
 }
 
-// Where a restaurant is when a test does not say, in Odense.
 export const restaurantPlace = { latitude: 55.4, longitude: 10.39 };
 
 export function insertRestaurant(
@@ -67,12 +63,15 @@ export function restaurantRow(client: Client, id: number) {
 	return client.query.restaurants.findFirst({ where: { id } }).sync();
 }
 
-// Writes the row directly, so the test can choose when it was written. Leaves the cached stats alone.
 export function insertReview(client: Client, authorId: number, restaurantId: number, rating: number, createdAt = new Date()) {
 	return client.insert(s.reviews).values({ authorId, restaurantId, rating, createdAt }).returning().get();
 }
 
-// Publishes a review the way a user does, so the cached rating of the restaurant follows.
+export function allowed<T>(result: T | Problem): T {
+	if (isProblem(result)) throw new Error(`The read was refused: ${result.problem}.`);
+	return result;
+}
+
 export async function writeReview(db: Database, authorId: number, restaurantId: number, rating: number, files: File[] = []) {
 	const result = await db.reviews.create(authorId, restaurantId, { rating, description: null }, files);
 	if (isProblem(result)) throw new Error(`The review was refused: ${result.problem}.`);

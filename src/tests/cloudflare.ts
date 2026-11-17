@@ -1,6 +1,5 @@
 import { Miniflare } from "miniflare";
 
-// Real R2 and Cloudflare Images bindings, run locally by Miniflare. One instance serves every test of a thread.
 const miniflare = new Miniflare({
 	workers: [
 		{

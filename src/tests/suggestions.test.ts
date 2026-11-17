@@ -6,7 +6,6 @@ import type { Address } from "@src/restaurants/nominatim";
 import { createTestDatabase, insertUser } from "@src/tests/database";
 
 const shareLink = "https://maps.app.goo.gl/XEqFEXq6aNBqJRFJA";
-// A link to a place whose name is not valid percent-encoding, so it is never looked up.
 
 const shawarmaVillage: Place = {
 	name: "Shawarma Village",

@@ -7,7 +7,6 @@ import * as s from "@src/db/schema";
 import { isApprovedRestaurant, ofViewer } from "@src/db/visibility";
 import type { PageRequest } from "@src/pagination";
 
-// The Favorites and the BucketList of a user. They are alike today but kept apart, as CONTEXT.md explains.
 export type Collection = "favorites" | "bucketList";
 
 const tables = { favorites: s.favorites, bucketList: s.bucketList } as const;
@@ -17,7 +16,6 @@ const bucketListPages = cursorList("bucketList", ["createdAt", "restaurantId"], 
 
 const qb = new QueryBuilder();
 
-// Whether the restaurant is in the collection of the viewer, as an extra of a query on restaurants. A Visitor has none.
 export function isInCollectionOf(collection: Collection, viewerId: number | null) {
 	const table = tables[collection];
 	return (restaurant: typeof s.restaurants) =>
@@ -31,7 +29,6 @@ export function isInCollectionOf(collection: Collection, viewerId: number | null
 		);
 }
 
-// How many approved restaurants are in the collection of the user, as an extra of a query on users.
 export function collectionCount(client: Client, collection: Collection) {
 	const table = tables[collection];
 	return (user: typeof s.users) => client.$count(table, and(eq(table.userId, user.id), isApprovedRestaurant(table.restaurantId)));
@@ -57,14 +54,11 @@ export function createCollections(client: Client) {
 			});
 		},
 
-		// Needs no permission: the row belongs to the user, whatever became of the restaurant.
 		async remove(userId: number, restaurantId: number, collection: Collection) {
 			const table = tables[collection];
 			await client.delete(table).where(and(eq(table.userId, userId), eq(table.restaurantId, restaurantId)));
 		},
 
-		// The approved restaurants in the collection of the User named `username`, the latest added first, as the
-		// viewer, who is null for a Visitor, sees them on the Profile.
 		async list(username: string, collection: Collection, viewerId: number | null, page: PageRequest) {
 			return authorizedRead(client, viewerId, "user:view-profile", findUserSeenBy(client, username, viewerId), async ({ id: userId }) => {
 				const rows =

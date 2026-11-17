@@ -5,8 +5,6 @@ import GoogleSignInButton from "@src/auth/GoogleSignInButton.astro";
 import { loginDialogId, signInReasonMessages, type SignInReason } from "@src/auth/login-reasons";
 import { returnPathOf } from "@src/auth/return-path";
 
-// Asks a Visitor on the page to log in for what they pressed, which opens it with command="show-modal" and
-// commandfor={loginDialogId(reason)}. Once signed in, they come to returnTo.
 interface Props extends Omit<ComponentProps<typeof DialogDrawer>, "id" | "title" | "description"> {
   reason: SignInReason;
   returnTo: URL | string;

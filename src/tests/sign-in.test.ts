@@ -9,7 +9,6 @@ import { requestEndpoint } from "@src/tests/container";
 import { createTestDatabase } from "@src/tests/database";
 import { parseReturnPath } from "@src/auth/return-path";
 
-// The cookies as the server adapter sends them.
 function cookiesOf(response: Response) {
 	return new Map([...App.getSetCookieFromResponse(response)].map((cookie) => {
 		const [pair = ""] = cookie.split(";");
@@ -61,7 +60,6 @@ describe("signing in with Google", () => {
 				"/login?next=/",
 				"/api/google",
 				"",
-				// Each leads to //evil.example once its dot segments are resolved.
 				"/.//evil.example",
 				"/..//evil.example",
 				"/%2e//evil.example",

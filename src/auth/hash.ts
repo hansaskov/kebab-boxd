@@ -34,7 +34,6 @@ export function hashSecret(secret: string): Buffer<ArrayBuffer> {
   return createHash("sha256").update(secret, "utf8").digest();
 }
 
-// Takes as long whatever the bytes are, so the time does not tell an attacker how much of a secret they guessed.
 export function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
   return a.byteLength === b.byteLength && timingSafeEqual(a, b);
 }

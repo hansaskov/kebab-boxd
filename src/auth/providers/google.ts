@@ -49,7 +49,6 @@ function decodeIdTokenPayload(idToken: string): unknown {
 	}
 }
 
-// The signature is not checked: the token comes straight from Google over TLS, in answer to our own request.
 export function parseGoogleIdToken(idToken: string, clientId: string): ProviderAccount {
 	const claims = idTokenClaimsSchema.safeParse(decodeIdTokenPayload(idToken));
 
@@ -78,7 +77,6 @@ export function parseGoogleIdToken(idToken: string, clientId: string): ProviderA
 	};
 }
 
-// Where to send the browser to sign in with Google. Google lets the user choose between their accounts.
 export function googleAuthorizationUrl(cookies: AstroCookies): URL {
 	const { state, codeChallenge } = beginAuthorization(cookies, providerId);
 	const url = new URL(authorizationEndpoint);
@@ -111,8 +109,6 @@ async function redeemCode(code: string, codeVerifier: string): Promise<string> {
 	return idToken;
 }
 
-// The Account Google vouches for when it sends the browser back, or why there is none. "failed" means that Google
-// could not be reached or sent something we cannot use; the cause is logged.
 export async function finishGoogleSignIn(cookies: AstroCookies, callback: URL): Promise<ProviderAccount | AuthorizationFailure | "failed"> {
 	const authorization = endAuthorization(cookies, providerId, callback);
 	if (typeof authorization === "string") return authorization;

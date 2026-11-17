@@ -11,7 +11,6 @@ if (Astro.locals.session) {
   return Astro.redirect(returnPath ?? feedHref);
 }
 
-// A user who is sent here, rather than coming on their own, is told why.
 const reason = signInReasons.find((option) => option === Astro.url.searchParams.get("reason"));
 const message = reason ? signInReasonMessages[reason] : undefined;
 const toast = message && { title: message.title, text: message.text, variant: message.isError ? ("error" as const) : undefined };

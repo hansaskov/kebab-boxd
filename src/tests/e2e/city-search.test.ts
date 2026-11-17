@@ -5,12 +5,8 @@ import { isProblem } from "@src/db/problem";
 import { findKebabPlaces, overpassServers, serverName } from "@src/cities/overpass";
 import { createTestDatabase, insertUser } from "@src/tests/database";
 
-// These tests ask the real services, the way the Durable Object does, but from this machine: a server that
-// refuses Cloudflare may still answer here.
-
 const odense = { latitude: 55.39594, longitude: 10.38831, population: 180863, countryCode: "DK" };
 
-// Works through the background work as the alarms of the Durable Object do, until nothing is left to do.
 async function runUntilIdle(db: Database, deadline: number) {
 	for (;;) {
 		const dueAt = await processDueWork(db);
@@ -32,8 +28,6 @@ describe("end to end", () => {
 		expect((await db.cities.search("zurich", 1))[0]).toMatchObject({ name: "Zürich", countryCode: "CH" });
 	}, 180_000);
 
-	// Public servers come and go, so the search asks them in turn. The places come from the first that answers,
-	// and the log tells why the ones before it did not.
 	it("asks the Overpass servers in turn for the kebab places of a City, until one answers", async () => {
 		const { places, server, failures } = await findKebabPlaces(odense);
 

@@ -15,15 +15,6 @@ import { createSuggestionQueue } from "@src/restaurants/suggestion-queue.db";
 import { createUsers } from "@src/users/users.db";
 import type { PictureStore } from "@src/pictures/store";
 
-// Each concept of CONTEXT.md has a .db.ts module in the folder of its feature, which both reads and writes it.
-// The rules that more than one of them needs live beside this file, in visibility.ts, authorize.ts and
-// cached-stats.ts.
-//
-// The pictures belong here because the rows that point to them are written here: whatever removes a
-// picture from the database removes its file too.
-//
-// Writes that leave work for later, such as a link to look up, wake the Durable Object, which sleeps while no
-// work is waiting. onWork is how it listens, and only works inside it: a function cannot cross RPC.
 export function createDatabase(client: Client, pictures: PictureStore) {
 	const workListeners = new Set<() => void>();
 	const wake = () => {

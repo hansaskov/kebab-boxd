@@ -15,7 +15,6 @@ import SearchPage from "@src/pages/search.astro";
 import { renderPage } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertUser } from "@src/tests/database";
 
-
 function get(cookie?: string) {
 	return new Request("http://localhost/feed", { headers: cookie ? { Cookie: cookie } : {} });
 }
@@ -33,8 +32,6 @@ describe("the cache of the pages a Visitor reads", () => {
 });
 
 describe("a page a Visitor reads", () => {
-	// Cloudflare finds a kept page by its address alone. A page that changed with anything else of the request would
-	// show the next Visitor what the request of the first one asked for.
 	it("depends on its address alone, not on the other headers of the request", async () => {
 		const { client, db } = createTestDatabase();
 		const ada = insertUser(client, "ada");
@@ -70,5 +67,4 @@ describe("a page a Visitor reads", () => {
 			expect(other.html, visited[1]).toBe(plain.html);
 		}
 	});
-
 });

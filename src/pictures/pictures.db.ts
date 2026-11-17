@@ -11,20 +11,11 @@ export interface StoredPicture {
 	url: string;
 }
 
-// How a write changes the picture rows. The write decides which rows change; the files follow on their own.
 export interface PictureChanges {
-	// Inserts a row for each file the write adds, in the order of the files, and returns their ids.
 	insertAdded(tx: Transaction): number[];
-	// Deletes the rows of the pictures. Their files go once the write is done.
 	remove(tx: Transaction, pictures: StoredPicture[]): void;
 }
 
-// Runs a write that adds files as pictures, removes pictures, or both, and keeps the files in step with the rows.
-//
-// Encoding cannot happen inside a transaction, so the added files are saved before the write starts. A file that
-// is not a picture stops the write before it starts. When the write throws, its transaction is undone and the added
-// files go again. When it returns, the files of the removed rows go, and so do the added files it did not insert.
-// A file that cannot be removed then is only logged: the rows no longer point to it.
 async function writeWithPictures<T>(
 	store: PictureStore,
 	write: (changes: PictureChanges) => T | Problem,
@@ -71,9 +62,6 @@ async function writeWithPictures<T>(
 	return result;
 }
 
-// A write on a resource that adds files as pictures, removes pictures, or both, as writeWithPictures runs it.
-// Encoding the files costs, so a write that would be refused is refused before they are encoded. The write
-// checks the permission again in its transaction, since the actor or the resource may change meanwhile.
 export async function authorizedWriteWithPictures<P extends ResourcePermission, R extends Resource<P>, T>(
 	client: Client,
 	store: PictureStore,

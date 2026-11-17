@@ -1,11 +1,12 @@
 import type { APIRoute } from "astro";
 import { pictureContentType } from "@src/pictures/store";
 
-// A picture never changes under its name, which is random, so the browser may keep it for good. Shared caches
-// may not: a profile picture is personal data and must be gone when its account is deleted.
 export const GET = (async ({ params, locals: { db }, rewrite }) => {
-	const bytes = params.name ? await db.load(db.pictures.read(params.name)) : undefined;
+	if (!params.name) {
+		return rewrite("/404");
+	}
 
+	const bytes = await db.load(db.pictures.read(params.name));
 	if (!bytes) {
 		return rewrite("/404");
 	}

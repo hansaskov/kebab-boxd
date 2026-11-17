@@ -5,6 +5,9 @@
     "unicorn",
     "oxc"
   ],
+  "jsPlugins": [
+    "./tools/oxlint/comments.ts"
+  ],
   "categories": {
     "correctness": "error",
     "suspicious": "error"
@@ -24,6 +27,7 @@
     "src/tests/*"
   ],
   "rules": {
+    "comments/none": "error",
     "no-underscore-dangle": [
       "error",
       {
@@ -97,6 +101,15 @@
       ],
       "rules": {
         "no-restricted-imports": "off"
+      }
+    },
+    {
+      "files": [
+        "sst-env.d.ts",
+        ".drizzle/**"
+      ],
+      "rules": {
+        "comments/none": "off"
       }
     },
     {

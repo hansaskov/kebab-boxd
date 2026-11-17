@@ -9,20 +9,15 @@ export interface ActionFailure {
 	input: SubmittedInput;
 }
 
-// What the middleware keeps of a form action for the page after it: which action ran, what it acted on when it
-// says so and, when it failed, why and what the user typed.
 export interface ActionOutcome {
 	name: string;
 	target?: string | number | undefined;
 	failure?: ActionFailure | undefined;
 }
 
-// The schemas allow far shorter values, so anything longer is not worth keeping in the session.
 const maxValueLength = 10_000;
 const maxFields = 100;
 
-// Files are left out: they cannot be kept in the session, and a browser does not let a page fill in a file input.
-// The fields Astro adds to a form are left out too. A body that is no form keeps nothing.
 async function readSubmittedInput(request: Pick<Request, "formData">): Promise<SubmittedInput> {
 	let formData: FormData;
 	try {
@@ -35,8 +30,6 @@ async function readSubmittedInput(request: Pick<Request, "formData">): Promise<S
 		.slice(0, maxFields);
 }
 
-// The request is read only when the action failed, since only then is what the user typed shown again.
-// An action that returns a string or number names what it acted on, so the page after it can point that thing out.
 export async function toOutcome(
 	name: string,
 	data: unknown,
@@ -82,7 +75,6 @@ function nameOf(action: Action) {
 	return new URLSearchParams(action.toString()).get("_action");
 }
 
-// What the user typed into the form of the action, and what was wrong with it, when it failed on the request before this one.
 export function submittedForm(locals: App.Locals, action: Action): SubmittedForm | undefined {
 	const outcome = locals.actionOutcome;
 	return outcome?.failure && outcome.name === nameOf(action) ? new SubmittedForm(outcome.failure) : undefined;
@@ -93,7 +85,6 @@ export function succeeded(locals: App.Locals, action: Action): boolean {
 	return outcome !== undefined && !outcome.failure && outcome.name === nameOf(action);
 }
 
-// What the action acted on, when it succeeded on the request before this one.
 export function succeededOn(locals: App.Locals, action: Action): string | number | undefined {
 	return succeeded(locals, action) ? locals.actionOutcome?.target : undefined;
 }

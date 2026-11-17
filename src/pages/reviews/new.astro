@@ -4,7 +4,7 @@ import BaseLayout from "@src/layouts/BaseLayout.astro";
 import FieldFile from "@src/components/FieldFile.astro";
 import FieldRating from "@src/reviews/FieldRating.astro";
 import FieldTextArea from "@src/components/FieldTextArea.astro";
-import { refusal } from "@src/auth/permissions";
+import { isProblem } from "@src/db/problem";
 import { submittedForm } from "@src/actions/outcome";
 import { refusalPage, restaurantHref, signInHref } from "@src/hrefs";
 import { parseId } from "@src/params";
@@ -18,10 +18,12 @@ if (!session) {
 
 const restaurantId = parseId(Astro.url.searchParams.get("restaurant") ?? undefined);
 const { db } = Astro.locals;
-const restaurant = restaurantId ? await db.load(db.restaurants.findById(restaurantId, session.user.id)) : undefined;
-const refused = refusal(session.user, "restaurant:review", restaurant);
-if (refused || !restaurant) {
-  return Astro.rewrite(refusalPage[refused ?? "not-found"]);
+if (!restaurantId) {
+  return Astro.rewrite(refusalPage["not-found"]);
+}
+const restaurant = await db.load(db.restaurants.findAllowed(restaurantId, session.user.id, "restaurant:review"));
+if (isProblem(restaurant)) {
+  return Astro.rewrite(refusalPage[restaurant.problem]);
 }
 
 const submitted = submittedForm(Astro.locals, actions.reviews.create);

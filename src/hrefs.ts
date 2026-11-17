@@ -5,10 +5,8 @@ import type { Notification } from "@src/notifications/notifications.db";
 import type { MapView } from "@src/map/viewport";
 import { returnPathOf } from "@src/auth/return-path";
 
-// The page that tells Visitors what Kebab Boxd is. A User has their Feed instead, and is sent on to it.
 export const landingHref = "/";
 
-// Why the user is on the landing page, which tells them.
 export const landingNotices = ["account-deleted"] as const;
 export type LandingNotice = (typeof landingNotices)[number];
 
@@ -18,14 +16,10 @@ export function landingNoticeHref(notice: LandingNotice) {
 
 export const feedHref = "/feed";
 
-// Where the site starts: the Feed for a User, and the landing page for a Visitor.
 export function homeHref(session: App.Locals["session"] | undefined) {
 	return session ? feedHref : landingHref;
 }
 
-// The sign-in page, which brings the user back to the page they came from once they are signed in. A page the
-// sign-in page would not bring them back to is left out of the link. Without a reason, the user came on their own.
-// One who presses something on a page that needs an account is asked in a dialog on that page instead.
 export function signInHref(from: URL | string | undefined = undefined, reason: SignInReason | undefined = undefined) {
 	const next = returnPathOf(from);
 	const query = new URLSearchParams();
@@ -46,7 +40,6 @@ export function profileHref(username: string) {
 	return `${userPath(username)}/profile`;
 }
 
-// The settings open on an overview of their sections.
 export function settingsHref(username: string, section: SettingsSection | undefined = undefined) {
 	const href = `${userPath(username)}/settings`;
 	return section ? `${href}/${section}` : href;
@@ -70,17 +63,14 @@ export function adminCitySearchHref(id: number) {
 	return `${adminCitiesHref}/searches/${id}`;
 }
 
-// The restaurants waiting for approval, or those one CitySearch found.
 export function adminRestaurantsHref(citySearchId: number | undefined = undefined) {
 	return citySearchId === undefined ? "/admin/restaurants" : `/admin/restaurants?search=${citySearchId}`;
 }
 
-// The element on OpenStreetMap, such as node/123.
 export function openStreetMapHref(osmId: string) {
 	return `https://www.openstreetmap.org/${osmId}`;
 }
 
-// The place on Google Maps, by its id when a User suggested it and by its name and address otherwise.
 export function googleMapsHref({ name, googleMapsId, address }: { name: string; googleMapsId: string | null; address: string }) {
 	const query = new URLSearchParams({ q: [name, address].filter(Boolean).join(", ") });
 	if (googleMapsId) query.set("ftid", googleMapsId);
@@ -112,7 +102,6 @@ export function exploreHref({ center, zoom }: MapView) {
 	return `/explore?${query}`;
 }
 
-// The map of one of the cities whose name starts with the search, which the map shows among the others.
 export function exploreCityHref(search: string, cityId: number) {
 	return `/explore?${new URLSearchParams({ q: search, city: String(cityId) })}`;
 }
@@ -128,7 +117,6 @@ export function notificationHref(notification: Notification) {
 		case "suggestion-approved":
 		case "suggestion-rejected":
 			return restaurantHref(notification.restaurant.id);
-		// To the restaurants the search found, or, when it found none or failed, to its log.
 		case "city-search-finished": {
 			const { id, status, restaurantCount } = notification.citySearch;
 			return status === "finished" && restaurantCount > 0 ? adminRestaurantsHref(id) : adminCitySearchHref(id);
@@ -136,10 +124,8 @@ export function notificationHref(notification: Notification) {
 	}
 }
 
-// The page that answers a request the user may not make, as `refusal` in the permissions decides.
 export const refusalPage = { "not-found": "/404", forbidden: "/403" } as const satisfies Record<Refusal, string>;
 
-// What the search page looks for: cities, restaurants and people together, or one of them on pages of its own.
 export const searchTypes = ["all", "cities", "restaurants", "people"] as const;
 export type SearchType = (typeof searchTypes)[number];
 

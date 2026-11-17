@@ -5,15 +5,12 @@ import { callDatabaseAll, type DatabaseCall, type DatabaseReply, type DatabaseRp
 import { createPictureStore } from "@src/pictures/store";
 import { processDueWork } from "@src/background-work";
 
-// The bindings that sst.config.ts gives the Backend Worker.
 interface Env {
 	Database: DurableObjectNamespace<DatabaseObject>;
 	Pictures: R2Bucket;
 	Images: ImagesBinding;
 }
 
-// Workers Logs keeps the fields of a logged object, so the rows each call reads can be added up by call. A call that
-// touched no rows, such as reading a picture from R2, costs nothing and is not logged.
 const logCall: CallReport = (call, rows) => {
 	if (rows.rowsRead > 0 || rows.rowsWritten > 0) console.log({ message: "Database call", call, ...rows });
 };
@@ -21,8 +18,6 @@ const logCall: CallReport = (call, rows) => {
 const purgeIntervalMs = 60 * 60 * 1000;
 const nextPurgeKey = "nextPurgeAt";
 
-// All data lives in one Durable Object, so every request sees the same database. Its storage is SQLite, and
-// each write runs in a synchronous transaction, one at a time.
 export class DatabaseObject extends DurableObject<Env> {
 	readonly #db: Database;
 
@@ -35,7 +30,6 @@ export class DatabaseObject extends DurableObject<Env> {
 		});
 	}
 
-	// Whether a call has been answered since the Durable Object woke up.
 	#hasAnswered = false;
 
 	async call(calls: DatabaseCall[]): Promise<DatabaseReply> {
@@ -44,7 +38,6 @@ export class DatabaseObject extends DurableObject<Env> {
 		return { values: await callDatabaseAll(this.#db, calls), wokeUp };
 	}
 
-	// Runs the hourly purge of expired personal data and the background work, then sleeps until one is due again.
 	override async alarm() {
 		const { kv } = this.ctx.storage;
 		const now = Date.now();
@@ -63,8 +56,6 @@ export class DatabaseObject extends DurableObject<Env> {
 	}
 }
 
-// In production the website calls the Durable Object itself. `sst dev` cannot bind the Durable Object of a deployed
-// Worker, so there the website calls it through this entrypoint, which hands each load on.
 export default class Backend extends WorkerEntrypoint<Env> implements DatabaseRpc {
 	call(calls: DatabaseCall[]): Promise<DatabaseReply> {
 		return this.env.Database.getByName("main").call(calls);

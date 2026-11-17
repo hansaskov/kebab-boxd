@@ -27,11 +27,9 @@ if (!can(session.user, "admin-console:view")) {
 
 const { db } = Astro.locals;
 const searchId = parseId(Astro.url.searchParams.get("search") ?? undefined);
-// A CitySearch approves what it finds, so none of its restaurants wait. The first status is shown without asking.
 const statuses: readonly [RestaurantStatus, ...RestaurantStatus[]] = searchId ? ["approved", "rejected"] : ["pending", "approved", "rejected"];
 const [defaultStatus] = statuses;
 const status = parseOption(Astro.url.searchParams, "status", statuses, defaultStatus);
-// The restaurants of a CitySearch need only its id, so they come with it in one trip to the database.
 const { citySearch, page, counts } = await db.load({
   citySearch: searchId ? db.citySearches.findById(searchId) : undefined,
   page: db.restaurants.listByStatus(status, parsePageRequest(Astro.url), searchId),
@@ -54,9 +52,7 @@ const emptyMessages: Record<RestaurantStatus, string> = {
   rejected: "No restaurants are rejected.",
 };
 
-// The checkboxes belong to this form through their form attribute, so each row can keep its own form.
 const selectionForm = "decide-selected";
-// The toast would show what was wrong with the form as Astro writes it, so it gets the message itself.
 const selectionError = submittedForm(Astro.locals, actions.admin.decideRestaurants)?.errors("restaurantId")?.[0];
 ---
 

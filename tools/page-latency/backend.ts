@@ -5,10 +5,6 @@ import type { Database } from "@src/db";
 import { relations } from "@src/db/relations";
 import { fillLargeDatabase, type LargeDatabase } from "@src/tests/large-database";
 
-// The Durable Object of production, with what the measurement needs around it: a large database, sessions to sign in
-// with, the time each call takes to reach it, and a record of the calls of each request. The Web Worker calls it
-// directly, as in production.
-
 interface BenchEnv {
 	Database: DurableObjectNamespace<BenchDatabase>;
 }
@@ -25,10 +21,7 @@ export interface Bench {
 }
 
 export class BenchDatabase extends DatabaseObject {
-	// Milliseconds a call takes to travel to the Durable Object and back. The measurement sets it.
 	#roundTripMs = 0;
-	// The calls since the measurement last asked for them. Every request of the measurement runs alone, so they are
-	// the calls of that request.
 	#calls: CallRecord[] = [];
 
 	async fill(scale: number): Promise<Bench> {
@@ -51,7 +44,6 @@ export class BenchDatabase extends DatabaseObject {
 		return taken;
 	}
 
-	// Waits out the trip to the Durable Object before each call, as the network does.
 	override async call(area: string, method: string, args: unknown[]) {
 		const startedAt = Date.now();
 		if (this.#roundTripMs > 0) await scheduler.wait(this.#roundTripMs);
@@ -63,7 +55,6 @@ export class BenchDatabase extends DatabaseObject {
 	}
 }
 
-// The measurement fills the database, sets the trip and reads the calls through fetch, which Node can reach.
 export default {
 	async fetch(request: Request, env: BenchEnv) {
 		const url = new URL(request.url);

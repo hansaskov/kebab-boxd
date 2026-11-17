@@ -11,8 +11,6 @@ import { profileHref } from "@src/hrefs";
 interface Props extends HTMLAttributes<"ul"> {
   people: Person[];
   viewer: Viewer;
-  // The viewer looks at their own followers, whom they may remove, or at those who ask to follow them.
-  // Otherwise the viewer may follow each person.
   manage?: "followers" | "requests" | undefined;
 }
 

@@ -17,7 +17,6 @@ function googleAccount(overrides: Partial<ProviderAccount> = {}): ProviderAccoun
 	};
 }
 
-// Signs in as a User who may sign in, as the Google callback does.
 async function signInWith(db: Database, account: ProviderAccount, bootstrapAdminEmail?: string) {
 	const result = await db.accounts.signIn(account, bootstrapAdminEmail);
 	if (result.status !== "signed-in") throw new Error(`The sign-in was refused: ${result.status}.`);
@@ -46,7 +45,6 @@ describe("a ban", () => {
 		await db.users.ban(admin.id, user.username);
 
 		expect(await db.accounts.signIn(googleAccount())).toEqual({ status: "banned" });
-		// A session created in the moment between the ban and the refusal does not last either.
 		expect(await findSession(db, (await createSession(db, user.id)).token)).toBeNull();
 
 		await db.users.unban(admin.id, user.username);

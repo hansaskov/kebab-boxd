@@ -9,7 +9,8 @@ import RestaurantStatusTag from "@src/restaurants/RestaurantStatusTag.astro";
 import ReviewList from "@src/reviews/ReviewList.astro";
 import SuggestionDecision from "@src/restaurants/SuggestionDecision.astro";
 import LoginDialog from "@src/auth/LoginDialog.astro";
-import { canOn, refusal } from "@src/auth/permissions";
+import { canOn } from "@src/auth/permissions";
+import { isProblem } from "@src/db/problem";
 import { loginDialogId } from "@src/auth/login-reasons";
 import { exploreHref, newReviewHref, profileHref, refusalPage, searchHref } from "@src/hrefs";
 import { viewport } from "@src/map/viewport";
@@ -19,19 +20,22 @@ import { parseId } from "@src/params";
 const viewer = Astro.locals.session?.user ?? null;
 
 const id = parseId(Astro.params.id);
-const { db } = Astro.locals;
-// A restaurant that is not approved has no listed reviews, so the reviews come with it in one trip to the database,
-// whoever may see it.
-const { restaurant, page } = await db.load({
-  restaurant: id ? db.restaurants.findById(id, viewer?.id ?? null) : undefined,
-  page: id ? db.reviews.listByRestaurant(id, viewer?.id ?? null, parsePageRequest(Astro.url)) : undefined,
-});
-const refused = refusal(viewer, "restaurant:view", restaurant);
-if (refused || !restaurant || !page) {
-  return Astro.rewrite(refusalPage[refused ?? "not-found"]);
+if (!id) {
+  return Astro.rewrite(refusalPage["not-found"]);
 }
 
-// The map shows the street around the restaurant.
+const { db } = Astro.locals;
+const { restaurant, page } = await db.load({
+  restaurant: db.restaurants.findAllowed(id, viewer?.id ?? null, "restaurant:view"),
+  page: db.reviews.listByRestaurant(id, viewer?.id ?? null, parsePageRequest(Astro.url)),
+});
+if (isProblem(restaurant)) {
+  return Astro.rewrite(refusalPage[restaurant.problem]);
+}
+if (isProblem(page)) {
+  return Astro.rewrite(refusalPage[page.problem]);
+}
+
 const restaurantMapZoom = 16;
 const { location } = restaurant;
 const map = viewport(location, restaurantMapZoom, { width: 768, height: 288 });
@@ -42,7 +46,6 @@ const address = [location.addressLine1, location.addressLine2, [location.postalC
 const canReview = canOn(viewer, "restaurant:review", restaurant);
 const canCollect = canOn(viewer, "restaurant:collect", restaurant);
 const canModerate = canOn(viewer, "restaurant:moderate", restaurant);
-// A Visitor sees only approved restaurants, which a User may review and save, so a dialog asks them to log in for it.
 const isVisitor = !viewer;
 ---
 

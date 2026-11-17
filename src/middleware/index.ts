@@ -13,7 +13,6 @@ import { connectDatabase, loadingOnce, type DatabaseRpc } from "@src/db/remote";
 import { picturePathPrefix } from "@src/pictures/store";
 import { toOutcome } from "@src/actions/outcome";
 
-// The history holds the pages a device opened, not the pictures on them.
 function isPage(routePattern: string) {
 	return !routePattern.startsWith(picturePathPrefix);
 }
@@ -22,9 +21,6 @@ function hasRedirect(data: unknown): data is { redirect: string } {
 	return typeof data === "object" && data !== null && "redirect" in data && typeof data.redirect === "string";
 }
 
-// In production the Web Worker calls the Durable Object itself, which spares each call a trip through the Backend Worker
-// and the Backend Worker a start of its own. `sst dev` cannot bind the Durable Object of a deployed Worker, so there
-// the calls go through the Backend Worker.
 function databaseRpc(): DatabaseRpc {
 	return env.Database ? env.Database.getByName("main") : (Resource.Backend as unknown as DatabaseRpc);
 }
@@ -34,10 +30,8 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 
 	const requestedAt = new Date();
 	const measured = measuringDatabase(databaseRpc());
-	// The middleware loads the session first, and keeps what the request did. The page or action loads once.
 	const db = connectDatabase(measured.rpc);
 	context.locals.db = loadingOnce(db);
-	// Before the history is written, which happens after the answer and is no part of the wait.
 	const timed = (response: Response) => withChangedHeaders(response, (headers) => headers.append("Server-Timing", measured.header()));
 
 	const session = await readSession(context.cookies, db, { takeActionOutcome: context.request.method === "GET" });
@@ -49,7 +43,6 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 	if (!session) return timed(action?.calledFrom === "form" ? answerFormOfVisitor(sentFrom()) : await next());
 
 	if (action?.calledFrom === "form") {
-		// The handler reads the body, so a copy is kept to give the form back what the user typed if it fails.
 		const submitted = context.request.clone();
 		const { data, error } = await action.handler();
 		await db.load(db.sessions.setActionData(session.id, await toOutcome(action.name, data, error, submitted)));
@@ -92,8 +85,6 @@ const coldStartMiddleware = defineMiddleware(async (_context, next) => {
 	return timing ? withChangedHeaders(response, (headers) => headers.append("Server-Timing", timing)) : response;
 });
 
-// Astro adds the headers of the cache after the middleware, from what it was told, and Cloudflare keeps a page only
-// while it says so. Every other response is never kept.
 const visitorCacheMiddleware = defineMiddleware(async (context, next) => {
 	const response = await next();
 	const cache = visitorCacheOf(context.request, response);

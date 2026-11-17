@@ -4,7 +4,6 @@ import type { ActionOutcome } from "@src/actions/outcome";
 import { renderPage } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertUser, signIn } from "@src/tests/database";
 
-// The rating group of a page, and its radio buttons with the rating and the name each one reads out.
 function ratingIn(html: string) {
 	const group = html.match(/<div class="star-rating"[\s\S]*?<\/div>/)?.[0] ?? "";
 	const options = [...group.matchAll(/<label class="([^"]*)">\s*<input([^>]*)>\s*<span class="sr-only">([^<]*)<\/span>/g)].map(

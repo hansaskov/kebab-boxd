@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import * as s from "@src/db/schema";
-import { createTestDatabase, firstPage, insertRestaurant, insertReview, insertUser, restaurantRow, writeReview } from "@src/tests/database";
+import { allowed, createTestDatabase, firstPage, insertRestaurant, insertReview, insertUser, restaurantRow, writeReview } from "@src/tests/database";
 
 const day = 24 * 60 * 60 * 1000;
 const daysAgo = (days: number) => new Date(Date.now() - days * day);
@@ -13,7 +13,6 @@ describe("RatingAvg", () => {
 		const bob = insertUser(client, "bob");
 		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
 
-		// The first 2 falls out of the window of Ada, whose average is then 10.
 		for (const rating of [2, 10, 10, 10]) await writeReview(db, ada.id, grill.id, rating);
 		await writeReview(db, bob.id, grill.id, 6);
 
@@ -28,7 +27,7 @@ describe("RatingAvg", () => {
 		const grill = insertRestaurant(client, "Bosporus Grill", { status: "approved" });
 		await writeReview(db, ada.id, grill.id, 10);
 		const spam = await writeReview(db, bob.id, grill.id, 2);
-		const listed = async () => (await db.reviews.listByRestaurant(grill.id, ada.id, firstPage)).items.map((review) => review.id);
+		const listed = async () => allowed(await db.reviews.listByRestaurant(grill.id, ada.id, firstPage)).items.map((review) => review.id);
 
 		await db.users.ban(admin.id, bob.username);
 
@@ -95,7 +94,6 @@ describe("restaurant lists", () => {
 	it("page forward and back through equal ratings without skipping or repeating a restaurant", async () => {
 		const { client, db } = createTestDatabase();
 		const restaurants = Array.from({ length: 12 }, (_, i) => insertRestaurant(client, `Kebab ${i}`, { status: "approved" }));
-		// 8⅓ has no short decimal form, so a cursor that rounds it would skip or repeat restaurants.
 		for (const [i, restaurant] of restaurants.entries()) {
 			client.update(s.restaurants).set({ ratingAvg: i < 6 ? 7.5 : 8 + 1 / 3, reviewCount: 1 }).where(eq(s.restaurants.id, restaurant.id)).run();
 		}

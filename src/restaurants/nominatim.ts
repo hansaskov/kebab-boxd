@@ -40,14 +40,11 @@ async function ask<Body>(endpoint: string, params: Record<string, string>): Prom
 	return (await response.json()) as Body;
 }
 
-// The address of the building at the coordinates, from OpenStreetMap. A place with no address, such as
-// one at sea, gets an empty one.
 export async function findAddress({ latitude, longitude }: Coordinates): Promise<Address> {
 	const body = await ask<{ address?: NominatimAddress }>(reverseUrl, { lat: String(latitude), lon: String(longitude), zoom: "18" });
 	return toAddress(body.address ?? {});
 }
 
-// Where an address written out is, from OpenStreetMap. Undefined when it cannot be found.
 export async function searchAddress(query: string): Promise<(Coordinates & { address: Address }) | undefined> {
 	const [found] = await ask<{ lat: string; lon: string; address?: NominatimAddress }[]>(searchUrl, { q: query, limit: "1" });
 	if (!found) return undefined;

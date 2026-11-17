@@ -7,7 +7,6 @@ const adminPages = [
 	{ label: "Cities", href: "/admin/cities" },
 ];
 
-// The pages of the admin console, with the one the path is on, or under, as the current tab.
 export function adminTabs(pathname: string): Tab[] {
 	return adminPages.map(({ label, href }) => ({
 		label,

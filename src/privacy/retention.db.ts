@@ -3,8 +3,6 @@ import { finishedSuggestionRetentionSeconds, historyRetentionSeconds, inactivity
 import type { Client } from "@src/db/client";
 import * as s from "@src/db/schema";
 
-// A link that left the queue, without becoming a Restaurant. Named, rather than "not queued", so that the index
-// on the status finds them.
 const finishedSuggestionStatuses = s.suggestionQueue.status.enumValues.filter((status) => status !== "queued");
 
 function secondsBefore(now: Date, seconds: number) {

@@ -6,7 +6,6 @@ const maxCommentLength = 0xffff;
 const stored = 0;
 const deflated = 8;
 
-// The only file in a zip archive, decompressed as it is read. Zip64 archives, over 4 GB, are not read.
 export function unzipOnlyFile(zip: Uint8Array<ArrayBuffer>): ReadableStream<Uint8Array<ArrayBuffer>> {
 	const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
 	const lastStart = zip.byteLength - endOfCentralDirectoryLength;
@@ -30,7 +29,6 @@ export function unzipOnlyFile(zip: Uint8Array<ArrayBuffer>): ReadableStream<Uint
 	if (view.getUint32(localHeader, true) !== localFileSignature) throw new Error("The zip archive has no file where its directory says.");
 
 	const start = localHeader + 30 + view.getUint16(localHeader + 26, true) + view.getUint16(localHeader + 28, true);
-	// The file is a view of the archive, not a copy: the archive of GeoNames is 11 MB.
 	const file = zip.subarray(start, start + compressedSize);
 	const data = new ReadableStream<Uint8Array<ArrayBuffer>>({
 		start(controller) {

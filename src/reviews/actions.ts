@@ -42,7 +42,6 @@ function likeAction(write: "like" | "unlike") {
     handler: async ({ reviewId }, { locals }) => {
       const { db } = locals;
       orThrow(await db.load(db.reviews[write](requireSession(locals).user.id, reviewId)));
-      // The page after a like points out the Review that was liked.
       return reviewId;
     },
   });
@@ -69,7 +68,6 @@ export const reviewActions = {
       return { redirect: reviewHref(reviewId) };
     },
   }),
-  // The author stays on the edit page, to go on changing the review.
   removePicture: defineAction({
     accept: "form",
     input: removeReviewPictureSchema,
@@ -86,7 +84,6 @@ export const reviewActions = {
       const { db } = locals;
       const { user } = requireSession(locals);
       const review = orThrow(await db.load(db.reviews.delete(user.id, reviewId)));
-      // The author goes back to their reviews on their Profile. An admin goes back to the restaurant.
       return { redirect: review.authorId === user.id ? profileHref(user.username) : restaurantHref(review.restaurantId) };
     },
   }),

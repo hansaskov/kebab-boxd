@@ -43,7 +43,6 @@ const failureTitles: Record<ActionNames<typeof server>, string> = {
 	"session.signOut": "Sign-out failed",
 };
 
-// Every page tells the user when the action on the request before it failed.
 export function failureToast(locals: App.Locals): Toast | undefined {
 	const outcome = locals.actionOutcome;
 	if (!outcome?.failure) return undefined;

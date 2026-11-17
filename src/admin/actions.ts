@@ -6,7 +6,6 @@ import { idSchema } from "@src/actions/schemas";
 import { pageSizes } from "@src/pagination";
 import { adminUserHref } from "@src/hrefs";
 
-// A page lists at most as many restaurants as its largest size, so an Admin can choose at most as many at once.
 export const maxDecidedAtOnce = Math.max(...pageSizes);
 
 export const decisionSchema = z.object({
@@ -14,7 +13,6 @@ export const decisionSchema = z.object({
   status: z.enum(["approved", "rejected"]),
 });
 
-// The city is named as well as numbered, since the CityList finds a city by its name.
 export const citySearchSchema = z.object({
   cityId: idSchema,
   cityName: z.string().trim().min(1).max(200),
@@ -41,7 +39,6 @@ function banAction(write: "ban" | "unban") {
 }
 
 export const adminActions = {
-  // The submit button sends the status, so one form can approve or reject.
   decideRestaurants: defineAction({
     accept: "form",
     input: decisionSchema,

@@ -24,7 +24,6 @@ export function formatRelativeTime(date: Date, now = new Date(), style: keyof ty
   return "just now";
 }
 
-// Made once: toLocaleString makes a new formatter on every call, which a page with many dates notices.
 const exactTime = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "medium" });
 
 export function formatExactTime(date: Date): string {

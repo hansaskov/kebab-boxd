@@ -24,7 +24,6 @@ function summary(notification: Notification) {
 	}
 }
 
-// Shows the User their notifications, which marks them read.
 async function inbox(db: Database, userId: number) {
 	const { page } = await db.notifications.show(userId, { limit: 25, cursor: undefined });
 	return page.items.map(summary);
@@ -33,7 +32,6 @@ async function inbox(db: Database, userId: number) {
 async function unreadCount(db: Database, userId: number) {
 	return (await signIn(db, userId)).user.unreadNotificationCount;
 }
-
 
 describe("Notifications", () => {
 	it("tell a User once who follows them, and are taken back on unfollow", async () => {

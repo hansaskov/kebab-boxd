@@ -1,8 +1,3 @@
-// Tells where the CPU time of a .cpuprofile goes, as text: the functions that spent the most time themselves, and the
-// time of each package and of the code of the site, with the functions they called.
-//
-//   node tools/page-latency/flame.ts <file.cpuprofile> [more files…]
-
 import { readFileSync } from "node:fs";
 
 interface ProfileNode {
@@ -17,7 +12,6 @@ interface Profile {
 	timeDeltas: number[];
 }
 
-// The package a function belongs to, or the folder of the site it is in.
 function ownerOf(url: string) {
 	const inPackage = /node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?((?:@[^/]+\/)?[^/]+)/.exec(url);
 	if (inPackage) return inPackage[1]!;
@@ -35,7 +29,6 @@ for (const file of process.argv.slice(2)) {
 	profile.samples.forEach((id, i) => self.set(id, (self.get(id) ?? 0) + (profile.timeDeltas[i] ?? 0)));
 
 	const total = [...self.values()].reduce((sum, time) => sum + time, 0);
-	// The time the Worker waited with nothing to do.
 	const idle = [...self].filter(([id]) => byId.get(id)!.callFrame.functionName === "(idle)").reduce((sum, [, time]) => sum + time, 0);
 	const busy = total - idle;
 

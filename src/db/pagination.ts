@@ -10,7 +10,6 @@ export type Filter<Table extends TableName> = RelationsFilter<Tables[Table], Tab
 
 type SchemaTable<Name extends TableName> = (typeof relations)[Name]["table"];
 
-// Narrows the filter of a relational query to one page and orders it: `findMany({ ...columns, ...seek(where) })`.
 export type Seek<Name extends TableName> = (where: Filter<Name>) => {
 	where: Filter<Name>;
 	orderBy: (table: SchemaTable<Name>) => SQL[];
@@ -21,7 +20,6 @@ type Direction = "first" | "after" | "before";
 
 type ColumnName<Table extends SQLiteTable> = keyof Table["_"]["columns"] & string;
 
-// A key the query computes, such as a count. Its value is an integer, and each row carries it as an extra of the same name.
 export interface ComputedKey<Table extends SQLiteTable> {
 	name: string;
 	value: (table: Table) => SQL;
@@ -35,7 +33,6 @@ type KeyValues<Table extends SQLiteTable, Keys extends readonly Key<Table>[]> = 
 	[Computed in Extract<Keys[number], ComputedKey<Table>> as Computed["name"]]: number;
 };
 
-// Decimal points and minus signs can appear in the values, so the separator must be neither.
 const compositeSeparator = "_";
 
 function isIntegerColumn(column: Column) {
@@ -77,7 +74,6 @@ export function cursorList<
 	const Keys extends readonly [Key<SchemaTable<Name>>, ...Key<SchemaTable<Name>>[]],
 >(name: Name, keys: Keys, order: "asc" | "desc") {
 	type Table = SchemaTable<Name>;
-	// The generic table type is too deep to check column by column, so the columns are read as plain columns.
 	const columnsOf = (table: Table) => getColumns(table as SQLiteTable) as Record<string, Column>;
 	const tableColumns = columnsOf(relations[name].table as Table);
 	const columns = keys.map((key) => {
@@ -136,8 +132,6 @@ export function cursorList<
 			query(seek(direction, rows, at, inclusive));
 		const hasRows = async (direction: "after" | "before", at: unknown[]) => (await read(direction, 1, at)).length > 0;
 
-		// Reads the rows from the cursor on, including the row at the cursor. When that row still exists,
-		// it proves that there are rows behind the cursor, so no second query is needed to find out.
 		const readFrom = async (direction: "after" | "before", at: unknown[], count: number) => {
 			const rows = await read(direction, count + 1, at, true);
 			const first = rows.at(0);

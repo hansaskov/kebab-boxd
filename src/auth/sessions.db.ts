@@ -16,10 +16,8 @@ export function activeSince() {
 	return new Date(Date.now() - inactivityTimeoutSeconds * 1000);
 }
 
-// Saving the time of every request would cost a write on every page, so the time is saved at most once a day.
 const verifyIntervalMs = 24 * 60 * 60 * 1000;
 
-// The id and the secret of a session token, `<id>.<secret>`, or undefined when the text is no token.
 function parseToken(token: string) {
 	const [id, secret, ...rest] = token.split(".");
 	return id && secret && rest.length === 0 ? { id, secret } : undefined;
@@ -41,9 +39,6 @@ export function createSessions(client: Client) {
 		});
 
 	return {
-		// The session of the token with its user, for one request, or null when the token is not one, the session has
-		// timed out or its user is banned. Keeps the session alive. A page takes the outcome of the form the user sent
-		// before it, which only that page shows. One call does it all, since every request of a User waits for it.
 		async open(token: string, { takeActionOutcome }: { takeActionOutcome: boolean }) {
 			const parsed = parseToken(token);
 			if (!parsed) return null;
@@ -55,14 +50,12 @@ export function createSessions(client: Client) {
 						with: {
 							user: {
 								with: { profilePicture: { columns: { url: true } } },
-								// Every page shows the count, so it comes with the session instead of costing a call of its own.
 								extras: { unreadNotificationCount: (user) => tx.$count(s.notifications, isUnreadOf(user.id)) },
 							},
 						},
 						where: { id: parsed.id, lastVerifiedAt: { gt: activeSince() }, user: { bannedAt: { isNull: true } } },
 					})
 					.sync();
-				// Only a hash of the secret is stored, and it never leaves the database.
 				if (!found || !constantTimeEqual(hashSecret(parsed.secret), found.secretHash)) return null;
 
 				const { secretHash: _, actionData, ...session } = found;
@@ -79,7 +72,6 @@ export function createSessions(client: Client) {
 			});
 		},
 
-		// The devices the User named `username` is signed in on, the last used first, for a viewer who manages them.
 		async listActive(username: string, viewerId: number | null) {
 			return authorizedRead(client, viewerId, "user:manage-sessions", findUserSeenBy(client, username, viewerId), async (user) => listActiveOf(user.id));
 		},
@@ -98,7 +90,6 @@ export function createSessions(client: Client) {
 			await client.update(s.sessions).set({ theme }).where(eq(s.sessions.id, id));
 		},
 
-		// Keeps the outcome of a form for the page after it, which takes it when it opens the session.
 		async setActionData(id: string, actionData: ActionOutcome) {
 			await client.update(s.sessions).set({ actionData }).where(eq(s.sessions.id, id));
 		},

@@ -15,8 +15,6 @@ export type NotificationEvent =
 
 export type NotificationPreferences = Pick<User, "followNotifications" | "likeNotifications" | "suggestionNotifications">;
 
-// The setting that turns each kind off. The Admin who starts a CitySearch asked to hear when it ends, so that
-// kind has none.
 const preferenceOf = {
 	follow: "followNotifications",
 	"follow-request": "followNotifications",
@@ -29,13 +27,10 @@ const preferenceOf = {
 
 const suggestionDecisions = ["suggestion-approved", "suggestion-rejected"] as const satisfies SuggestionDecision[];
 
-// Drizzle types a value in an insert from a select only when it has a name.
 function aliased(name: string, value: unknown) {
 	return sql`${value}`.as(name);
 }
 
-// Sending the same event twice leaves one notification. The statement inserts nothing when the recipient has
-// turned the kind off. An insert from a select sets no defaults, so the times are set here.
 export function notify(tx: Transaction, event: NotificationEvent) {
 	const {
 		actorId = null,
@@ -65,27 +60,22 @@ export function notify(tx: Transaction, event: NotificationEvent) {
 		.run();
 }
 
-// Undoing the event removes its notification.
 export function withdraw(tx: Transaction, event: Extract<NotificationEvent, { actorId: number }>) {
 	const n = s.notifications;
 	const sameTarget = event.kind === "like" ? eq(n.reviewId, event.reviewId) : eq(n.recipientId, event.recipientId);
 	tx.delete(n).where(and(eq(n.kind, event.kind), eq(n.actorId, event.actorId), sameTarget)).run();
 }
 
-// A new decision makes the earlier one on the same restaurant untrue, whoever decided and whether or not
-// the suggester wants to hear about it.
 export function withdrawDecision(tx: Transaction, restaurantId: number) {
 	const n = s.notifications;
 	tx.delete(n).where(and(inArray(n.kind, suggestionDecisions), eq(n.restaurantId, restaurantId))).run();
 }
 
-// A CitySearch that is tried again ends again, and its Admin is told then, as unread.
 export function withdrawCitySearchNotification(tx: Transaction, citySearchId: number) {
 	const n = s.notifications;
 	tx.delete(n).where(and(eq(n.kind, "city-search-finished"), eq(n.citySearchId, citySearchId))).run();
 }
 
-// The notifications the recipient has not read and can see, as a condition on the notifications table.
 export function isUnreadOf(recipientId: number | SQLWrapper) {
 	const n = s.notifications;
 	return and(eq(n.recipientId, recipientId), isNull(n.readAt), isVisibleNotification(n));
@@ -129,7 +119,6 @@ function present<T>(value: T | null, row: Row): T {
 	return value;
 }
 
-// The database checks that each kind has the columns it needs, so a missing one is a bug.
 function toNotification(row: Row): Notification {
 	const common = { id: row.id, createdAt: row.createdAt, isRead: row.readAt !== null };
 	switch (row.kind) {
@@ -149,9 +138,6 @@ function toNotification(row: Row): Notification {
 
 export function createNotifications(client: Client) {
 	return {
-		// Shows the recipient a page of their notifications, each as unread or read as it was before, and marks
-		// the unread ones read, since the recipient has now seen them. Tells how many stay unread: those on
-		// other pages, and those that came after the page was read.
 		async show(recipientId: number, page: PageRequest): Promise<{ page: Page<Notification>; unreadCount: number }> {
 			const rows = await pages(page, listRows(client, recipientId));
 			const shownUnread = rows.items.filter((row) => row.readAt === null).map((row) => row.id);

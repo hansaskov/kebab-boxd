@@ -1,7 +1,4 @@
 ---
-// The styles go in the page itself, so it is whole as soon as it loads, with nothing more to ask for and nothing that
-// moves when it arrives. They are read as text and written here, once. Imported as a stylesheet, Astro would keep a
-// copy of them for every route in the code of the Worker, which loads it all each time it starts.
 import styles from "@src/styles.css?inline";
 import { Bell, CircleUser, DoorOpen, Lightbulb, LogIn, MapPin, Moon, Rss, Search, Settings, Shield, Sun } from "@lucide/astro";
 import { actions } from "astro:actions";
@@ -19,9 +16,7 @@ interface Props extends ComponentProps<typeof SpeculationsAPI> {
   preview?: string;
   ogType?: string;
   class?: string;
-  // Without it, the page tells when the last action failed. A page that shows the failure itself passes null.
   toast?: ComponentProps<typeof Toast>["toast"] | null;
-  // Reloads the page after this many seconds, for a page that shows work still running.
   refreshSeconds?: number | undefined;
 }
 
@@ -39,8 +34,6 @@ const {
 } = Astro.props;
 
 const { pathname, search } = Astro.url;
-// On the address of the site, not the host the request came to. Cloudflare keeps one page for a path, whatever its
-// host, so a page asked for at another host, such as workers.dev, would otherwise show that host to every Visitor.
 const pageUrl = new URL(`${pathname}${search}`, Astro.site ?? Astro.url);
 const image = new URL(preview, pageUrl);
 const unread = user?.unreadNotificationCount ?? 0;
@@ -48,8 +41,6 @@ const unread = user?.unreadNotificationCount ?? 0;
 const isUnder = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 const current = (href: string) => (pathname === href ? "page" : undefined);
 
-// The bar has the places to browse on the left, and Search on the right beside Notifications and the account.
-// The dock shows every icon, and the bar shows only the one of Search.
 const links = [
   { name: "Feed", href: feedHref, icon: Rss },
   { name: "Explore", href: "/explore", icon: MapPin },
@@ -59,15 +50,12 @@ const links = [
 const accountMenu = user && {
   profile: profileHref(user.username),
   settings: settingsHref(user.username),
-  // A larger screen shows the menu of the sections beside each one, so it can open the first section directly.
   firstSettingsSection: settingsHref(user.username, "profile"),
   suggest: "/restaurants/suggest",
   admin: can(user, "admin-console:view") ? "/admin" : undefined,
 };
-// The account button stands for the pages in its menu, since they have no place of their own in the navigation.
 const isOnAccountPage =
   accountMenu !== undefined && [accountMenu.profile, accountMenu.settings, accountMenu.suggest, accountMenu.admin].some((href) => href && isUnder(href));
-// A Visitor logs in where the account would be, and comes back to the page they are on. The login page needs no link to itself.
 const login = !user && pathname !== signInHref() ? signInHref(Astro.url) : undefined;
 ---
 

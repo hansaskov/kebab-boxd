@@ -12,7 +12,6 @@ interface Props extends Omit<ComponentProps<typeof Field>, "field" | "layout" | 
     label: string;
     selected?: string | undefined | null;
     noneOption?: string;
-    // The form as the user sent it when it failed. What they chose replaces the selected option.
     submitted?: SubmittedForm | undefined;
 }
 

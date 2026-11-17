@@ -15,16 +15,11 @@ import type { Address } from "@src/restaurants/nominatim";
 import type { KebabPlace, ServerFailure } from "@src/cities/overpass";
 import type { PageRequest } from "@src/pagination";
 
-// A search is tried up to this many times while no Overpass server answers, and a place is looked up at
-// Nominatim this many times before it is added with the address OpenStreetMap gave.
 const maxAttempts = maxCitySearchAttempts;
-// Each attempt asks every server, so a search that failed waits for them to recover.
 const searchRetryDelaySeconds = 2 * 60;
 const candidateRetryDelaySeconds = 60;
-// The log of a search is short: a few lines for each attempt, and one for each place that could not be looked up.
 const maxEventsShown = 100;
 
-// A Restaurant that is found again stays as an Admin decided: a rejected one does not come back.
 const knownStatuses = restaurantStatuses;
 
 const runningStatuses = ["queued", "adding"] as const;
@@ -39,7 +34,6 @@ function minutes(seconds: number) {
 	return plural(Math.round(seconds / 60), "minute");
 }
 
-// Writes a line in the log of the search.
 function log(tx: Transaction, citySearchId: number, message: string, isError = false) {
 	tx.insert(s.citySearchEvents).values({ citySearchId, message, isError }).run();
 }
@@ -48,7 +42,6 @@ function logFailures(tx: Transaction, citySearchId: number, failures: ServerFail
 	for (const { server, reason } of failures) log(tx, citySearchId, `${server} ${reason}.`, true);
 }
 
-// Ends the search and tells the Admin who started it, unless they deleted their account.
 function end(tx: Transaction, search: { id: number; startedBy: number | null }, status: "finished" | "failed") {
 	tx.update(s.citySearches).set({ status }).where(eq(s.citySearches.id, search.id)).run();
 	if (status === "finished") {
@@ -70,7 +63,6 @@ const listColumns = {
 
 export function createCitySearches(client: Client, wake: () => void) {
 	return {
-		// Finds the restaurants in the city, unless a search for it is already running.
 		async start(actorId: number, cityId: number, cityName: string): Promise<{ id: number } | Problem> {
 			const result = authorizedSubjectWrite(client, actorId, "city-search:start", (tx): { id: number } | Problem => {
 				const city = findCity(tx, cityId, cityName);
@@ -87,8 +79,6 @@ export function createCitySearches(client: Client, wake: () => void) {
 			return result;
 		},
 
-		// Tries a search again now: one that failed, one waiting to ask Overpass again, or the places of one
-		// waiting to look up their address again. The Admin is told again when it ends.
 		async retry(actorId: number, id: number): Promise<{ id: number } | Problem> {
 			const result = authorizedSubjectWrite(client, actorId, "city-search:start", (tx): { id: number } | Problem => {
 				const search = tx.query.citySearches.findFirst({ columns: { cityId: true, status: true }, where: { id } }).sync();
@@ -106,7 +96,6 @@ export function createCitySearches(client: Client, wake: () => void) {
 					.where(and(eq(s.citySearchCandidates.citySearchId, id), gt(s.citySearchCandidates.attempts, 0)))
 					.run();
 				withdrawCitySearchNotification(tx, id);
-				// Not who asked: the log is kept after their account is deleted, and a name in it would stay.
 				log(tx, id, "An admin asked to try again now.");
 				return { id };
 			});
@@ -114,8 +103,6 @@ export function createCitySearches(client: Client, wake: () => void) {
 			return result;
 		},
 
-		// The cities whose name starts with the search, the most populous first, each with whether a search for it
-		// is running.
 		async findCities(query: string, limit: number): Promise<(City & { isSearching: boolean })[]> {
 			const cities = searchCities(client, query, limit);
 			if (cities.length === 0) return [];
@@ -127,13 +114,10 @@ export function createCitySearches(client: Client, wake: () => void) {
 			return cities.map((city) => ({ ...city, isSearching: runningIds.has(city.id) }));
 		},
 
-		// The latest searches first, with how many restaurants each added and how many places it has left.
 		async list(page: PageRequest) {
 			return pages(page, (seek) => client.query.citySearches.findMany({ ...listColumns, ...seek({}) }));
 		},
 
-		// The search with its log, the latest line first, and how many of its places wait to look up their
-		// address again.
 		async findById(id: number) {
 			const search = await client.query.citySearches.findFirst({
 				...listColumns,
@@ -151,7 +135,6 @@ export function createCitySearches(client: Client, wake: () => void) {
 			return { ...search, retryingCandidateCount };
 		},
 
-		// The search to ask Overpass for first, which may not be due yet.
 		async nextSearch() {
 			return client.query.citySearches.findFirst({
 				columns: { id: true, latitude: true, longitude: true, population: true, countryCode: true, runAfter: true },
@@ -160,7 +143,6 @@ export function createCitySearches(client: Client, wake: () => void) {
 			});
 		},
 
-		// Keeps the places that are not restaurants yet, to add one at a time. A search that found none ends.
 		async saveCandidates(id: number, found: { places: KebabPlace[]; server: string; failures: ServerFailure[] }) {
 			client.transaction((tx) => {
 				const search = tx.query.citySearches.findFirst({ columns: { id: true, startedBy: true }, where: { id, status: "queued" } }).sync();
@@ -178,7 +160,6 @@ export function createCitySearches(client: Client, wake: () => void) {
 				const candidates = places
 					.filter((place) => !known.has(place.osmId))
 					.map(({ address, ...place }) => ({ ...place, ...address, citySearchId: id }));
-				// As many candidates in each statement as their values fit, counted on the statement for one of them.
 				const valuesPerCandidate = candidates[0] ? tx.insert(s.citySearchCandidates).values(candidates[0]).toSQL().params.length : 1;
 				for (const chunk of chunks(candidates, Math.floor(durableSqliteLimits.variableNumber / valuesPerCandidate))) {
 					tx.insert(s.citySearchCandidates).values(chunk).onConflictDoNothing().run();
@@ -191,7 +172,6 @@ export function createCitySearches(client: Client, wake: () => void) {
 			});
 		},
 
-		// No Overpass server answered. Each attempt waits longer, and the last one ends the search as failed.
 		async retrySearchLater(id: number, now: Date, failures: ServerFailure[]) {
 			client.transaction((tx) => {
 				const search = tx.query.citySearches
@@ -215,7 +195,6 @@ export function createCitySearches(client: Client, wake: () => void) {
 			});
 		},
 
-		// The place to add first, which may not be due yet.
 		async nextCandidate() {
 			return client.query.citySearchCandidates.findFirst({
 				columns: {
@@ -235,7 +214,6 @@ export function createCitySearches(client: Client, wake: () => void) {
 			});
 		},
 
-		// Nominatim could not be reached.
 		async retryCandidateLater(id: number, now: Date, reason: string) {
 			client.transaction((tx) => {
 				const candidate = tx.query.citySearchCandidates.findFirst({ columns: { citySearchId: true, name: true, attempts: true }, where: { id } }).sync();
@@ -250,9 +228,6 @@ export function createCitySearches(client: Client, wake: () => void) {
 			});
 		},
 
-		// Turns the place into an approved Restaurant, unless it already is a Restaurant, whatever its status. A
-		// Restaurant it is found to be, by name, learns its OpenStreetMap id, so the next search knows it at once.
-		// The search ends with its last place. A place added without looking up its address says so in the log.
 		async addCandidate(
 			id: number,
 			address: Address,

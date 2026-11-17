@@ -2,26 +2,18 @@ import type { CityGroupRow } from "@src/db/schema";
 import { userAgent } from "@src/user-agent";
 import { unzipOnlyFile } from "@src/cities/zip";
 
-// The CityList comes from GeoNames: every populated place with at least 1,000 people, about 170,000 of them.
-// GeoNames updates the files every day. They are free to use if GeoNames is credited, which the privacy page does.
 const citiesUrl = "https://download.geonames.org/export/dump/cities1000.zip";
-// The names of the first-level divisions of each country, such as states and regions.
 const regionsUrl = "https://download.geonames.org/export/dump/admin1CodesASCII.txt";
 const downloadTimeoutMs = 120_000;
 
-// Abandoned, historical and destroyed places.
 const leftOutFeatureCodes = new Set(["PPLQ", "PPLH", "PPLW", "PPLCH"]);
 
 const prefixLength = 2;
-// Leaves room below the 2 MB a row may hold. The largest group, of the cities starting with "sa", is about 0.8 MB.
 const maxGroupBytes = 1_500_000;
 
-// The letters that decomposing does not take the accent off, because they are letters of their own.
 const ownLetters: Record<string, string> = { ø: "o", æ: "ae", œ: "oe", ß: "ss", ł: "l", đ: "d", ð: "d", þ: "th", ı: "i" };
 const ownLetterPattern = new RegExp(`[${Object.keys(ownLetters).join("")}]`, "gu");
 
-// What a city is searched by: lowercase, without accents and without punctuation in front, so "Zürich" is
-// found by "zurich" and "'Ain Defla" by "ain".
 export function searchKey(text: string): string {
 	return text
 		.toLowerCase()
@@ -32,25 +24,20 @@ export function searchKey(text: string): string {
 		.trim();
 }
 
-// The group of the cities a search key may find.
 export function groupPrefix(key: string): string {
 	return key.slice(0, prefixLength);
 }
 
-// A search shorter than a group prefix finds only the cities whose whole name it is, such as Å in Norway, since
-// the cities that start with it are spread over many groups.
 export function isShortSearch(query: string): boolean {
 	return searchKey(query).length < prefixLength;
 }
 
-// What a search that finds no City says. A search of one letter finds only the cities whose whole name it is.
 export function noCityText(query: string): string {
 	return isShortSearch(query) ? "Type at least two letters." : `No city starts with “${query}”.`;
 }
 
 export interface CityGroup {
 	prefix: string;
-	// A JSON array of CityGroupRow, the most populous first.
 	cities: string;
 }
 
@@ -70,7 +57,6 @@ export async function downloadCityList(): Promise<CityList> {
 	return readCityList(new Uint8Array(cities), regions);
 }
 
-// The region names by country and region code, such as "DK.21" for the Region of Southern Denmark.
 function readRegions(text: string) {
 	const regions = new Map<string, string>();
 	for (const line of text.split("\n")) {
@@ -92,7 +78,6 @@ async function* linesOf(stream: ReadableStream<Uint8Array<ArrayBuffer>>) {
 	if (rest) yield rest;
 }
 
-// One line of cities1000.txt, whose columns https://download.geonames.org/export/dump/readme.txt explains.
 function readCity(line: string, regions: Map<string, string>): CityGroupRow | undefined {
 	const columns = line.split("\t");
 	const [id, name, asciiName, , latitude, longitude, , featureCode, countryCode, , regionCode, , , , population] = columns;
@@ -117,12 +102,6 @@ interface GroupEntry {
 	json: string;
 }
 
-// Groups the cities by the first letters of their search keys, the most populous first. A city whose keys
-// start differently is in each of their groups.
-//
-// Each city is kept as the JSON it is stored as. Its name and other columns are slices of the line, which
-// would keep the whole line, with its long list of alternate names, in memory: 126 MB of the 128 MB a
-// Durable Object has. As JSON, the list takes about 30 MB.
 export async function readCityList(zip: Uint8Array<ArrayBuffer>, regionsText: string): Promise<CityList> {
 	const regions = readRegions(regionsText);
 	const entries = new Map<string, GroupEntry[]>();

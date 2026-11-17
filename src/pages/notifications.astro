@@ -15,14 +15,12 @@ if (!session) {
   return Astro.redirect(signInHref(Astro.url, "notifications"));
 }
 
-// Showing the notifications marks them read, which a page the user may never open must not do.
 if (isSpeculative(Astro.request)) {
   return refuseSpeculation();
 }
 
 const { db } = Astro.locals;
 const { page, unreadCount } = await db.load(db.notifications.show(session.user.id, parsePageRequest(Astro.url)));
-// The navigation counts the notifications the user has not seen yet, which no longer includes these.
 session.user.unreadNotificationCount = unreadCount;
 
 const unreadHrefs = page.items.filter((notification) => !notification.isRead).map(notificationHref);

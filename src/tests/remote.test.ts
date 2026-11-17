@@ -2,11 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { Database } from "@src/db";
 import { callDatabaseAll, connectDatabase, loadingOnce, localDatabase, type Query } from "@src/db/remote";
 import { storedPictureNames } from "@src/tests/cloudflare";
-import { createTestDatabase, firstPage, insertRestaurant, insertUser } from "@src/tests/database";
+import { allowed, createTestDatabase, firstPage, insertRestaurant, insertUser } from "@src/tests/database";
 import { pictureFile } from "@src/tests/pictures";
 
-// The website reaches the database over RPC, which copies every argument with the structured clone algorithm. Each
-// load is one call.
 function connectOverClone(db: Database) {
 	const loads: number[] = [];
 	const remote = connectDatabase({
@@ -26,7 +24,7 @@ describe("The database over RPC", () => {
 		const { remote } = connectOverClone(db);
 
 		const result = await remote.load(remote.reviews.create(ada.id, grill.id, { rating: 8, description: "Crisp." }, [await pictureFile()]));
-		const page = await remote.load(remote.reviews.listByRestaurant(grill.id, ada.id, firstPage));
+		const page = allowed(await remote.load(remote.reviews.listByRestaurant(grill.id, ada.id, firstPage)));
 
 		expect(result).toMatchObject({ id: expect.any(Number) });
 		expect(page.items).toEqual([expect.objectContaining({ rating: 8, description: "Crisp.", createdAt: expect.any(Date) })]);

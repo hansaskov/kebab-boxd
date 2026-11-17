@@ -3,7 +3,6 @@ import { generateSecureRandomString } from "@src/auth/hash";
 export const picturePathPrefix = "/pictures/";
 export const pictureContentType = "image/webp";
 
-// Every format the browser offers in a file picker that Cloudflare Images can decode, with the name people know it by.
 const pictureFormats = {
 	"image/jpeg": "JPEG",
 	"image/png": "PNG",
@@ -41,10 +40,7 @@ function nameOf(url: string) {
 	return namePattern.test(name) ? name : undefined;
 }
 
-// The pictures are kept in an R2 bucket under their names.
 export function createPictureStore(bucket: R2Bucket, images: ImagesBinding) {
-	// Re-encoding drops all metadata, such as the GPS position a phone camera stores in a photo.
-	// Cloudflare Images turns the picture upright first.
 	async function encode(file: File, kind: PictureKind) {
 		try {
 			const result = await images.input(file.stream()).transform(sizes[kind]).output({ format: pictureContentType, quality: 80 });
@@ -61,8 +57,6 @@ export function createPictureStore(bucket: R2Bucket, images: ImagesBinding) {
 		return `${picturePathPrefix}${name}`;
 	}
 
-	// Runs after the database no longer refers to the pictures, so a picture that cannot be removed
-	// is only logged: the write it belongs to has already succeeded.
 	async function remove(urls: string[]): Promise<void> {
 		const names = urls.flatMap((url) => nameOf(url) ?? []);
 		if (names.length === 0) return;
@@ -73,7 +67,6 @@ export function createPictureStore(bucket: R2Bucket, images: ImagesBinding) {
 		}
 	}
 
-	// Saves all of the files or, when one of them is not a picture, none of them.
 	async function saveAll(files: File[], kind: PictureKind): Promise<string[]> {
 		const saved = await Promise.allSettled(files.map((file) => save(file, kind)));
 		const urls = saved.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));

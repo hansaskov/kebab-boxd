@@ -18,16 +18,13 @@ const viewer = Astro.locals.session?.user ?? null;
 
 const search = parseSearch(Astro.url.searchParams);
 const type = parseOption(Astro.url.searchParams, "type", searchTypes, "all");
-// Searching for all of them shows each in the order its sort tabs start with.
 const restaurantSort = type === "restaurants" ? parseOption(Astro.url.searchParams, "sort", restaurantSorts, restaurantSorts[0]) : restaurantSorts[0];
 const personSort = type === "people" ? parseOption(Astro.url.searchParams, "sort", personSorts, personSorts[0]) : personSorts[0];
 
-// Searching for all of them shows the first few of each, with a link to the pages of the rest.
 const previewRequest: PageRequest = { limit: 5, cursor: undefined };
 const request = type === "all" ? previewRequest : parsePageRequest(Astro.url);
 const shows = (kind: Exclude<SearchType, "all">) => type === "all" || type === kind;
 
-// A city is found by the start of its name, so without a search there is none to list.
 const noCities: Page<City> = { items: [], previous: undefined, next: undefined, isPastEnd: false };
 
 const { db } = Astro.locals;

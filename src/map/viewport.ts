@@ -1,8 +1,5 @@
 import type { Bounds, Coordinates } from "@src/map/coordinates";
 
-// A map drawn on the server from Web Mercator tiles, as the slippy maps of OpenStreetMap are.
-// Positions are percentages of the viewport, so the map scales with its box without client scripts.
-
 const tileSize = 256;
 const maxLatitude = 85.051_128_78;
 
@@ -14,7 +11,6 @@ export interface ViewportSize {
 	height: number;
 }
 
-// What the map shows: the place at its middle, and how far it is zoomed in.
 export interface MapView {
 	center: Coordinates;
 	zoom: number;
@@ -31,13 +27,8 @@ export interface Tile extends Placement {
 	height: number;
 }
 
-// A grid of square cells over the whole world at one zoom, which restaurants are clustered on. Cells stay in
-// place when the map moves, so a cluster does not change while it stays in view.
 export interface ClusterGrid {
-	// The column of a longitude is the whole part of (longitude + 180) × columnsPerDegree.
 	columnsPerDegree: number;
-	// The latitudes of the edges between the rows in view, from north to south. A place is as many rows
-	// south of the first row as there are edges at or north of it.
 	rowEdges: number[];
 }
 
@@ -76,7 +67,6 @@ function modulo(value: number, divisor: number) {
 	return ((value % divisor) + divisor) % divisor;
 }
 
-// The same place, with its longitude moved into -180 to 180 after the map went round the world.
 function wrapped({ latitude, longitude }: Coordinates): Coordinates {
 	return { latitude, longitude: modulo(longitude + 180, 360) - 180 };
 }
@@ -89,8 +79,6 @@ export function clampZoom(zoom: number) {
 	return clamp(Math.round(zoom), minZoom, maxZoom);
 }
 
-// The zooms a map stops at when it zooms in or out by the step: every step from the smallest zoom, and the largest.
-// A zoom between stops goes to the nearest stop either way, so zooming in and out again returns to the same stop.
 export function zoomedIn(zoom: number, step: number): number | undefined {
 	return zoom < maxZoom ? Math.min(maxZoom, minZoom + (Math.floor((zoom - minZoom) / step) + 1) * step) : undefined;
 }
@@ -99,21 +87,17 @@ export function zoomedOut(zoom: number, step: number): number | undefined {
 	return zoom > minZoom ? minZoom + (Math.ceil((zoom - minZoom) / step) - 1) * step : undefined;
 }
 
-// The view moved to the nearest point of a grid over the world, with squares of the step in the pixels of its zoom.
-// A map whose links move it by whole steps then leads only to points of the grid, whichever way it gets there.
 export function snapToGrid({ center, zoom }: MapView, step: number): MapView {
 	const rounded = clampZoom(zoom);
 	const { x, y } = project(center, rounded);
 	return { center: wrapped(unproject({ x: Math.round(x / step) * step, y: Math.round(y / step) * step }, rounded)), zoom: rounded };
 }
 
-// The view of a map of the size that shows all of the bounds with a margin, in pixels, around them, as near as it can.
 export function fitBounds(area: Bounds, { width, height }: ViewportSize, margin: number): MapView {
 	const topLeft = project({ latitude: area.north, longitude: area.west }, 0);
 	const bottomRight = project({ latitude: area.south, longitude: area.east }, 0);
 	const scale = Math.min((width - 2 * margin) / (bottomRight.x - topLeft.x), (height - 2 * margin) / (bottomRight.y - topLeft.y));
 	const middle = { x: (topLeft.x + bottomRight.x) / 2, y: (topLeft.y + bottomRight.y) / 2 };
-	// Bounds around a single place fit at every zoom, which makes the scale infinite.
 	return { center: unproject(middle, 0), zoom: Number.isFinite(scale) ? clampZoom(Math.floor(Math.log2(scale))) : maxZoom };
 }
 
@@ -122,7 +106,6 @@ export function viewport(requestedCenter: Coordinates, requestedZoom: number, si
 	const zoom = clampZoom(requestedZoom);
 	const world = worldSize(zoom);
 	const projected = project(requestedCenter, zoom);
-	// The world ends at the poles, so the viewport is kept inside it from north to south.
 	const centerPoint = { x: projected.x, y: clamp(projected.y, height / 2, world - height / 2) };
 	const origin = { x: centerPoint.x - width / 2, y: centerPoint.y - height / 2 };
 	const center = unproject(centerPoint, zoom);
@@ -164,18 +147,15 @@ export function viewport(requestedCenter: Coordinates, requestedZoom: number, si
 		place(coordinates: Coordinates): Placement {
 			return toPlacement(project(coordinates, zoom));
 		},
-		// How far apart two places are on the map, in the pixels of its size.
 		pixelsBetween(from: Coordinates, to: Coordinates): number {
 			const a = project(from, zoom);
 			const b = project(to, zoom);
 			return Math.hypot(a.x - b.x, a.y - b.y);
 		},
-		// The middle of the map after it moves the given pixels east and south. It stops at the poles, as the map does.
 		movedCenter(east: number, south: number): Coordinates {
 			const point = { x: centerPoint.x + east, y: clamp(centerPoint.y + south, height / 2, world - height / 2) };
 			return wrapped(unproject(point, zoom));
 		},
-		// The grid with cells of the given size, in the pixels of the map, that the restaurants in view are clustered on.
 		clusterGrid(cellSize: number): ClusterGrid {
 			const rowEdges: number[] = [];
 			for (let row = Math.floor(origin.y / cellSize) + 1; row * cellSize < origin.y + height; row++) {

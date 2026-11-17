@@ -29,7 +29,6 @@ if (!can(session.user, "admin-console:view")) {
   return Astro.rewrite("/403");
 }
 
-// The devices check the permission themselves, so they come in the same trip to the database as the user.
 const { db } = Astro.locals;
 const { user, devices } = await db.load({
   user: db.users.findByUsername(username),
@@ -49,7 +48,7 @@ const canChangeRole = can(session.user, "user:change-role", user);
 const isOwnAccount = session.user.id === user.id;
 
 const canManageSessions = can(session.user, "user:manage-sessions", user);
-const shownDevices = canManageSessions && !isProblem(devices) ? devices : [];
+const shownDevices = isProblem(devices) ? [] : devices;
 const lastActiveAt = shownDevices.at(0)?.history.at(0)?.requestedAt;
 
 const toast =
@@ -62,7 +61,6 @@ const toast =
     title: "Role changed",
     text: `${user.fullname} is now ${user.role === "admin" ? "an admin" : "a user"}.`,
   });
-
 ---
 
 <BaseLayout

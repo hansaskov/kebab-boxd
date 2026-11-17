@@ -4,12 +4,9 @@ import { cleanPlaceName } from "@src/restaurants/place-name";
 
 export interface Place extends Coordinates {
 	name: string;
-	// The feature id in the link, such as 0x464cdf40a60240ff:0x42ef3a5ea295d42e. Not a Places API place id.
 	googleMapsId: string;
 }
 
-// A place link with a search for the place instead of its pin, such as
-// https://maps.google.com/?q=Shawarma+Village,+Kongensgade+13,+5000+Odense&ftid=0x…:0x…
 interface UnpinnedPlace {
 	name: string;
 	googleMapsId: string;
@@ -17,13 +14,10 @@ interface UnpinnedPlace {
 }
 
 const shareLinkHost = "maps.app.goo.gl";
-// Google Maps shared links on goo.gl/maps/… before maps.app.goo.gl.
 const oldShareLinkHost = "goo.gl";
 const googleHostPattern = /^(www\.|maps\.)?google\.[a-z]{2,3}(\.[a-z]{2})?$/;
-// Google sends visitors from some countries to a consent page, with the place link in its continue parameter.
 const consentHostPattern = /^consent\.google\.[a-z]{2,3}(\.[a-z]{2})?$/;
 const placePathPattern = /^\/maps\/place\/([^/]+)\//;
-// The place's own pin. The @latitude,longitude in the path is the middle of the map, not the place.
 const pinPattern = /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/;
 const featureIdPattern = /!1s(0x[0-9a-f]+:0x[0-9a-f]+)/;
 const featureIdParamPattern = /^0x[0-9a-f]+:0x[0-9a-f]+$/;
@@ -47,7 +41,6 @@ function isQueryLink(url: URL) {
 	return isMapsPath && url.searchParams.has("q") && url.searchParams.has("ftid");
 }
 
-// The links Google Maps shares, and the links in the address bar on a place.
 export function isGoogleMapsLink(link: string) {
 	const url = URL.parse(link);
 	return url !== null && (isShareLink(url) || isPlaceLink(url) || isQueryLink(url));
@@ -69,7 +62,6 @@ export function parsePlaceLink(link: string): Place | undefined {
 	return { name, googleMapsId, latitude, longitude };
 }
 
-// The name and the address are split at the first comma, as Google Maps writes them.
 export function parseQueryLink(link: string): UnpinnedPlace | undefined {
 	const url = URL.parse(link);
 	if (!url || !isQueryLink(url)) return undefined;
@@ -97,7 +89,6 @@ function decodeName(encoded: string | undefined) {
 	}
 }
 
-// Where a redirect from `from` leads: the next link to open, or the place it ends at.
 export function followRedirect(location: string, from: URL): { place: Place | UnpinnedPlace | undefined } | { next: URL } {
 	const url = URL.parse(location, from);
 	if (url && isShareLink(url)) return { next: url };
@@ -105,7 +96,6 @@ export function followRedirect(location: string, from: URL): { place: Place | Un
 	return { place: target ? parseLink(target) : undefined };
 }
 
-// A share link redirects to the place link. Only the redirects are read, never the page they point to.
 async function readLink(link: string): Promise<Place | UnpinnedPlace | undefined> {
 	let url = URL.parse(link);
 	if (!url || !isShareLink(url)) return parseLink(link);
@@ -125,8 +115,6 @@ async function readLink(link: string): Promise<Place | UnpinnedPlace | undefined
 	return undefined;
 }
 
-// The place a link points to and its address from OpenStreetMap, or undefined when the link is not to a place.
-// A link without a pin is placed where OpenStreetMap finds its address.
 export async function findPlace(link: string): Promise<{ place: Place; address: Address } | undefined> {
 	const found = await readLink(link);
 	if (!found || "latitude" in found) return found && { place: found, address: await findAddress(found) };

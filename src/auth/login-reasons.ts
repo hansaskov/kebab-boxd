@@ -1,6 +1,3 @@
-// Why someone must log in, which they are told. A Visitor who presses something that needs an account sees it in a
-// dialog on the same page. One who opens a page that needs an account, sends a form after they were logged out, or
-// whose attempt to sign in did not succeed, is sent to the login page, which tells them in a toast.
 export const signInReasons = [
 	"get-started",
 	"write-review",
@@ -38,7 +35,6 @@ export const signInReasonMessages: Record<SignInReason, { title: string; text?: 
 	banned: { title: "Account banned", text: "An admin has banned this account, so you cannot log in.", isError: true },
 };
 
-// The dialog on a page that asks a Visitor to log in for the reason. The button that opens it names it.
 export function loginDialogId(reason: SignInReason) {
 	return `login-${reason}`;
 }

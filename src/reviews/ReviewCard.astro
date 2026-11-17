@@ -24,8 +24,6 @@ const { author, restaurant } = review;
 const canLike = canOn(viewer, "review:like", review) || (review.isLikedByViewer && canOn(viewer, "review:unlike", review));
 const canEdit = canOn(viewer, "review:edit", review);
 const justLiked = review.isLikedByViewer && succeededOn(Astro.locals, actions.reviews.like) === review.id;
-// The pictures fill the width of the card in one row, a column for each picture a Review may have, so they grow
-// with the screen and line up from one card to the next.
 const pictureColumns = `grid-template-columns: repeat(${maxPicturesPerReview}, minmax(0, 1fr))`;
 ---
 

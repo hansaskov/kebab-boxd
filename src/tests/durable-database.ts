@@ -7,9 +7,6 @@ import type { PlannedStatement } from "@src/tests/durable-database-worker";
 import { fromJson, toJson } from "@src/tests/json";
 import type { LargeDatabase } from "@src/tests/large-database";
 
-// The database in a Durable Object run by Miniflare, which counts rows the way Cloudflare bills them. SQLite in
-// Node cannot count them. The Worker is bundled with esbuild, as SST bundles the Backend.
-
 const entryPoint = fileURLToPath(new URL("durable-database-worker.ts", import.meta.url));
 
 const { outputFiles } = await build({
@@ -31,7 +28,6 @@ const miniflare = new Miniflare({
 		{
 			config: {
 				name: "measured",
-				// The date and flags SST gives the Backend Worker.
 				compatibilityDate: "2025-05-05",
 				compatibilityFlags: ["nodejs_compat"],
 				manifest: { mainModule: "index.js", modules: { "index.js": { type: "esm", contents: outputFiles[0]!.text } } },
@@ -68,14 +64,12 @@ export interface Measured<Value> extends RowCounts {
 
 export type MeasuredDatabase = Awaited<ReturnType<typeof openLargeDatabase>>;
 
-// A new Durable Object with a large database at the scale, whose calls tell the rows they read and wrote.
 export async function openLargeDatabase(scale: number) {
 	const stub = namespace.get(namespace.newUniqueId()) as unknown as MeasuredDatabaseStub;
 	const subjects = fromJson(await stub.fill(scale)) as LargeDatabase;
 
 	return {
 		subjects,
-		// Two pieces of work that run at once, with the rows each read and the rows of the tables they read.
 		async meterOverlappingWork() {
 			return fromJson(await stub.meterOverlappingWork()) as { rows: Record<"users" | "restaurants", RowCounts>; users: number; restaurants: number };
 		},

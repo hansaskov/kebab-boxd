@@ -79,7 +79,6 @@ function uniquePairs(
   return result;
 }
 
-// Around Funen, so that the restaurants show up near each other on the map.
 const area = { minLatitude: 55.0, maxLatitude: 55.7, minLongitude: 9.7, maxLongitude: 10.9 };
 
 export async function seedDatabase(client: Client, pictures: PictureStore) {
@@ -166,8 +165,6 @@ export async function seedDatabase(client: Client, pictures: PictureStore) {
         url: funcs.valuesFromArray({ values: imageUrls }),
       },
     },
-
-
   }));
 
   const seededUsers = await client.query.users.findMany({ columns: { id: true, username: true } });
@@ -205,7 +202,6 @@ export async function seedDatabase(client: Client, pictures: PictureStore) {
     await db.users.ban(admin.id, username);
   }
 
-  // Follows go through the write a User makes, so that a private Profile gets a follow request instead.
   const usernames = new Map((await client.query.users.findMany({ columns: { id: true, username: true } })).map((user) => [user.id, user.username]));
   for (const [followerId, followingId] of uniquePairs(150, userIds, userIds)) {
     const username = usernames.get(followingId);
@@ -250,7 +246,6 @@ export async function seedDatabase(client: Client, pictures: PictureStore) {
     await client.insert(schema.bucketList).values(bucketListRows);
   }
 
-  // A picture belongs to one review at most, so deleting a review never takes the pictures of another.
   const shuffledReviewIds = reviewIds.toSorted(() => Math.random() - 0.5);
   const reviewPicturesRows = pictureIds.flatMap((pictureId, i) => {
     const reviewId = shuffledReviewIds[i];

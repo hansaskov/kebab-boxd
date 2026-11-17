@@ -5,19 +5,10 @@ import { chunks, durableSqliteLimits } from "@src/db/limits";
 import * as s from "@src/db/schema";
 import type { CityGroupRow } from "@src/db/schema";
 
-// A database the size of a busy Kebab Boxd, to count the rows each call reads in.
-//
-// It has two parts. The subjects are the users, restaurants and reviews the tests open, the same in every database
-// this makes. The background is the rest of the site, and grows with the scale. The background was written before
-// the subjects, so the first page of every list shows subjects, whatever the scale. A call that reads the same rows
-// at every scale reads only what it shows, and the size of the site does not make it cost more.
-
 const day = 24 * 60 * 60 * 1000;
-// Before the subjects, which are written on the days after it.
 const backgroundEnd = Date.UTC(2026, 0, 1);
 const subjectStart = Date.UTC(2026, 1, 1);
 
-// The same numbers in every run, so every run measures the same database.
 function randomNumbers(seed: number) {
 	let state = seed;
 	return () => {
@@ -67,7 +58,6 @@ function insertReview(tx: Transaction, authorId: number, restaurantId: number, r
 		.get().id;
 }
 
-// The rest of the site, far from Funen so that it is not on a map of the subjects.
 function insertBackground(tx: Transaction, scale: number) {
 	const random = randomNumbers(scale);
 	const pick = <T>(items: readonly T[]) => items[Math.floor(random() * items.length)]!;
@@ -83,7 +73,6 @@ function insertBackground(tx: Transaction, scale: number) {
 	const restaurants = Array.from({ length: 400 * scale }, (_, i) => {
 		const status = i % 10 < 6 ? "approved" : i % 10 < 9 ? "pending" : "rejected";
 		const id = insertRestaurant(tx, `Grill ${i}`, {
-			// Between Spain and Poland, far south of Funen.
 			latitude: 40 + random() * 12,
 			longitude: -5 + random() * 25,
 			city: `Town ${i % 97}`,
@@ -99,7 +88,6 @@ function insertBackground(tx: Transaction, scale: number) {
 	for (let i = 0; i < 1000 * scale; i++) {
 		const authorId = pick(userIds);
 		const restaurantId = pick(approvedIds);
-		// Some authors come back to a restaurant, so that their older reviews leave the ReviewWindow.
 		const visits = i % 20 === 0 ? 5 : 1;
 		for (let visit = 0; visit < visits; visit++) {
 			reviewIds.push(insertReview(tx, authorId, restaurantId, 2 + Math.floor(random() * 9), backgroundTime(random)));
@@ -160,10 +148,8 @@ function insertBackground(tx: Transaction, scale: number) {
 			tx.insert(s.citySearchEvents).values({ citySearchId: searchId, message: `Asked server ${event}.` }).run();
 		}
 	}
-
 }
 
-// Odense, where the default map starts, and the places around it.
 const odense = { latitude: 55.3959, longitude: 10.3883 };
 
 function insertSubjects(tx: Transaction) {
@@ -176,7 +162,6 @@ function insertSubjects(tx: Transaction) {
 	const privateId = insertUser(tx, "hidden", { isPrivate: true, createdAt: next() });
 	const friendIds = Array.from({ length: 12 }, (_, i) => insertUser(tx, `friend_${i}`, { createdAt: next() }));
 
-	// 24 approved restaurants on Funen, and some that wait or were rejected.
 	const restaurantIds = Array.from({ length: 24 }, (_, i) =>
 		insertRestaurant(tx, `Funen Kebab ${i}`, {
 			latitude: odense.latitude - 0.03 + (i % 6) * 0.012,
@@ -198,7 +183,6 @@ function insertSubjects(tx: Transaction) {
 		}),
 	);
 
-	// The author reviewed many restaurants, and one of them so often that the oldest reviews left the ReviewWindow.
 	const authorReviewIds = restaurantIds.slice(0, 12).map((id, i) => insertReview(tx, authorId, id, 6 + (i % 5), next()));
 	for (let visit = 0; visit < 4; visit++) authorReviewIds.push(insertReview(tx, authorId, restaurantIds[1]!, 8, next()));
 	const privateReviewIds = restaurantIds.slice(0, 12).map((id) => insertReview(tx, privateId, id, 7, next()));
@@ -207,7 +191,6 @@ function insertSubjects(tx: Transaction) {
 		insertReview(tx, friendId, restaurantIds[2 + i]!, 8, next()),
 	]);
 
-	// The viewer follows the author, the private user and the friends. The friends follow the author.
 	for (const followingId of [authorId, privateId, ...friendIds]) {
 		tx.insert(s.followers).values({ followerId: viewerId, followingId, createdAt: next() }).run();
 	}
@@ -224,7 +207,6 @@ function insertSubjects(tx: Transaction) {
 		for (const id of restaurantIds.slice(0, 15)) tx.insert(table).values({ userId: viewerId, restaurantId: id, createdAt: next() }).run();
 	}
 
-	// Notifications of the viewer, half of them read.
 	friendIds.forEach((actorId, i) => {
 		tx.insert(s.notifications)
 			.values({ recipientId: viewerId, actorId, kind: "follow", createdAt: next(), readAt: i % 2 ? next() : null })
@@ -260,8 +242,6 @@ function insertSubjects(tx: Transaction) {
 	for (let event = 0; event < 20; event++) {
 		tx.insert(s.citySearchEvents).values({ citySearchId, message: `Asked server ${event}.`, createdAt: next() }).run();
 	}
-	// The search approved what it found, and an Admin rejected some of it later. They are in the north of the city,
-	// off the map of its middle, which stays as the budgets of the map were set for.
 	for (let i = 0; i < 4; i++) {
 		insertRestaurant(tx, `Found Kebab ${i}`, {
 			latitude: odense.latitude + 0.045,
@@ -281,7 +261,6 @@ function insertSubjects(tx: Transaction) {
 		privateId,
 		friendId: friendIds[0]!,
 		sessionId,
-		// The token of the session, which the cookie of the viewer's browser holds.
 		sessionToken: `${sessionId}.${sessionSecret}`,
 		restaurantId,
 		pendingRestaurantId: suggestedIds[0]!,
@@ -295,7 +274,6 @@ function insertSubjects(tx: Transaction) {
 
 export type LargeDatabase = ReturnType<typeof insertSubjects>;
 
-// Fills an empty database: the background at the scale, then the subjects.
 export async function fillLargeDatabase(client: Client, scale: number): Promise<LargeDatabase> {
 	return client.transaction((tx) => {
 		insertBackground(tx, scale);

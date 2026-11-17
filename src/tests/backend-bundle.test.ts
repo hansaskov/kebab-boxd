@@ -2,9 +2,6 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { describe, expect, it } from "vitest";
 
-// The Durable Object sleeps when it has no work, and loads the whole Backend Worker each time it wakes up. The first
-// page after a while waits for that, so the Backend carries only what the database needs. Bundled as SST bundles it.
-
 const entryPoint = fileURLToPath(new URL("../backend.ts", import.meta.url));
 
 async function bundle() {

@@ -5,32 +5,22 @@ import type { RestaurantStatus } from "@src/db/schema";
 import { boundsAround, type Coordinates } from "@src/map/coordinates";
 import type { Address } from "@src/restaurants/nominatim";
 
-// How a place that was found becomes a Restaurant, whether a User suggested it or a CitySearch found it.
-
-// Two places with the same name this close to each other are taken to be the same restaurant.
 const duplicateDistanceMeters = 150;
 
-// The names are compared without case in every alphabet. SQLite's lower() only knows A to Z.
 const sameName = new Intl.Collator(undefined, { sensitivity: "accent" });
 
-// A place that may become a Restaurant, with its id at Google Maps or OpenStreetMap, where it was found.
 export interface FoundPlace extends Coordinates {
 	name: string;
 	googleMapsId?: string | null;
 	osmId?: string | null;
 }
 
-// Who entered the Restaurant: the User who suggested it, or the CitySearch that found it.
 export type Origin = { suggestedBy: number } | { citySearchId: number };
 
-// A Restaurant a User suggested waits for an Admin to approve it. One a CitySearch found is approved at once,
-// since an Admin chose to search the City; an Admin may still reject it.
 function statusOf(origin: Origin): RestaurantStatus {
 	return "suggestedBy" in origin ? "pending" : "approved";
 }
 
-// The Restaurant with one of the statuses that the place already is: the one with its id at Google Maps or
-// OpenStreetMap, or one with its name close by.
 export function findExisting(tx: Transaction, place: FoundPlace, statuses: readonly RestaurantStatus[]) {
 	const { googleMapsId, osmId } = place;
 	const { north, south, east, west } = boundsAround(place, duplicateDistanceMeters);
@@ -55,7 +45,6 @@ export function findExisting(tx: Transaction, place: FoundPlace, statuses: reado
 	);
 }
 
-// Has no reviews yet, so no cached stats change, even when it is approved at once.
 export function enterRestaurant(tx: Transaction, place: FoundPlace, address: Address, origin: Origin) {
 	const { name, latitude, longitude, googleMapsId = null, osmId = null } = place;
 	const location = tx.insert(s.locations).values({ ...address, latitude, longitude }).returning({ id: s.locations.id }).get();
@@ -66,7 +55,6 @@ export function enterRestaurant(tx: Transaction, place: FoundPlace, address: Add
 		.get();
 }
 
-// How many Restaurants the CitySearch entered, whatever an Admin decided about them, as a column of a query on it.
 export function enteredRestaurantCount(search: Pick<typeof s.citySearches, "id">) {
 	return sql<number>`(select count(*) from ${s.restaurants} where ${s.restaurants.citySearchId} = ${search.id})`.mapWith(Number);
 }

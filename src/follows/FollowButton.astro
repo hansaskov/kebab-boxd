@@ -10,7 +10,6 @@ interface Props extends HTMLAttributes<"form"> {
 
 const { viewer, user, class: className, ...props } = Astro.props;
 
-// Follows the user, or asks to when their Profile is private, or ends either. Shows nothing when the viewer may not.
 const relation = user.isFollowedByViewer ? "following" : user.isRequestedByViewer ? "requested" : undefined;
 const allowed = can(viewer, relation ? "user:unfollow" : "user:follow", user);
 const label = { following: "Unfollow", requested: "Cancel request" } as const;

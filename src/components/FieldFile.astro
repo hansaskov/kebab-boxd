@@ -6,18 +6,13 @@ import { acceptedPictureTypes, maxPictureMegabytes } from "@src/pictures/store";
 
 interface Props extends astroHTML.JSX.InputHTMLAttributes {
     name: string;
-    // Tells the user to choose files or drop them on the field, inside the field.
     prompt: string;
-    // The name of the field, above it like the label of every other field. Without it, the prompt names the field,
-    // for a field that a heading already names.
     label?: string | undefined;
     description?: string | undefined;
-    // The form as the user sent it when it failed. A browser cannot fill in a file input, so only its errors show.
     submitted?: SubmittedForm | undefined;
 }
 
 const { id, name, prompt, label, description, submitted, class: className, ...props } = Astro.props;
-// The browser offers only pictures to choose, so the formats are named only when a file is not one.
 const limits = `Up to ${maxPictureMegabytes} MB${props.multiple ? " each" : ""}.`;
 const fullDescription = [description, limits].filter(Boolean).join(" ");
 const field = describeField({ id, name, description: fullDescription, submitted });
@@ -31,7 +26,6 @@ const control = {
 <div class="field-stack space-y-2">
     {label && <label class="field-label" for={field.id}>{label}</label>}
     <div class="dropzone">
-        <!-- The default slot shows what the new pictures replace. -->
         <slot><span class="dropzone-icon"><Upload size={18} aria-hidden="true" /></span></slot>
         {label ? (
             <p id={promptId} class="dropzone-label">{prompt}</p>

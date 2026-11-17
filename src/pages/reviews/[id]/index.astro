@@ -4,7 +4,8 @@ import BaseLayout from "@src/layouts/BaseLayout.astro";
 import DeleteReviewButton from "@src/reviews/DeleteReviewButton.astro";
 import DeleteReviewDialog from "@src/reviews/DeleteReviewDialog.astro";
 import ReviewCard from "@src/reviews/ReviewCard.astro";
-import { canOn, refusal } from "@src/auth/permissions";
+import { canOn } from "@src/auth/permissions";
+import { isProblem } from "@src/db/problem";
 import { successToast } from "@src/actions/toast";
 import { profileHref, refusalPage, restaurantHref } from "@src/hrefs";
 import { parseId } from "@src/params";
@@ -13,10 +14,12 @@ const viewer = Astro.locals.session?.user ?? null;
 
 const id = parseId(Astro.params.id);
 const { db } = Astro.locals;
-const review = id ? await db.load(db.reviews.findById(id, viewer?.id ?? null)) : undefined;
-const refused = refusal(viewer, "review:view", review);
-if (refused || !review) {
-  return Astro.rewrite(refusalPage[refused ?? "not-found"]);
+if (!id) {
+  return Astro.rewrite(refusalPage["not-found"]);
+}
+const review = await db.load(db.reviews.findAllowed(id, viewer?.id ?? null, "review:view"));
+if (isProblem(review)) {
+  return Astro.rewrite(refusalPage[review.problem]);
 }
 
 const canEdit = canOn(viewer, "review:edit", review);

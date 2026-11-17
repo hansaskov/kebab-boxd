@@ -7,35 +7,18 @@ import type { PageRequest } from "@src/pagination";
 import { openLargeDatabase, type Measured, type MeasuredDatabase } from "@src/tests/durable-database";
 import type { PlannedStatement } from "@src/tests/durable-database-worker";
 
-// The free plan of Cloudflare stops the database for the rest of the day when it has read 5 million rows, so each
-// call of the database is measured as Cloudflare bills it.
-//
-// Every call runs in two databases: one, and one with four times as much of the rest of the site. A call reads the
-// same rows in both, so the size of the site does not make a page cost more. A call that cannot says why.
-//
-// Every statement is planned too. None reads a whole table, unless the call says why. A statement that walks an
-// index in order is not counted, since its limit stops it: the rows it reads are what the first check measures.
-
 const page: PageRequest = { limit: 10, cursor: undefined };
-// The search page shows the first 5 of each kind.
 const preview: PageRequest = { limit: 5, cursor: undefined };
-// Odense, as GeoNames numbers it, the City of the CitySearch of the databases.
 const odenseId = 2615876;
 
 interface Call {
 	measure: (db: MeasuredDatabase) => Promise<Measured<unknown>>;
-	// The most rows it may read, in the larger database.
 	budget: number;
-	// Why it reads more rows as the site grows.
 	grows?: string;
-	// Why a statement of it reads a whole table.
 	scansTable?: string;
-	// Why it finds nothing in the databases, which call it as the site does.
 	findsNothing?: string;
 }
 
-// The tables a statement reads from start to end: a SCAN without an index, of a table or of its alias, but not of
-// a subquery, which reads only the rows the subquery found.
 function tableScans({ plan }: PlannedStatement): string[] {
 	const lines = plan.map((line) => line.trim());
 	const subqueries = new Set(lines.flatMap((line) => /^(?:CO-ROUTINE|MATERIALIZE) (.+)$/.exec(line)?.[1] ?? []));
@@ -61,7 +44,6 @@ async function expectCheap({ measure, budget, grows, scansTable, findsNothing }:
 	const scans = inLarge.statements.flatMap(tableScans);
 	const found = inLarge.value !== undefined && inLarge.value !== null && itemCount(inLarge.value) !== 0;
 
-	// A call that was refused or found nothing would read few rows, and prove nothing.
 	expect(isProblem(inLarge.value), "was refused").toBe(false);
 	expect(found, findsNothing ? `finds nothing: ${findsNothing}` : "finds something").toBe(!findsNothing);
 	expect(inLarge.rowsRead, "reads more rows than its budget").toBeLessThanOrEqual(budget);
@@ -71,7 +53,6 @@ async function expectCheap({ measure, budget, grows, scansTable, findsNothing }:
 	else expect(scans, "scans a whole table").toEqual([]);
 }
 
-// The calls in a new pair of databases, one after the other, so that a write finds what the writes before it left.
 function describeCalls(title: string, calls: Record<string, Call>) {
 	describe(title, () => {
 		let small: MeasuredDatabase;
@@ -174,7 +155,6 @@ describeCalls("the rows each call of the database reads to show a page", {
 	},
 	"restaurants.explore, the map of a city a search finds": {
 		measure: (db) => db.measure("restaurants", "explore", { search: "odense", cityId: undefined, requested: undefined, isVisitor: true }),
-		// The map of the whole city shows more of it than the map of its middle.
 		budget: 300,
 	},
 	"restaurants.feelLucky, in a city": {
@@ -335,7 +315,6 @@ describeCalls("the rows each call of the database reads for the background work"
 
 const review = { rating: 8, description: "Crisp." };
 
-// The writes run in this order, each on what the ones before left.
 describeCalls("the rows each write to the database reads", {
 	"history.record, after every page a User opens": {
 		measure: (db) =>
@@ -375,7 +354,6 @@ describeCalls("the rows each write to the database reads", {
 		budget: 200,
 	},
 	"reviews.removePicture": {
-		// The review has no pictures, so it reads what any removal reads, without the rows of the picture.
 		measure: (db) => db.measure("reviews", "removePicture", db.subjects.authorId, db.subjects.reviewId, 1),
 		budget: 40,
 	},

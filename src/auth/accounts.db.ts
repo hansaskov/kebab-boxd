@@ -30,10 +30,8 @@ export function buildUsername(fullname: string, suffix: number | string): string
 export type SignIn =
 	| { status: "signed-in"; user: User }
 	| { status: "banned" }
-	// Another Account of a User has the email address. That User must sign in with it.
 	| { status: "email-taken" };
 
-// The User is created with a placeholder Username, since the preferred one contains their id.
 function createUser(tx: Transaction, account: ProviderAccount): User {
 	const inserted = tx
 		.insert(s.users)
@@ -57,9 +55,6 @@ function createUser(tx: Transaction, account: ProviderAccount): User {
 
 export function createAccounts(client: Client) {
 	return {
-		// Signs in the User of the Account, and creates both on the first sign-in. While no Admin exists, the
-		// User with the verified bootstrap email address becomes one, so each stage gets its first Admin. The session
-		// is stored when the User may sign in, in the same trip to the database.
 		async signIn(providerAccount: ProviderAccount, bootstrapAdminEmail?: string, session?: Pick<NewSession, "id" | "secretHash">): Promise<SignIn> {
 			const account = {
 				...providerAccount,

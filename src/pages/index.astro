@@ -7,7 +7,6 @@ import type { Toast } from "@src/components/Toast.astro";
 import { loginDialogId } from "@src/auth/login-reasons";
 import { feedHref, landingNotices, type LandingNotice } from "@src/hrefs";
 
-// The landing page tells Visitors what Kebab Boxd is. A User knows, so they go on to their Feed.
 if (Astro.locals.session) {
     return Astro.redirect(feedHref);
 }
@@ -140,6 +139,5 @@ const features = [
         </button>
     </section>
 
-    {/* The landing page is no page to come back to, so once signed in, the Visitor goes to their Feed. */}
     <LoginDialog reason="get-started" returnTo={Astro.url} />
 </BaseLayout>

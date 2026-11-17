@@ -25,12 +25,10 @@ export function distanceInMeters(from: Coordinates, to: Coordinates): number {
 	return 2 * earthRadiusMeters * Math.asin(Math.min(1, Math.sqrt(a)));
 }
 
-// How much shorter a degree of longitude is than a degree of latitude at the latitude.
 function longitudeScale(latitude: number): number {
 	return Math.cos(radians(latitude));
 }
 
-// The bounds of a square around a point, about the given distance from it to each side.
 export function boundsAround(center: Coordinates, meters: number): Bounds {
 	const latitudeDelta = (meters / earthRadiusMeters) * (180 / Math.PI);
 	const longitudeDelta = latitudeDelta / Math.max(longitudeScale(center.latitude), 0.01);
@@ -50,9 +48,7 @@ export function formatDistance(meters: number): string {
 	return kilometres.format(meters / 1000);
 }
 
-// How far north or south, and east or west, the place is from where it is seen: "200 m north and 1.4 km west".
 export function formatOffset(from: Coordinates, to: Coordinates): string {
-	// The shorter way round the world, so a step across the antimeridian is a small one.
 	const longitudeChange = ((to.longitude - from.longitude + 540) % 360) - 180;
 	const parts = [
 		{ meters: distanceInMeters(from, { latitude: to.latitude, longitude: from.longitude }), direction: to.latitude >= from.latitude ? "north" : "south" },
@@ -64,7 +60,6 @@ export function formatOffset(from: Coordinates, to: Coordinates): string {
 		.join(" and ");
 }
 
-// Coordinates as Google Maps and OpenStreetMap copy them, and as a User writes their location: "55.3959, 10.3883".
 export const coordinatesPattern = /^(-?\d{1,3}(?:\.\d+)?),\s*(-?\d{1,3}(?:\.\d+)?)$/;
 
 export function parseCoordinates(text: string): Coordinates | undefined {

@@ -3,7 +3,6 @@ import { Trash } from "@lucide/astro";
 import type { HTMLAttributes } from "astro/types";
 import { deleteReviewDialogId } from "@src/reviews/reviews";
 
-// Opens the DeleteReviewDialog of the review, which the page renders outside any form, since the dialog has its own.
 interface Props extends HTMLAttributes<"button"> {
   reviewId: number;
 }

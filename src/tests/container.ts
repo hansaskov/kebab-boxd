@@ -9,8 +9,6 @@ type Component = Parameters<AstroContainer["renderToResponse"]>[0];
 
 type Endpoint = { GET: APIRoute };
 
-// The Cloudflare adapter adds cfContext to the locals of a request in the Worker. The pages do not use it. The
-// database is the one of the test, which the page loads from once, as from the Durable Object.
 type TestLocals = Omit<App.Locals, "cfContext" | "db"> & { db: Database };
 
 function localsOf({ db, ...locals }: TestLocals) {
@@ -18,15 +16,12 @@ function localsOf({ db, ...locals }: TestLocals) {
 }
 
 async function createContainer() {
-	// The site of astro.config, which the pages build their absolute addresses on.
 	const container = await AstroContainer.create({ astroConfig: { site: import.meta.env.SITE } });
 	container.insertPageRoute("/403", ForbiddenPage);
 	container.insertPageRoute("/404", NotFoundPage);
 	return container;
 }
 
-// A path on localhost, or a whole address to ask for the page at another host. A path that starts with `//` stays a
-// path, as the tests of return paths need.
 function requestFor(path: string, headers: HeadersInit) {
 	return new Request(/^https?:\/\//.test(path) ? path : `http://localhost${path}`, { headers });
 }

@@ -72,7 +72,6 @@ function toActionError(result: Problem) {
   return new ActionError({ code, message });
 }
 
-// The result of a write, or the error that tells the user why it did not happen.
 export function orThrow<T>(result: T): Exclude<T, Problem> {
   if (isProblem(result)) throw toActionError(result);
   return result as Exclude<T, Problem>;
@@ -85,7 +84,6 @@ export function requireSession(locals: App.Locals) {
   return locals.session;
 }
 
-// Only for a permission on no resource. A permission on one is checked by the write, in its transaction.
 export function requirePermission(subject: Subject, permission: "restaurant:suggest") {
   if (!can(subject, permission)) throw new ActionError({ code: "FORBIDDEN", message: forbidden[permission] });
 }

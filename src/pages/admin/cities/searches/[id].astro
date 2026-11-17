@@ -24,8 +24,12 @@ if (!can(session.user, "admin-console:view")) {
 }
 
 const id = parseId(Astro.params.id);
+if (!id) {
+  return Astro.rewrite("/404");
+}
+
 const { db } = Astro.locals;
-const search = id ? await db.load(db.citySearches.findById(id)) : undefined;
+const search = await db.load(db.citySearches.findById(id));
 if (!search) {
   return Astro.rewrite("/404");
 }

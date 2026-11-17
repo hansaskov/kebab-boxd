@@ -14,7 +14,6 @@ import { createTestDatabase, insertRestaurant, insertUser, restaurantPlace, sign
 
 const site = "https://kebab-boxd.com";
 
-// The sources of each directive of the Content Security Policy.
 function policyOf(response: Response) {
 	const header = response.headers.get("Content-Security-Policy") ?? "";
 	return new Map(

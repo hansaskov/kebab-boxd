@@ -7,7 +7,6 @@ import * as s from "@src/db/schema";
 import type { Place } from "@src/restaurants/google-maps";
 import type { Address } from "@src/restaurants/nominatim";
 
-// Finished links are kept for weeks, so only the latest are shown.
 const maxListed = 20;
 export const maxAttempts = 5;
 const retryDelaySeconds = 60;
@@ -15,15 +14,12 @@ const retryDelaySeconds = 60;
 export type FinishResult =
 	| { status: "suggested"; id: number }
 	| { status: "duplicate"; id: number }
-	// The user was deleted, or the row was finished, while the place was looked up.
 	| { status: "gone" };
 
-// A rejected restaurant is no duplicate: it may be suggested again, for example with a corrected address.
 const duplicateStatuses = ["approved", "pending"] as const;
 
 export function createSuggestionQueue(client: Client, wake: () => void) {
 	return {
-		// A duplicate of a restaurant that was rejected or deleted is left out: the place may be suggested again.
 		async listBy(userId: number) {
 			return client.query.suggestionQueue.findMany({
 				columns: { id: true, link: true, status: true, name: true, createdAt: true },
@@ -37,7 +33,6 @@ export function createSuggestionQueue(client: Client, wake: () => void) {
 			});
 		},
 
-		// The waiting link to look up first, which may not be due yet.
 		async next() {
 			return client.query.suggestionQueue.findFirst({
 				columns: { id: true, link: true, runAfter: true },
@@ -61,7 +56,6 @@ export function createSuggestionQueue(client: Client, wake: () => void) {
 							where: { id: userId },
 						})
 						.sync();
-					// The user was deleted after signing in.
 					if (!user) return problem("account-gone");
 					if (user.queued >= maxQueuedPerUser) return problem("queue-full");
 					return tx.insert(s.suggestionQueue).values({ userId, link }).returning({ id: s.suggestionQueue.id }).get();
@@ -100,7 +94,6 @@ export function createSuggestionQueue(client: Client, wake: () => void) {
 				.where(and(eq(s.suggestionQueue.id, id), eq(s.suggestionQueue.status, "queued")));
 		},
 
-		// Google or OpenStreetMap could not be reached, or the database was busy. Each attempt waits longer, and the last one gives up.
 		async retryLater(id: number, now: Date) {
 			const attempts = sql`(${s.suggestionQueue.attempts} + 1)`;
 			await client

@@ -1,6 +1,3 @@
-// What the pages share with users.db.ts, which the Web Worker cannot load.
-
-// Admin is a role on a User, not a kind of user of its own.
 export const roles = ["user", "admin"] as const;
 
 export const pronouns = [

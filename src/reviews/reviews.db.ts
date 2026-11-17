@@ -1,6 +1,6 @@
 import { and, eq, exists, sql } from "drizzle-orm";
 import { QueryBuilder } from "drizzle-orm/sqlite-core";
-import { can } from "@src/auth/permissions";
+import { can, type ReviewPermission } from "@src/auth/permissions";
 import { authorizedRead, authorizedWrite, findTargetRestaurant, findTargetReview, findUserSeenBy } from "@src/db/authorize";
 import { refreshAuthorStats, refreshLikeCounts, refreshRestaurantStats } from "@src/db/cached-stats";
 import type { Client, Transaction } from "@src/db/client";
@@ -24,7 +24,6 @@ export interface ReviewChanges extends ReviewContent {
 const qb = new QueryBuilder();
 const pages = cursorList("reviews", ["createdAt", "id"], "desc");
 
-// Everything a review shows wherever it is listed, and what decides what the viewer, null for a Visitor, may do with it.
 function reviewCard(viewerId: number | null) {
 	const author = reviewAuthor(viewerId);
 	return {
@@ -53,7 +52,6 @@ function reviewCard(viewerId: number | null) {
 	} as const;
 }
 
-// The Reviews listed to the viewer, who is null for a Visitor.
 function listedTo(viewerId: number | null): Filter<"reviews"> {
 	return { RAW: (review) => isListedReviewFor(review, viewerId) };
 }
@@ -71,27 +69,28 @@ export function createReviews(client: Client, pictures: PictureStore) {
 		pages(page, (seek) => client.query.reviews.findMany({ ...reviewCard(viewerId), ...seek(where) }));
 
 	return {
-		// Whether the viewer may see it is for the permission review:view to decide.
 		async findById(id: number, viewerId: number | null) {
 			return client.query.reviews.findFirst({ ...reviewCard(viewerId), where: { id } });
 		},
 
-		// The Feed called Everyone, which a Visitor sees too.
+		async findAllowed(id: number, viewerId: number | null, permission: ReviewPermission) {
+			const review = await client.query.reviews.findFirst({ ...reviewCard(viewerId), where: { id } });
+			return authorizedRead(client, viewerId, permission, review, async (found) => found);
+		},
+
 		async listEveryone(viewerId: number | null, page: PageRequest) {
 			return list(viewerId, listedTo(viewerId), page);
 		},
 
-		// The Feed of the people the viewer follows.
 		async listFollowed(viewerId: number, page: PageRequest) {
 			return list(viewerId, { ...listedTo(viewerId), author: { followers: { followerId: viewerId } } }, page);
 		},
 
 		async listByRestaurant(restaurantId: number, viewerId: number | null, page: PageRequest) {
-			return list(viewerId, { ...listedTo(viewerId), restaurantId }, page);
+			const restaurant = client.query.restaurants.findFirst({ columns: { status: true, suggestedBy: true }, where: { id: restaurantId } }).sync();
+			return authorizedRead(client, viewerId, "restaurant:view", restaurant, async () => list(viewerId, { ...listedTo(viewerId), restaurantId }, page));
 		},
 
-		// The Reviews on the Profile of the User named `username`: on their own Profile all of them, also those that are
-		// not public, and else the public ones, when the User shares them with the viewer, who is null for a Visitor.
 		async listOnProfile(username: string, viewerId: number | null, page: PageRequest) {
 			return authorizedRead(client, viewerId, "user:view-profile", findUserSeenBy(client, username, viewerId), async (author, viewer) => {
 				if (can(viewer, "user:view-hidden-reviews", author)) return list(viewerId, { authorId: author.id }, page);
@@ -138,7 +137,6 @@ export function createReviews(client: Client, pictures: PictureStore) {
 			);
 		},
 
-		// A picture that is no longer on the review is already gone, so removing it again changes nothing and is no problem.
 		async removePicture(actorId: number, id: number, pictureId: number) {
 			return authorizedWriteWithPictures(client, pictures, actorId, "review:edit", (tx) => findTargetReview(tx, id, actorId), (tx, review, changes) => {
 				changes.remove(
@@ -149,7 +147,6 @@ export function createReviews(client: Client, pictures: PictureStore) {
 			});
 		},
 
-		// Returns the review it deleted, so the action knows where to go back to.
 		async delete(actorId: number, id: number) {
 			return authorizedWriteWithPictures(client, pictures, actorId, "review:delete", (tx) => findTargetReview(tx, id, actorId), (tx, review, changes) => {
 				tx.delete(s.reviews).where(eq(s.reviews.id, id)).run();

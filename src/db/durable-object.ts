@@ -6,14 +6,12 @@ import { relations } from "@src/db/relations";
 import { meterRows, type RowCounts, type RowMeter } from "@src/db/row-meter";
 import type { PictureStore } from "@src/pictures/store";
 
-// Hears of each call of a method of the database, such as `reviews.listEveryone`, with the rows it read and wrote.
 export type CallReport = (call: string, rows: RowCounts) => void;
 
 function isMethodArea(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }
 
-// The database, with each method of each area counting the rows it reads and writes. onWork is not a call.
 function meterCalls(db: Database, meter: RowMeter, report: CallReport): Database {
 	const metered = Object.entries(db).map(([area, methods]) => {
 		if (!isMethodArea(methods)) return [area, methods];
@@ -27,7 +25,6 @@ function meterCalls(db: Database, meter: RowMeter, report: CallReport): Database
 	return Object.fromEntries(metered) as Database;
 }
 
-// The database in the SQLite storage of the Durable Object. Brings the tables up to date before it is used.
 export function openDurableDatabase(storage: DurableObjectStorage, pictures: PictureStore, report: CallReport) {
 	const meter = meterRows(storage);
 	const client = drizzle(meter.storage, { relations });

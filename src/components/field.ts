@@ -9,8 +9,6 @@ interface FieldSource {
 	submitted?: SubmittedForm | undefined;
 }
 
-// The ids that tie a control to its label, description and errors, and the attributes of the control that refer to them.
-// The errors are the ones given or, without them, the ones the failed form had for the field.
 export function describeField({ id, name, description, errors, submitted }: FieldSource) {
 	const fieldId = id ?? name;
 	const shown = errors ?? submitted?.errors(name) ?? [];
@@ -34,7 +32,6 @@ export function describeField({ id, name, description, errors, submitted }: Fiel
 
 export type DescribedField = ReturnType<typeof describeField>;
 
-
 export type InputConstraint = Partial<{
 	pattern: string;
 	title: string;
@@ -47,7 +44,6 @@ export type InputConstraint = Partial<{
 
 const flagsBrowsersCannotApply = /[ims]/;
 
-// The first regex that a browser can check too, with its message as the title the browser shows.
 function patternOf(schema: z.ZodString): Pick<InputConstraint, "pattern" | "title"> {
 	for (const check of schema.def.checks ?? []) {
 		const def = check._zod.def as z.core.$ZodCheckStringFormatDef;
@@ -60,7 +56,6 @@ function patternOf(schema: z.ZodString): Pick<InputConstraint, "pattern" | "titl
 	return {};
 }
 
-// The attributes that let the browser check a field as the schema does, before the form is sent.
 export function getConstraintsFromZodSchema(schema: z.ZodType): InputConstraint {
 	let inner = schema;
 	let required = true;

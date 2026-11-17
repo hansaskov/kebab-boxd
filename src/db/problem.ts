@@ -1,6 +1,5 @@
 import type { Refusal, ResourcePermission, SubjectPermission } from "@src/auth/permissions";
 
-// Why a write did not happen. The actions turn each one into the message the user sees.
 export type Problem =
 	| { problem: Refusal; permission: ResourcePermission }
 	| { problem: "forbidden"; permission: SubjectPermission }
@@ -16,6 +15,8 @@ export type Problem =
 				| "city-search-not-found"
 				| "city-search-finished";
 	  };
+
+export type Refused = Extract<Problem, { problem: Refusal }>;
 
 export function problem<P extends Exclude<Problem["problem"], Refusal>>(name: P) {
 	return { problem: name };

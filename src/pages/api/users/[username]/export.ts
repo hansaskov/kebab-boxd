@@ -1,31 +1,26 @@
 import type { APIRoute } from "astro";
-import { can } from "@src/auth/permissions";
-import { signInHref } from "@src/hrefs";
+import { isProblem } from "@src/db/problem";
+import { refusalPage, signInHref } from "@src/hrefs";
 
 export const GET = (async ({ params, locals: { db, session }, redirect, rewrite }) => {
 	if (!session) {
 		return redirect(signInHref(undefined, "download-data"));
 	}
 
-	// The data comes with the user, in one trip to the database, and is sent only when the viewer may download it.
-	const { user, data } = params.username
-		? await db.load({ user: db.users.findByUsername(params.username), data: db.personalData.findByUsername(params.username) })
-		: { user: undefined, data: undefined };
-
-	if (!user) {
+	if (!params.username) {
 		return rewrite("/404");
 	}
 
-	if (!can(session.user, "user:export-data", user)) {
-		return rewrite("/403");
+	const data = await db.load(db.personalData.exportFor(params.username, session.user.id));
+	if (isProblem(data)) {
+		return rewrite(refusalPage[data.problem]);
 	}
-
 	if (!data) {
 		return rewrite("/404");
 	}
 
 	const exportedAt = new Date();
-	const filename = `kebab-boxd-${user.username}-${exportedAt.toISOString().slice(0, 10)}.json`;
+	const filename = `kebab-boxd-${data.username}-${exportedAt.toISOString().slice(0, 10)}.json`;
 
 	return new Response(JSON.stringify({ exportedAt, user: data }, null, 2), {
 		headers: {

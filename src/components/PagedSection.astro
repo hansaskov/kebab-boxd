@@ -5,7 +5,6 @@ import { pageNavigation, type Page } from "@src/pagination";
 
 interface Props extends HTMLAttributes<"section"> {
   page: Page<unknown>;
-  // What the section says when it has nothing to list. The "empty" slot replaces it when it needs a link.
   empty?: string;
   "aria-label": string;
 }

@@ -52,8 +52,6 @@ function searchLabel({ status, attempts, restaurantCount, candidateCount }: Sear
   }
 }
 
-// Reloads only while the first CityList downloads: a reload while the search form is shown would wipe what
-// the Admin is typing. A running search reloads its own page.
 const isDownloadingFirstList = list.isUpdating && !list.current;
 
 const toast =

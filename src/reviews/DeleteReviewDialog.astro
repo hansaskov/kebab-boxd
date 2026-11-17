@@ -4,7 +4,6 @@ import type { ComponentProps } from "astro/types";
 import DialogDrawer from "@src/components/DialogDrawer.astro";
 import { deleteReviewDialogId } from "@src/reviews/reviews";
 
-// Asks to confirm the deletion that a DeleteReviewButton starts. It has its own form, so it cannot be inside another.
 interface Props extends Omit<ComponentProps<typeof DialogDrawer>, "id" | "title" | "description"> {
   reviewId: number;
 }

@@ -17,14 +17,10 @@ export const users = p.snakeCase.table("users", {
   pronoun: p.text({ enum: pronouns }),
   latitude: p.real(),
   longitude: p.real(),
-  // A private Profile shows its Reviews only to the Followers of its User, who must ask to follow.
   isPrivate: p.int({ mode: "boolean" }).notNull().default(false),
   followNotifications: p.int({ mode: "boolean" }).notNull().default(true),
   likeNotifications: p.int({ mode: "boolean" }).notNull().default(true),
   suggestionNotifications: p.int({ mode: "boolean" }).notNull().default(true),
-  // Cached like the stats of a Restaurant, so that people can be ordered by them without reading every Review:
-  // how many public Reviews the user has, which their Profile shows, and when they wrote the latest, in seconds
-  // since 1970. Everyone sees people in the same order, so the time is 0 while the Profile is private.
   publicReviewCount: p.int().notNull().default(0),
   latestReviewAt: p.int().notNull().default(0),
   bannedAt: p.int({ mode: "timestamp" }),
@@ -100,7 +96,6 @@ export const restaurants = p.snakeCase.table("restaurants", {
   suggestedBy: p.int({ mode: "number" }).references(() => users.id),
   status: p.text({ enum: ["approved", "pending", "rejected"] }).notNull().default("pending"),
   googleMapsId: p.text(),
-  // The OpenStreetMap element of a restaurant a CitySearch found, such as node/123.
   osmId: p.text(),
   citySearchId: p.int({ mode: "number" }).references(() => citySearches.id, {onDelete: "set null"}),
   ratingAvg: p.real().notNull().default(0),
@@ -113,7 +108,6 @@ export const restaurants = p.snakeCase.table("restaurants", {
   p.index("restaurants_status_id_idx").on(t.status, t.id),
   p.index("restaurants_status_rating_avg_id_idx").on(t.status, t.ratingAvg, t.id),
   p.index("restaurants_status_review_count_id_idx").on(t.status, t.reviewCount, t.id),
-  // Not unique: a rejected restaurant may be suggested again.
   p.index("restaurants_google_maps_id_idx").on(t.googleMapsId),
   p.index("restaurants_osm_id_idx").on(t.osmId),
   p.index("restaurants_city_search_id_status_id_idx").on(t.citySearchId, t.status, t.id),
@@ -143,8 +137,6 @@ export const reviews = p.snakeCase.table("reviews", {
 
 export type Review = typeof reviews.$inferSelect
 
-// A Google Maps link waiting to become a suggested restaurant. A link that becomes one is removed;
-// one that cannot stays, so the user can see why.
 export const suggestionQueue = p.snakeCase.table("suggestion_queue", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
   userId: p.int({ mode: "number" }).notNull().references(() => users.id, {onDelete: "cascade"}),
@@ -165,24 +157,18 @@ export const suggestionQueue = p.snakeCase.table("suggestion_queue", {
 export type QueuedSuggestion = typeof suggestionQueue.$inferSelect
 export type QueuedSuggestionStatus = QueuedSuggestion["status"]
 
-// The cities whose search key starts with the same two letters, in one row, the most populous first. One row
-// for each city would cost more writes than the free plan allows in a day. The cities are a JSON array of
-// CityGroupRow, written as text so that the 13 MB of the CityList are not turned into objects and back.
 export const cityGroups = p.snakeCase.table("city_groups", {
   prefix: p.text().primaryKey(),
   cities: p.text().notNull(),
 })
 
-// A city as GeoNames lists it: [id, name, region, country code, latitude, longitude, population, search keys].
 export type CityGroupRow = [number, string, string | null, string, number, number, number, string[]]
 
-// An Admin's request to download the CityList from GeoNames. The newest finished one is the list in use.
 export const cityListUpdates = p.snakeCase.table("city_list_updates", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
   requestedBy: p.int({ mode: "number" }).references(() => users.id, {onDelete: "set null"}),
   status: p.text({ enum: ["queued", "finished", "failed"] }).notNull().default("queued"),
   cityCount: p.int(),
-  // Why the download failed.
   error: p.text(),
   updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(now),
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
@@ -193,7 +179,6 @@ export const cityListUpdates = p.snakeCase.table("city_list_updates", {
 
 export type CityListUpdateStatus = (typeof cityListUpdates.$inferSelect)["status"]
 
-// An Admin's request to find the kebab restaurants in a City. The City is copied, since the CityList may change.
 export const citySearches = p.snakeCase.table("city_searches", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
   startedBy: p.int({ mode: "number" }).references(() => users.id, {onDelete: "set null"}),
@@ -217,8 +202,6 @@ export const citySearches = p.snakeCase.table("city_searches", {
 
 export type CitySearchStatus = (typeof citySearches.$inferSelect)["status"]
 
-// What happened while a CitySearch ran, as the Admin reads it: the servers it asked and what they answered,
-// and the places it could not look up.
 export const citySearchEvents = p.snakeCase.table("city_search_events", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
   citySearchId: p.int({ mode: "number" }).notNull().references(() => citySearches.id, {onDelete: "cascade"}),
@@ -229,8 +212,6 @@ export const citySearchEvents = p.snakeCase.table("city_search_events", {
   p.index("city_search_events_city_search_id_id_idx").on(t.citySearchId, t.id),
 ])
 
-// A place OpenStreetMap found for a CitySearch, waiting for its address before it becomes a Restaurant.
-// The address is what OpenStreetMap knows of it.
 export const citySearchCandidates = p.snakeCase.table("city_search_candidates", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
   citySearchId: p.int({ mode: "number" }).notNull().references(() => citySearches.id, {onDelete: "cascade"}),
@@ -267,7 +248,6 @@ export const followers = p.snakeCase.table("followers", {
   p.check("followers_no_self_follow", sql`${t.followerId} != ${t.followingId}`),
 ])
 
-// A request to follow a User whose Profile is private. It becomes a Follow when the User approves it.
 export const followRequests = p.snakeCase.table("follow_requests", {
   followerId: p.int({ mode: "number" }).notNull().references(() => users.id, {onDelete: "cascade"}),
   followingId: p.int({ mode: "number" }).notNull().references(() => users.id, {onDelete: "cascade"}),
@@ -352,12 +332,9 @@ export const notifications = p.snakeCase.table("notifications", {
 }, (t) => [
   p.index("notifications_recipient_id_created_at_id_idx").on(t.recipientId, t.createdAt, t.id),
   p.index("notifications_actor_id_idx").on(t.actorId),
-  // Only likes have a review, only decisions have a restaurant and only finished searches have a search. The
-  // other kinds leave the column null, and nulls never collide, so these indexes need no condition on the kind.
   p.uniqueIndex("notifications_review_id_actor_id_unique").on(t.reviewId, t.actorId),
   p.uniqueIndex("notifications_restaurant_id_unique").on(t.restaurantId),
   p.uniqueIndex("notifications_city_search_id_unique").on(t.citySearchId),
-  // The kinds about a Follow have only an actor. Two Users who follow each other may each have one of every kind.
   p.uniqueIndex("notifications_follow_kinds_unique").on(t.recipientId, t.actorId, t.kind).where(sql`${t.kind} IN ('follow', 'follow-request', 'follow-accepted')`),
   p.check("notifications_not_own_action", sql`${t.actorId} IS NULL OR ${t.actorId} != ${t.recipientId}`),
   p.check("notifications_kind_columns", sql`CASE
