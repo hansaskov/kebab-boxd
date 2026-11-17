@@ -20,7 +20,8 @@ if (isSpeculative(Astro.request)) {
   return refuseSpeculation();
 }
 
-const { page, unreadCount } = await Astro.locals.db.notifications.show(session.user.id, parsePageRequest(Astro.url));
+const { db } = Astro.locals;
+const { page, unreadCount } = await db.load(db.notifications.show(session.user.id, parsePageRequest(Astro.url)));
 // The navigation counts the notifications the user has not seen yet, which no longer includes these.
 session.user.unreadNotificationCount = unreadCount;
 

@@ -8,15 +8,13 @@ import { sessionHistoryHref } from "@src/hrefs";
 import { isProblem } from "@src/db/problem";
 import { openSettings, otherSectionHrefs } from "@src/settings/settings";
 
-// The devices check the permission themselves, so they come in the same trip to the database as the settings.
-const [settings, devices] = await Promise.all([
-  openSettings(Astro, "security"),
-  Astro.locals.db.sessions.listActive(Astro.params.username ?? "", Astro.locals.session?.user.id ?? null),
-]);
+const settings = await openSettings(Astro, "security", {
+  load: (db, username, viewerId) => ({ devices: db.sessions.listActive(username, viewerId) }),
+});
 if (settings instanceof Response) {
   return settings;
 }
-const { session, user } = settings;
+const { session, user, loaded: { devices } } = settings;
 const isOwnAccount = session.user.id === user.id;
 ---
 

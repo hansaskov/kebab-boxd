@@ -14,19 +14,17 @@ if (!sessionId) {
   return Astro.rewrite("/404");
 }
 
-// The device and its history check the permission themselves, so they come in the same trip to the database as the
-// settings.
-const username = Astro.params.username ?? "";
-const viewerId = Astro.locals.session?.user.id ?? null;
-const [settings, device, page] = await Promise.all([
-  openSettings(Astro, "security", (canonical) => sessionHistoryHref(canonical, sessionId)),
-  Astro.locals.db.sessions.findActive(username, sessionId, viewerId),
-  Astro.locals.db.history.listBySession(username, sessionId, viewerId, parsePageRequest(Astro.url)),
-]);
+const settings = await openSettings(Astro, "security", {
+  canonicalHref: (canonical) => sessionHistoryHref(canonical, sessionId),
+  load: (db, username, viewerId) => ({
+    device: db.sessions.findActive(username, sessionId, viewerId),
+    page: db.history.listBySession(username, sessionId, viewerId, parsePageRequest(Astro.url)),
+  }),
+});
 if (settings instanceof Response) {
   return settings;
 }
-const { session, user } = settings;
+const { session, user, loaded: { device, page } } = settings;
 
 if (!device || isProblem(device) || isProblem(page)) {
   return Astro.rewrite("/404");

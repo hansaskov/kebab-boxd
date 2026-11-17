@@ -3,7 +3,7 @@ import { generateSecureRandomString } from "@src/auth/hash";
 import type { ProviderAccount } from "@src/auth/oauth";
 import type { Client, Transaction } from "@src/db/client";
 import * as s from "@src/db/schema";
-import type { User } from "@src/db/schema";
+import type { NewSession, User } from "@src/db/schema";
 import { USERNAME_MAX_LENGTH } from "@src/users/username";
 
 const FALLBACK_USERNAME = "kebab";
@@ -58,8 +58,9 @@ function createUser(tx: Transaction, account: ProviderAccount): User {
 export function createAccounts(client: Client) {
 	return {
 		// Signs in the User of the Account, and creates both on the first sign-in. While no Admin exists, the
-		// User with the verified bootstrap email address becomes one, so each stage gets its first Admin.
-		async signIn(providerAccount: ProviderAccount, bootstrapAdminEmail?: string): Promise<SignIn> {
+		// User with the verified bootstrap email address becomes one, so each stage gets its first Admin. The session
+		// is stored when the User may sign in, in the same trip to the database.
+		async signIn(providerAccount: ProviderAccount, bootstrapAdminEmail?: string, session?: Pick<NewSession, "id" | "secretHash">): Promise<SignIn> {
 			const account = {
 				...providerAccount,
 				email: providerAccount.email.trim().toLowerCase(),
@@ -68,7 +69,9 @@ export function createAccounts(client: Client) {
 			const isBootstrapAdmin = account.emailVerified && !!bootstrapAdminEmail && account.email === bootstrapAdminEmail.trim().toLowerCase();
 			return client.transaction((tx): SignIn => {
 				const signIn = signInUser(tx, account);
-				if (signIn.status !== "signed-in" || !isBootstrapAdmin || signIn.user.role === "admin") return signIn;
+				if (signIn.status !== "signed-in") return signIn;
+				if (session) tx.insert(s.sessions).values({ ...session, userId: signIn.user.id, lastVerifiedAt: new Date() }).run();
+				if (!isBootstrapAdmin || signIn.user.role === "admin") return signIn;
 				if (tx.query.users.findFirst({ columns: { id: true }, where: { role: "admin" } }).sync()) return signIn;
 
 				tx.update(s.users).set({ role: "admin" }).where(eq(s.users.id, signIn.user.id)).run();

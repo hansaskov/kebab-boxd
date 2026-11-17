@@ -22,7 +22,8 @@ function collectAction(write: "add" | "remove", collection: Collection) {
     accept: "form",
     input: restaurantTargetSchema,
     handler: async ({ restaurantId }, { locals }) => {
-      orThrow(await locals.db.collections[write](requireSession(locals).user.id, restaurantId, collection));
+      const { db } = locals;
+      orThrow(await db.load(db.collections[write](requireSession(locals).user.id, restaurantId, collection)));
     },
   });
 }
@@ -36,9 +37,10 @@ export const restaurantActions = {
     accept: "form",
     input: suggestionSchema,
     handler: async ({ link }, { locals }) => {
+      const { db } = locals;
       const { user } = requireSession(locals);
       requirePermission(user, "restaurant:suggest");
-      orThrow(await locals.db.suggestionQueue.queue(user.id, link));
+      orThrow(await db.load(db.suggestionQueue.queue(user.id, link)));
     },
   }),
 };

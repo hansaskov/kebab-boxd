@@ -30,10 +30,11 @@ if (!can(session.user, "admin-console:view")) {
 }
 
 // The devices check the permission themselves, so they come in the same trip to the database as the user.
-const [user, devices] = await Promise.all([
-  Astro.locals.db.users.findByUsername(username),
-  Astro.locals.db.sessions.listActive(username, session.user.id),
-]);
+const { db } = Astro.locals;
+const { user, devices } = await db.load({
+  user: db.users.findByUsername(username),
+  devices: db.sessions.listActive(username, session.user.id),
+});
 
 if (!user) {
   return Astro.rewrite("/404");

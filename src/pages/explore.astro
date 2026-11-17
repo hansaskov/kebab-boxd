@@ -33,26 +33,25 @@ const home: Coordinates | undefined =
 const query = parseSearch(params);
 const chosenCityId = parseId(params.get("city") ?? undefined);
 const isVisitor = !session;
-const { restaurants } = Astro.locals.db;
+const { db } = Astro.locals;
 
 // “I’m feeling lucky” skips the map, as Google skips the results, and opens the best-rated Restaurant of the City.
-// When the City has none, it shows the map of the City. Without a search, it opens any approved Restaurant.
+// When the City has none, it shows the map of the City. Without a search, it opens any approved Restaurant. The map
+// comes in the same trip to the database, for when there is nothing to open.
 const isLucky = params.has("lucky");
-if (isLucky) {
-	const { city, restaurant } = await restaurants.feelLucky(query, chosenCityId, Math.random());
-	if (restaurant) return Astro.redirect(restaurantHref(restaurant.id));
-	if (city) return Astro.redirect(exploreCityHref(query, city.id));
-}
-
-const mapHref = (to: View) => exploreHref(exploreView(to, isVisitor));
 
 // Without a City, a place on the map or a location of their own, the user is asked where to look first.
 const requested: View | undefined = parseMapView(params, defaultMapZoom) ?? (home && { center: home, zoom: defaultMapZoom });
 // Without a search or a map there is nothing to show yet, and nothing to ask the database.
-const { cities, city, view, clusters: found } =
-	query || requested
-		? await restaurants.explore({ search: query, cityId: chosenCityId, requested, isVisitor })
-		: { cities: [], city: undefined, view: undefined, clusters: [] };
+const { lucky, nearby = { cities: [], city: undefined, view: undefined, clusters: [] } } = await db.load({
+	lucky: isLucky ? db.restaurants.feelLucky(query, chosenCityId, Math.random()) : undefined,
+	nearby: query || requested ? db.restaurants.explore({ search: query, cityId: chosenCityId, requested, isVisitor }) : undefined,
+});
+if (lucky?.restaurant) return Astro.redirect(restaurantHref(lucky.restaurant.id));
+if (lucky?.city) return Astro.redirect(exploreCityHref(query, lucky.city.id));
+
+const mapHref = (to: View) => exploreHref(exploreView(to, isVisitor));
+const { cities, city, view, clusters: found } = nearby;
 
 function exploreMap(shown: View) {
 	const map = exploreViewport(shown);

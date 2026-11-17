@@ -30,12 +30,14 @@ const shows = (kind: Exclude<SearchType, "all">) => type === "all" || type === k
 // A city is found by the start of its name, so without a search there is none to list.
 const noCities: Page<City> = { items: [], previous: undefined, next: undefined, isPastEnd: false };
 
-const { cities, restaurants, users } = Astro.locals.db;
-const [cityPage, restaurantPage, personPage] = await Promise.all([
-  shows("cities") ? (search ? cities.list(search, request) : noCities) : undefined,
-  shows("restaurants") ? restaurants.list(search, restaurantSort, request) : undefined,
-  shows("people") ? users.search(search, personSort, viewer?.id ?? null, request) : undefined,
-]);
+const { db } = Astro.locals;
+const loaded = await db.load({
+  cities: shows("cities") && search ? db.cities.list(search, request) : undefined,
+  restaurants: shows("restaurants") ? db.restaurants.list(search, restaurantSort, request) : undefined,
+  people: shows("people") ? db.users.search(search, personSort, viewer?.id ?? null, request) : undefined,
+});
+const cityPage = shows("cities") ? (loaded.cities ?? noCities) : undefined;
+const { restaurants: restaurantPage, people: personPage } = loaded;
 
 const noPeople = search ? `No one matches “${search}”.` : "There is no one here yet.";
 

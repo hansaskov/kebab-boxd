@@ -1,10 +1,10 @@
 import type { DatabaseRpc } from "@src/db/remote";
 
 // How long a request waited for the database, which the browser shows under Timing in its developer tools. Each
-// call is a trip to the Durable Object, so the time grows with the trips the page waits for one after another.
+// load is a trip to the Durable Object, so the time grows with the trips the request waits for one after another.
 //
 // A Worker's clock only moves while it waits for something outside, such as the database, so the times are of the
-// waits. Calls at the same time count once.
+// waits. Loads at the same time count once.
 
 // Whether the Worker has answered a request yet. Cloudflare starts a Worker for the first request it gets, which
 // loads all its code before the request can begin, and keeps it for those after.
@@ -27,14 +27,14 @@ export function measuringDatabase(rpc: DatabaseRpc) {
 	let wokeUp = false;
 
 	const measured: DatabaseRpc = {
-		async call(area, method, args) {
-			calls++;
+		async call(batch) {
+			calls += batch.length;
 			if (running++ === 0) {
 				trips++;
 				waitingSince = performance.now();
 			}
 			try {
-				const reply = await rpc.call(area, method, args);
+				const reply = await rpc.call(batch);
 				wokeUp ||= reply.wokeUp;
 				return reply;
 			} finally {

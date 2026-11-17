@@ -29,12 +29,12 @@ if (!can(session.user, "admin-console:view")) {
 
 const maxResults = 20;
 const query = parseSearch(Astro.url.searchParams);
-const { cities, citySearches } = Astro.locals.db;
-const [list, results, searches] = await Promise.all([
-  cities.status(),
-  query ? citySearches.findCities(query, maxResults) : [],
-  citySearches.list(parsePageRequest(Astro.url)),
-]);
+const { db } = Astro.locals;
+const { list, results = [], searches } = await db.load({
+  list: db.cities.status(),
+  results: query ? db.citySearches.findCities(query, maxResults) : undefined,
+  searches: db.citySearches.list(parsePageRequest(Astro.url)),
+});
 
 const people = new Intl.NumberFormat("en");
 type SearchRow = { status: CitySearchStatus; attempts: number; restaurantCount: number; candidateCount: number };

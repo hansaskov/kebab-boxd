@@ -13,7 +13,7 @@ Single context root `CONTEXT.md`
 - Avoid unnecessary secondary labels and descriptions. Let the layout do the explaining.
 - Forms should use Astro Actions. 
 - Database queries should use the Drizzle relational queries v2 syntax.
-- A page waits for the database once. Each call is a trip to the Durable Object of about 35 ms, and the session already takes one.
+- A page waits for the database once: it puts every query in one `Astro.locals.db.load(...)`, and a second load fails. Each load is a trip to the Durable Object of about 35 ms, and the session already takes one.
 - Keep each Worker small, since it loads all its code each time Cloudflare starts it.
 - Verify with `pnpm lint`, `pnpm check` and `pnpm test`.
 - Write tests under `@src/tests/`, mocking is forbidden.

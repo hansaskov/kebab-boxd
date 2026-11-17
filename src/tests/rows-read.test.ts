@@ -255,8 +255,8 @@ describeCalls("the rows each call of the database reads to show a page", {
 		measure: (db) => db.measure("sessions", "findActive", "viewer", db.subjects.sessionId, db.subjects.viewerId),
 		budget: 40,
 	},
-	"personalData.findByUser, the download of all data of a User": {
-		measure: (db) => db.measure("personalData", "findByUser", db.subjects.viewerId),
+	"personalData.findByUsername, the download of all data of a User": {
+		measure: (db) => db.measure("personalData", "findByUsername", "viewer"),
 		budget: 400,
 	},
 });

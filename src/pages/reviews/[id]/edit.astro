@@ -20,7 +20,8 @@ if (!session) {
 }
 
 const id = parseId(Astro.params.id);
-const review = id ? await Astro.locals.db.reviews.findById(id, session.user.id) : undefined;
+const { db } = Astro.locals;
+const review = id ? await db.load(db.reviews.findById(id, session.user.id)) : undefined;
 const refused = refusal(session.user, "review:edit", review);
 if (refused || !review) {
   return Astro.rewrite(refusalPage[refused ?? "not-found"]);

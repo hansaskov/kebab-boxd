@@ -15,10 +15,11 @@ if (!can(session.user, "admin-console:view")) {
   return Astro.rewrite("/403");
 }
 
-const [users, restaurants] = await Promise.all([
-  Astro.locals.db.users.countByFilter(),
-  Astro.locals.db.restaurants.countByStatus(),
-]);
+const { db } = Astro.locals;
+const { users, restaurants } = await db.load({
+  users: db.users.countByFilter(),
+  restaurants: db.restaurants.countByStatus(),
+});
 
 const userGroups = [
   { label: "Users", count: users.all, href: "/admin/users" },

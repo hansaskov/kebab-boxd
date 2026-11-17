@@ -9,7 +9,7 @@ import { withSecurityHeaders } from "@src/middleware/security-headers";
 import { answerFormOfVisitor, formPage } from "@src/middleware/forms";
 import { isSpeculative, redirectClearingSpeculations } from "@src/middleware/speculations";
 import { visitorCacheOf } from "@src/middleware/visitor-cache";
-import { connectDatabase, type DatabaseRpc } from "@src/db/remote";
+import { connectDatabase, loadingOnce, type DatabaseRpc } from "@src/db/remote";
 import { picturePathPrefix } from "@src/pictures/store";
 import { toOutcome } from "@src/actions/outcome";
 
@@ -34,8 +34,9 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 
 	const requestedAt = new Date();
 	const measured = measuringDatabase(databaseRpc());
+	// The middleware loads the session first, and keeps what the request did. The page or action loads once.
 	const db = connectDatabase(measured.rpc);
-	context.locals.db = db;
+	context.locals.db = loadingOnce(db);
 	// Before the history is written, which happens after the answer and is no part of the wait.
 	const timed = (response: Response) => withChangedHeaders(response, (headers) => headers.append("Server-Timing", measured.header()));
 
@@ -51,7 +52,7 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 		// The handler reads the body, so a copy is kept to give the form back what the user typed if it fails.
 		const submitted = context.request.clone();
 		const { data, error } = await action.handler();
-		await db.sessions.setActionData(session.id, await toOutcome(action.name, data, error, submitted));
+		await db.load(db.sessions.setActionData(session.id, await toOutcome(action.name, data, error, submitted)));
 
 		const location = !error && hasRedirect(data) ? data.redirect : undefined;
 		return timed(redirectClearingSpeculations(location ?? sentFrom()));
@@ -74,7 +75,7 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 		};
 
 		waitUntil(
-			db.history.record(entry).catch((error: unknown) => {
+			db.load(db.history.record(entry)).catch((error: unknown) => {
 				console.error("Could not record history entry", entry, error);
 			}),
 		);

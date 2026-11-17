@@ -58,7 +58,8 @@ export const settingsActions = {
     accept: "form",
     input: updateAccountSchema,
     handler: async ({ currentUsername, bio, ...profile }, { locals }) => {
-      orThrow(await locals.db.users.updateProfile(requireSession(locals).user.id, currentUsername, { ...profile, bio: bio || null }));
+      const { db } = locals;
+      orThrow(await db.load(db.users.updateProfile(requireSession(locals).user.id, currentUsername, { ...profile, bio: bio || null })));
       // The address of the settings holds the username, which may have changed.
       return { redirect: settingsHref(profile.username, "profile") };
     },
@@ -67,7 +68,8 @@ export const settingsActions = {
     accept: "form",
     input: updateProfilePictureSchema,
     handler: async ({ currentUsername, picture }, { locals }) => {
-      const user = orThrow(await locals.db.users.setProfilePicture(requireSession(locals).user.id, currentUsername, picture));
+      const { db } = locals;
+      const user = orThrow(await db.load(db.users.setProfilePicture(requireSession(locals).user.id, currentUsername, picture)));
       return { redirect: settingsHref(user.username, "profile") };
     },
   }),
@@ -75,7 +77,8 @@ export const settingsActions = {
     accept: "form",
     input: currentUserSchema,
     handler: async ({ currentUsername }, { locals }) => {
-      const user = orThrow(await locals.db.users.removeProfilePicture(requireSession(locals).user.id, currentUsername));
+      const { db } = locals;
+      const user = orThrow(await db.load(db.users.removeProfilePicture(requireSession(locals).user.id, currentUsername)));
       return { redirect: settingsHref(user.username, "profile") };
     },
   }),
@@ -84,14 +87,16 @@ export const settingsActions = {
     accept: "form",
     input: updateLocationSchema,
     handler: async ({ currentUsername, location }, { locals }) => {
-      orThrow(await locals.db.users.setLocation(requireSession(locals).user.id, currentUsername, location));
+      const { db } = locals;
+      orThrow(await db.load(db.users.setLocation(requireSession(locals).user.id, currentUsername, location)));
     },
   }),
   updatePrivacy: defineAction({
     accept: "form",
     input: updatePrivacySchema,
     handler: async ({ currentUsername, isPrivate }, { locals }) => {
-      const user = orThrow(await locals.db.users.setPrivacy(requireSession(locals).user.id, currentUsername, isPrivate));
+      const { db } = locals;
+      const user = orThrow(await db.load(db.users.setPrivacy(requireSession(locals).user.id, currentUsername, isPrivate)));
       return { redirect: settingsHref(user.username, "profile") };
     },
   }),
@@ -99,7 +104,8 @@ export const settingsActions = {
     accept: "form",
     input: updateNotificationsSchema,
     handler: async ({ currentUsername, ...preferences }, { locals }) => {
-      const user = orThrow(await locals.db.users.setNotificationPreferences(requireSession(locals).user.id, currentUsername, preferences));
+      const { db } = locals;
+      const user = orThrow(await db.load(db.users.setNotificationPreferences(requireSession(locals).user.id, currentUsername, preferences)));
       return { redirect: settingsHref(user.username, "notifications") };
     },
   }),
@@ -108,8 +114,9 @@ export const settingsActions = {
     accept: "form",
     input: currentUserSchema,
     handler: async ({ currentUsername }, { locals }) => {
+      const { db } = locals;
       const actorId = requireSession(locals).user.id;
-      const user = orThrow(await locals.db.users.signOutEverywhere(actorId, currentUsername));
+      const user = orThrow(await db.load(db.users.signOutEverywhere(actorId, currentUsername)));
       return { redirect: user.id === actorId ? landingHref : settingsHref(user.username, "security") };
     },
   }),
@@ -117,7 +124,8 @@ export const settingsActions = {
     accept: "form",
     input: deleteAccountSchema,
     handler: async ({ currentUsername }, { locals }) => {
-      orThrow(await locals.db.users.delete(requireSession(locals).user.id, currentUsername));
+      const { db } = locals;
+      orThrow(await db.load(db.users.delete(requireSession(locals).user.id, currentUsername)));
       return { redirect: landingNoticeHref("account-deleted") };
     },
   }),

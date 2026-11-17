@@ -10,7 +10,8 @@ const collectedRestaurant = {
 
 export function createPersonalData(client: Client) {
 	return {
-		async findByUser(userId: number) {
+		// Usernames are stored in lowercase, so a link with any letter case finds the user.
+		async findByUsername(username: string) {
 			return client.query.users.findFirst({
 				columns: {
 					fullname: true,
@@ -85,7 +86,7 @@ export function createPersonalData(client: Client) {
 						orderBy: { createdAt: "asc", id: "asc" },
 					},
 				},
-				where: { id: userId },
+				where: { username: username.toLowerCase() },
 			});
 		},
 	};

@@ -121,7 +121,7 @@ describe("the personal data export", () => {
 		const { secretHash } = client.query.sessions.findFirst({ columns: { secretHash: true }, where: { id: session.id } }).sync()!;
 		client.update(s.users).set({ bio: "Döner fan" }).where(eq(s.users.id, ada.id)).run();
 
-		const exported = JSON.stringify(await db.personalData.findByUser(ada.id));
+		const exported = JSON.stringify(await db.personalData.findByUsername(ada.username));
 
 		expect(exported).toContain("Döner fan");
 		expect(exported).not.toContain(session.id);

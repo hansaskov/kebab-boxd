@@ -30,9 +30,9 @@ import { loadSampleCityList } from "@src/tests/cities";
 import { renderPage } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertUser, signIn, writeReview } from "@src/tests/database";
 
-// Every call of the database is a trip to the Durable Object, which costs a page about 35 ms in production. The
-// session takes the first trip, in the middleware. After it, a page asks for everything it shows at once, so the
-// user waits for the database twice at most. A page that waits for one call before it makes the next adds a trip.
+// Every load from the database is a trip to the Durable Object, which costs a page about 35 ms in production. The
+// session takes the first trip, in the middleware. After it, a page loads everything it shows at once, so the user
+// waits for the database twice at most. A page that loads a second time fails.
 
 // The database, counting the trips: a call that starts while no other call runs is a new trip.
 function countingTrips(db: Database) {

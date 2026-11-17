@@ -12,7 +12,8 @@ import { parseId } from "@src/params";
 const viewer = Astro.locals.session?.user ?? null;
 
 const id = parseId(Astro.params.id);
-const review = id ? await Astro.locals.db.reviews.findById(id, viewer?.id ?? null) : undefined;
+const { db } = Astro.locals;
+const review = id ? await db.load(db.reviews.findById(id, viewer?.id ?? null)) : undefined;
 const refused = refusal(viewer, "review:view", review);
 if (refused || !review) {
   return Astro.rewrite(refusalPage[refused ?? "not-found"]);

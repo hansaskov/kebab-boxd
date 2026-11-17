@@ -1,7 +1,7 @@
 import { DurableObject, WorkerEntrypoint } from "cloudflare:workers";
 import type { Database } from "@src/db";
 import { openDurableDatabase, type CallReport } from "@src/db/durable-object";
-import { callDatabase, type DatabaseReply, type DatabaseRpc } from "@src/db/remote";
+import { callDatabaseAll, type DatabaseCall, type DatabaseReply, type DatabaseRpc } from "@src/db/remote";
 import { createPictureStore } from "@src/pictures/store";
 import { processDueWork } from "@src/background-work";
 
@@ -38,10 +38,10 @@ export class DatabaseObject extends DurableObject<Env> {
 	// Whether a call has been answered since the Durable Object woke up.
 	#hasAnswered = false;
 
-	async call(area: string, method: string, args: unknown[]): Promise<DatabaseReply> {
+	async call(calls: DatabaseCall[]): Promise<DatabaseReply> {
 		const wokeUp = !this.#hasAnswered;
 		this.#hasAnswered = true;
-		return { value: await callDatabase(this.#db, area, method, args), wokeUp };
+		return { values: await callDatabaseAll(this.#db, calls), wokeUp };
 	}
 
 	// Runs the hourly purge of expired personal data and the background work, then sleeps until one is due again.
@@ -64,9 +64,9 @@ export class DatabaseObject extends DurableObject<Env> {
 }
 
 // In production the website calls the Durable Object itself. `sst dev` cannot bind the Durable Object of a deployed
-// Worker, so there the website calls it through this entrypoint, which hands each call on.
+// Worker, so there the website calls it through this entrypoint, which hands each load on.
 export default class Backend extends WorkerEntrypoint<Env> implements DatabaseRpc {
-	call(area: string, method: string, args: unknown[]): Promise<DatabaseReply> {
-		return this.env.Database.getByName("main").call(area, method, args);
+	call(calls: DatabaseCall[]): Promise<DatabaseReply> {
+		return this.env.Database.getByName("main").call(calls);
 	}
 }

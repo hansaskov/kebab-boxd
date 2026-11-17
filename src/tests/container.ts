@@ -2,13 +2,20 @@ import type { APIRoute } from "astro";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import ForbiddenPage from "@src/pages/403.astro";
 import NotFoundPage from "@src/pages/404.astro";
+import type { Database } from "@src/db";
+import { localDatabase, loadingOnce } from "@src/db/remote";
 
 type Component = Parameters<AstroContainer["renderToResponse"]>[0];
 
 type Endpoint = { GET: APIRoute };
 
-// The Cloudflare adapter adds cfContext to the locals of a request in the Worker. The pages do not use it.
-type TestLocals = Omit<App.Locals, "cfContext">;
+// The Cloudflare adapter adds cfContext to the locals of a request in the Worker. The pages do not use it. The
+// database is the one of the test, which the page loads from once, as from the Durable Object.
+type TestLocals = Omit<App.Locals, "cfContext" | "db"> & { db: Database };
+
+function localsOf({ db, ...locals }: TestLocals) {
+	return { ...locals, db: loadingOnce(localDatabase(db)) } as App.Locals;
+}
 
 async function createContainer() {
 	// The site of astro.config, which the pages build their absolute addresses on.
@@ -26,7 +33,7 @@ function requestFor(path: string, headers: HeadersInit) {
 
 export async function renderPage(page: Component, locals: TestLocals, path: string, params: Record<string, string> = {}, headers: HeadersInit = {}) {
 	const response = await (await createContainer()).renderToResponse(page, {
-		locals: locals as App.Locals,
+		locals: localsOf(locals),
 		params,
 		request: requestFor(path, headers),
 	});
@@ -35,7 +42,7 @@ export async function renderPage(page: Component, locals: TestLocals, path: stri
 
 export async function requestEndpoint(endpoint: Endpoint, locals: TestLocals, path: string, params: Record<string, string> = {}, headers: HeadersInit = {}) {
 	return (await createContainer()).renderToResponse(endpoint as unknown as Component, {
-		locals: locals as App.Locals,
+		locals: localsOf(locals),
 		params,
 		request: requestFor(path, headers),
 		routeType: "endpoint",

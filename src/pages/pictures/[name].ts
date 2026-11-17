@@ -4,7 +4,7 @@ import { pictureContentType } from "@src/pictures/store";
 // A picture never changes under its name, which is random, so the browser may keep it for good. Shared caches
 // may not: a profile picture is personal data and must be gone when its account is deleted.
 export const GET = (async ({ params, locals: { db }, rewrite }) => {
-	const bytes = params.name ? await db.pictures.read(params.name) : undefined;
+	const bytes = params.name ? await db.load(db.pictures.read(params.name)) : undefined;
 
 	if (!bytes) {
 		return rewrite("/404");

@@ -7,7 +7,10 @@ export const GET = (async ({ params, locals: { db, session }, redirect, rewrite 
 		return redirect(signInHref(undefined, "download-data"));
 	}
 
-	const user = params.username ? await db.users.findByUsername(params.username) : undefined;
+	// The data comes with the user, in one trip to the database, and is sent only when the viewer may download it.
+	const { user, data } = params.username
+		? await db.load({ user: db.users.findByUsername(params.username), data: db.personalData.findByUsername(params.username) })
+		: { user: undefined, data: undefined };
 
 	if (!user) {
 		return rewrite("/404");
@@ -16,8 +19,6 @@ export const GET = (async ({ params, locals: { db, session }, redirect, rewrite 
 	if (!can(session.user, "user:export-data", user)) {
 		return rewrite("/403");
 	}
-
-	const data = await db.personalData.findByUser(user.id);
 
 	if (!data) {
 		return rewrite("/404");

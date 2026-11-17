@@ -40,7 +40,8 @@ function likeAction(write: "like" | "unlike") {
     accept: "form",
     input: reviewTargetSchema,
     handler: async ({ reviewId }, { locals }) => {
-      orThrow(await locals.db.reviews[write](requireSession(locals).user.id, reviewId));
+      const { db } = locals;
+      orThrow(await db.load(db.reviews[write](requireSession(locals).user.id, reviewId)));
       // The page after a like points out the Review that was liked.
       return reviewId;
     },
@@ -52,8 +53,9 @@ export const reviewActions = {
     accept: "form",
     input: createReviewSchema,
     handler: async ({ restaurantId, rating, description, pictures }, { locals }) => {
+      const { db } = locals;
       const { user } = requireSession(locals);
-      const review = orThrow(await locals.db.reviews.create(user.id, restaurantId, { rating, description: description || null }, pictures));
+      const review = orThrow(await db.load(db.reviews.create(user.id, restaurantId, { rating, description: description || null }, pictures)));
       return { redirect: reviewHref(review.id) };
     },
   }),
@@ -61,8 +63,9 @@ export const reviewActions = {
     accept: "form",
     input: updateReviewSchema,
     handler: async ({ reviewId, rating, description, pictures }, { locals }) => {
+      const { db } = locals;
       const { user } = requireSession(locals);
-      orThrow(await locals.db.reviews.update(user.id, reviewId, { rating, description: description || null, addPictures: pictures }));
+      orThrow(await db.load(db.reviews.update(user.id, reviewId, { rating, description: description || null, addPictures: pictures })));
       return { redirect: reviewHref(reviewId) };
     },
   }),
@@ -71,7 +74,8 @@ export const reviewActions = {
     accept: "form",
     input: removeReviewPictureSchema,
     handler: async ({ reviewId, pictureId }, { locals }) => {
-      orThrow(await locals.db.reviews.removePicture(requireSession(locals).user.id, reviewId, pictureId));
+      const { db } = locals;
+      orThrow(await db.load(db.reviews.removePicture(requireSession(locals).user.id, reviewId, pictureId)));
       return { redirect: editReviewHref(reviewId) };
     },
   }),
@@ -79,8 +83,9 @@ export const reviewActions = {
     accept: "form",
     input: reviewTargetSchema,
     handler: async ({ reviewId }, { locals }) => {
+      const { db } = locals;
       const { user } = requireSession(locals);
-      const review = orThrow(await locals.db.reviews.delete(user.id, reviewId));
+      const review = orThrow(await db.load(db.reviews.delete(user.id, reviewId)));
       // The author goes back to their reviews on their Profile. An admin goes back to the restaurant.
       return { redirect: review.authorId === user.id ? profileHref(user.username) : restaurantHref(review.restaurantId) };
     },

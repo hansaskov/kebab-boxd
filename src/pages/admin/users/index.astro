@@ -24,7 +24,8 @@ if (!can(session.user, "admin-console:view")) {
 const search = parseSearch(Astro.url.searchParams);
 const filter = parseOption(Astro.url.searchParams, "filter", userFilters, "all");
 
-const page = await Astro.locals.db.users.list(search, filter, parsePageRequest(Astro.url));
+const { db } = Astro.locals;
+const page = await db.load(db.users.list(search, filter, parsePageRequest(Astro.url)));
 
 const filterLabels: Record<UserFilter, string> = { all: "All", admin: "Admins", banned: "Banned" };
 const filterTabs = userFilters.map((option) => ({
