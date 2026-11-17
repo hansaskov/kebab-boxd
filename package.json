@@ -11,7 +11,7 @@
     "sst:dev": "sst dev",
     "sst:deploy": "sst deploy --stage production",
     "db:generate": "drizzle-kit generate",
-    "check": "astro check",
+    "check": "tsc --noEmit --runExternalCode",
     "test": "vitest run",
     "test:e2e": "E2E=1 vitest run src/tests/e2e",
     "bench:pages": "node tools/page-latency/run.ts",
@@ -20,32 +20,32 @@
     "lint:fix": "oxlint --fix"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "14.4.3",
-    "@lucide/astro": "^1.66.0",
-    "astro": "7.4.4",
+    "@astrojs/cloudflare": "14.4.8",
+    "@lucide/astro": "^1.73.0",
+    "astro": "7.4.12",
     "drizzle-kit": "1.0.0-rc.5",
     "drizzle-orm": "1.0.0-rc.5",
     "drizzle-seed": "1.0.0-rc.5",
     "sst": "^4.17.2"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.12",
-    "@cloudflare/workers-types": "^5.20261101.1",
-    "@oxlint/plugins": "1.90.0",
-    "@tailwindcss/vite": "^4.3.3",
+    "@astrojs/ts-content-mapper": "0.2.0",
+    "@cloudflare/workers-types": "^5.20261116.1",
+    "@oxlint/plugins": "1.94.0",
+    "@tailwindcss/vite": "^4.3.5",
     "@types/node": "^26.6.6",
     "esbuild": "0.28.2",
     "miniflare": "5.20261023.3-beta",
-    "oxlint": "^1.90.0",
+    "oxlint": "^1.94.0",
     "sharp": "0.35.5",
-    "tailwindcss": "^4.3.3",
-    "typescript": "~6.0.3",
-    "vitest": "^5.0.5"
+    "tailwindcss": "^4.3.5",
+    "typescript": "7.1.0-beta",
+    "vitest": "^5.1.0"
   },
   "devEngines": {
     "runtime": {
       "name": "node",
-      "version": "^26.13.0",
+      "version": "^26.13.1",
       "onFail": "download"
     }
   }
