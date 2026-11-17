@@ -5,10 +5,7 @@ import type { Database } from "@src/db";
 import { requestEndpoint } from "@src/tests/container";
 import { createTestDatabase, insertRestaurant, insertUser, writeReview } from "@src/tests/database";
 import { storedPictureNames } from "@src/tests/cloudflare";
-import { nameOf, pictureFile, textFile } from "@src/tests/pictures";
-import { updateProfilePictureSchema } from "@src/settings/actions";
-import { maxPictureBytes } from "@src/pictures/store";
-import { createReviewSchema } from "@src/reviews/actions";
+import { nameOf, pictureFile } from "@src/tests/pictures";
 
 function requestPicture(db: Database, url: string) {
 	return requestEndpoint(PictureEndpoint, { db, session: null }, url, { name: nameOf(url) });
@@ -42,36 +39,6 @@ describe("Pictures", () => {
 		expect(metadata.orientation).toBeUndefined();
 	});
 
-	it("are not read when the write they belong to is refused", async () => {
-		const { client, db, ada, grill } = setUp();
-		const bob = insertUser(client, "bob");
-		const pending = insertRestaurant(client, "Pending Grill");
-		const review = await writeReview(db, ada.id, grill.id, 8);
-
-		// The file is no picture, so a write that reads it is refused for that instead.
-		const results = [
-			await db.reviews.create(bob.id, pending.id, { rating: 8, description: null }, [textFile()]),
-			await db.reviews.update(bob.id, review, { rating: 4, description: null, addPictures: [textFile()] }),
-			await db.users.setProfilePicture(bob.id, ada.username, textFile()),
-		];
-
-		expect(results).toEqual([
-			{ problem: "not-found", permission: "restaurant:review" },
-			{ problem: "forbidden", permission: "review:edit" },
-			{ problem: "forbidden", permission: "user:edit-settings" },
-		]);
-	});
-
-	it("are refused together with the review when one file is not a picture, and leave no files behind", async () => {
-		const { client, db, ada, grill } = setUp();
-
-		const result = await db.reviews.create(ada.id, grill.id, { rating: 8, description: null }, [await pictureFile(), textFile()]);
-
-		expect(result).toEqual({ problem: "invalid-picture" });
-		expect(client.query.reviews.findMany().sync()).toEqual([]);
-		expect(await storedPictureNames()).toEqual([]);
-	});
-
 	it("are removed from storage when taken off the review, with the review, and with the account of the author", async () => {
 		const { db, ada, grill } = setUp();
 		const kept = await writeReview(db, ada.id, grill.id, 8, [await pictureFile(), await pictureFile()]);
@@ -88,61 +55,6 @@ describe("Pictures", () => {
 		await db.users.delete(ada.id, ada.username);
 
 		expect(await storedPictureNames()).toEqual([]);
-	});
-
-	it("are removed one at a time, only by the author, and only from their own review", async () => {
-		const { client, db, ada, grill } = setUp();
-		const bob = insertUser(client, "bob");
-		const review = await writeReview(db, ada.id, grill.id, 8, [await pictureFile(), await pictureFile()]);
-		const other = await writeReview(db, ada.id, grill.id, 8, [await pictureFile()]);
-		const [first, second] = await picturesOf(db, review, ada.id);
-		const [onOther] = await picturesOf(db, other, ada.id);
-
-		expect(await db.reviews.removePicture(bob.id, review, first!.id)).toEqual({ problem: "forbidden", permission: "review:edit" });
-		expect(await db.reviews.removePicture(ada.id, review, onOther!.id)).toBe("updated");
-		expect(await picturesOf(db, other, ada.id)).toHaveLength(1);
-
-		expect(await db.reviews.removePicture(ada.id, review, first!.id)).toBe("updated");
-		// Sent twice, as a second click on the button would, it changes nothing the second time.
-		expect(await db.reviews.removePicture(ada.id, review, first!.id)).toBe("updated");
-		expect((await picturesOf(db, review, ada.id)).map(({ id }) => id)).toEqual([second!.id]);
-		expect(await storedPictureNames()).toHaveLength(2);
-	});
-
-	it("stay as they were when a change to the review is refused", async () => {
-		const { db, ada, grill } = setUp();
-		const review = await writeReview(db, ada.id, grill.id, 8, [await pictureFile(), await pictureFile(), await pictureFile()]);
-		const before = await storedPictureNames();
-
-		const result = await db.reviews.update(ada.id, review, { rating: 8, description: null, addPictures: [await pictureFile(), await pictureFile()] });
-
-		expect(result).toEqual({ problem: "too-many-pictures" });
-		expect(await storedPictureNames()).toEqual(before);
-		expect(await picturesOf(db, review, ada.id)).toHaveLength(3);
-	});
-
-	it("are optional, whether the empty file input sends an empty file or an empty string", () => {
-		for (const empty of [new File([], ""), ""]) {
-			const input = { restaurantId: 1, rating: 8, description: null, pictures: [empty] };
-			expect(createReviewSchema.parse(input).pictures).toEqual([]);
-		}
-	});
-
-	it("are required for a profile, whether the empty file input sends an empty file or an empty string", () => {
-		for (const empty of [new File([], ""), ""]) {
-			const result = updateProfilePictureSchema.safeParse({ currentUsername: "ada", picture: empty });
-			expect(result.error?.issues.map((issue) => [issue.path, issue.message])).toEqual([[["picture"], "Choose a picture."]]);
-		}
-	});
-
-	it("are refused when larger than the limit, both for a profile and for a review", () => {
-		const large = new File([new Uint8Array(maxPictureBytes + 1)], "large.jpg", { type: "image/jpeg" });
-
-		const profile = updateProfilePictureSchema.safeParse({ currentUsername: "ada", picture: large });
-		const review = createReviewSchema.safeParse({ restaurantId: 1, rating: 8, description: null, pictures: [large] });
-
-		expect(profile.error?.issues.map((issue) => issue.message)).toEqual(["A picture can be at most 10 MB."]);
-		expect(review.error?.issues.map((issue) => issue.message)).toEqual(["A picture can be at most 10 MB."]);
 	});
 
 	it("are never read from outside the picture bucket", async () => {

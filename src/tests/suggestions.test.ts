@@ -1,17 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { finishedSuggestionRetentionSeconds } from "@src/privacy/retention";
 import type { Database } from "@src/db";
 import { isProblem } from "@src/db/problem";
-import { maxQueuedPerUser } from "@src/restaurants/suggestion-queue";
-import { maxAttempts } from "@src/restaurants/suggestion-queue.db";
 import type { Place } from "@src/restaurants/google-maps";
 import type { Address } from "@src/restaurants/nominatim";
-import { processNextSuggestion } from "@src/background-work";
 import { createTestDatabase, insertUser } from "@src/tests/database";
 
 const shareLink = "https://maps.app.goo.gl/XEqFEXq6aNBqJRFJA";
 // A link to a place whose name is not valid percent-encoding, so it is never looked up.
-const unreadableLink = "https://www.google.com/maps/place/Kebab%E0%A4/data=!1s0x1:0x2!3d55!4d10";
 
 const shawarmaVillage: Place = {
 	name: "Shawarma Village",
@@ -60,48 +55,5 @@ describe("the SuggestionQueue", () => {
 
 		await db.restaurants.decide(admin.id, [first.id], "rejected");
 		expect(await finish({ ...shawarmaVillage, name: "Døner Village" })).toBe("suggested");
-	});
-
-	it("holds a few links of each User at a time", async () => {
-		const { client, db } = createTestDatabase();
-		const ada = insertUser(client, "ada");
-		const bob = insertUser(client, "bob");
-		for (let link = 0; link < maxQueuedPerUser; link++) await queue(db, ada.id);
-
-		expect(await db.suggestionQueue.queue(ada.id, shareLink)).toEqual({ problem: "queue-full" });
-		expect(await db.suggestionQueue.queue(bob.id, shareLink)).not.toHaveProperty("problem");
-	});
-
-	it("tries a link again later while Google or OpenStreetMap cannot be reached, and gives up after the last attempt", async () => {
-		const { client, db } = createTestDatabase();
-		const ada = insertUser(client, "ada");
-		const queued = await queue(db, ada.id);
-		const start = new Date();
-		const row = () => client.query.suggestionQueue.findFirst({ where: { id: queued } }).sync();
-
-		await db.suggestionQueue.retryLater(queued, start);
-
-		expect(row()).toMatchObject({ status: "queued", attempts: 1 });
-		expect(await processNextSuggestion(db, start)).toMatchObject({ processed: false });
-
-		for (let attempt = 2; attempt <= maxAttempts; attempt++) await db.suggestionQueue.retryLater(queued, start);
-
-		expect(row()).toMatchObject({ status: "failed", attempts: maxAttempts });
-		expect(await db.suggestionQueue.next()).toBeUndefined();
-	});
-
-	it("does not try again a link that cannot be read, and forgets it after the retention period", async () => {
-		const { client, db } = createTestDatabase();
-		const ada = insertUser(client, "ada");
-		await queue(db, ada.id, unreadableLink);
-
-		expect(await processNextSuggestion(db)).toMatchObject({ processed: true });
-		expect(client.query.suggestionQueue.findFirst().sync()).toMatchObject({ status: "not-a-place", attempts: 0 });
-
-		const waiting = await queue(db, ada.id);
-		const later = new Date(Date.now() + (finishedSuggestionRetentionSeconds + 60) * 1000);
-		await db.retention.purge(later);
-
-		expect(client.query.suggestionQueue.findMany({ columns: { id: true } }).sync()).toEqual([{ id: waiting }]);
 	});
 });

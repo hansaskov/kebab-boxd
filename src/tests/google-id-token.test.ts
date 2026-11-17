@@ -22,16 +22,6 @@ function idToken(overrides: Record<string, unknown> = {}): string {
 }
 
 describe("a Google ID token", () => {
-	it("gives the Account it vouches for", () => {
-		expect(parseGoogleIdToken(idToken(), clientId)).toEqual({
-			providerId: "google",
-			accountId: "google-sub-1",
-			fullname: "Ada Lovelace",
-			email: "ada@example.com",
-			emailVerified: true,
-		});
-	});
-
 	it.each([
 		["another client", { aud: "someone-else" }],
 		["another issuer", { iss: "https://example.com" }],

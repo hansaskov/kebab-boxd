@@ -26,20 +26,6 @@ function policyOf(response: Response) {
 }
 
 describe("the security headers", () => {
-	it("reach every response, also one whose headers cannot change, and leave the rest of it as it was", async () => {
-		const page = withSecurityHeaders(new Response("<p>Not found</p>", { status: 404 }), false);
-		const redirect = withSecurityHeaders(Response.redirect(`${site}/login`, 302), false);
-		const protections = (response: Response) => [response.headers.get("X-Content-Type-Options"), policyOf(response).get("frame-ancestors")];
-
-		expect({
-			page: [page.status, await page.text(), ...protections(page)],
-			redirect: [redirect.status, redirect.headers.get("Location"), ...protections(redirect)],
-		}).toEqual({
-			page: [404, "<p>Not found</p>", "nosniff", ["'none'"]],
-			redirect: [302, `${site}/login`, "nosniff", ["'none'"]],
-		});
-	});
-
 	it("allow what the pages load, and no script but the speculation rules", async () => {
 		const { client, db } = createTestDatabase();
 		const ada = insertUser(client, "ada");

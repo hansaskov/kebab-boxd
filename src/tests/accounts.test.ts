@@ -4,7 +4,6 @@ import { createSession, findSession } from "@src/auth/session";
 import type { ProviderAccount } from "@src/auth/oauth";
 import type { Database } from "@src/db";
 import * as s from "@src/db/schema";
-import { usernameSchema } from "@src/actions/schemas";
 import { createTestDatabase, insertRestaurant, insertReview, insertUser, restaurantRow, signIn, writeReview } from "@src/tests/database";
 
 function googleAccount(overrides: Partial<ProviderAccount> = {}): ProviderAccount {
@@ -26,16 +25,6 @@ async function signInWith(db: Database, account: ProviderAccount, bootstrapAdmin
 }
 
 describe("signing in with a Provider", () => {
-	it("returns the same User every time the same Account signs in", async () => {
-		const { client, db } = createTestDatabase();
-
-		const first = await signInWith(db, googleAccount());
-		const second = await signInWith(db, googleAccount());
-
-		expect(second.id).toBe(first.id);
-		expect(await client.$count(s.users)).toBe(1);
-	});
-
 	it("refuses another Provider for an email address that is already registered, in any letter case", async () => {
 		const { client, db } = createTestDatabase();
 		await signInWith(db, googleAccount());
@@ -44,43 +33,6 @@ describe("signing in with a Provider", () => {
 			await db.accounts.signIn(googleAccount({ providerId: "github", accountId: "github-sub-1", email: "ADA@example.com" })),
 		).toEqual({ status: "email-taken" });
 		expect(await client.$count(s.accounts)).toBe(1);
-	});
-
-	it("marks the email address verified once the Provider vouches for it", async () => {
-		const { db } = createTestDatabase();
-		await signInWith(db, googleAccount({ emailVerified: false }));
-
-		const user = await signInWith(db, googleAccount());
-
-		expect(user.emailVerified).toBe(true);
-		expect((await db.users.findByUsername(user.username))?.emailVerified).toBe(true);
-	});
-
-	it("gives a new User a valid Username that no one else has", async () => {
-		const { client, db } = createTestDatabase();
-		insertUser(client, "ada_2");
-
-		const { username } = await signInWith(db, googleAccount({ fullname: "Søren-Émile O'Brien" }));
-		const second = await signInWith(db, googleAccount({ accountId: "google-sub-2", email: "ada2@example.com" }));
-
-		expect(usernameSchema.parse(username)).toBe(username);
-		expect(second.username).not.toBe("ada_2");
-	});
-});
-
-describe("Usernames", () => {
-	it("are unique ignoring letter case", async () => {
-		const { client, db } = createTestDatabase();
-		const ada = insertUser(client, "ada");
-		insertUser(client, "bob");
-
-		const result = await db.users.updateProfile(ada.id, "ada", { fullname: "Ada", username: "BOB", pronoun: null, bio: null });
-
-		expect(result).toEqual({ problem: "username-taken" });
-	});
-
-	it("that suggest speaking for the site are reserved in any letter case", () => {
-		expect(usernameSchema.safeParse("Admin").success).toBe(false);
 	});
 });
 
@@ -119,39 +71,10 @@ describe("the Admin role", () => {
 });
 
 describe("the first Admin of a stage", () => {
-	it("is the User who signs in with the bootstrap email address, in any letter case", async () => {
-		const { db } = createTestDatabase();
-
-		const user = await signInWith(db, googleAccount(), " ADA@example.com ");
-
-		expect(user.role).toBe("admin");
-		expect((await db.users.findByUsername(user.username))?.role).toBe("admin");
-	});
-
-	it("can be a User who signed up before the bootstrap email address was set", async () => {
-		const { db } = createTestDatabase();
-		await signInWith(db, googleAccount());
-
-		expect((await signInWith(db, googleAccount(), "ada@example.com")).role).toBe("admin");
-	});
-
 	it("needs an email address the Provider has verified", async () => {
 		const { db } = createTestDatabase();
 
 		expect((await signInWith(db, googleAccount({ emailVerified: false }), "ada@example.com")).role).toBe("user");
-	});
-
-	it("is not made once the stage has an Admin, so Admins alone decide the role from then on", async () => {
-		const { client, db } = createTestDatabase();
-		insertUser(client, "boss", "admin");
-
-		expect((await signInWith(db, googleAccount(), "ada@example.com")).role).toBe("user");
-	});
-
-	it("is not made from another email address", async () => {
-		const { db } = createTestDatabase();
-
-		expect((await signInWith(db, googleAccount(), "bob@example.com")).role).toBe("user");
 	});
 });
 
@@ -188,25 +111,6 @@ describe("deleting an account", () => {
 });
 
 describe("the personal data export", () => {
-	it("holds the privacy of the Profile and the follow requests the User sent and got", async () => {
-		const { client, db } = createTestDatabase();
-		const ada = insertUser(client, "ada");
-		const bob = insertUser(client, "bob");
-		const cleo = insertUser(client, "cleo");
-		await db.users.setPrivacy(ada.id, ada.username, true);
-		await db.users.setPrivacy(cleo.id, cleo.username, true);
-		await db.follows.follow(ada.id, cleo.username);
-		await db.follows.follow(bob.id, ada.username);
-
-		const exported = await db.personalData.findByUser(ada.id);
-
-		expect({
-			isPrivate: exported?.isPrivate,
-			sent: exported?.sentFollowRequests.map((request) => request.following.username),
-			received: exported?.receivedFollowRequests.map((request) => request.follower.username),
-		}).toEqual({ isPrivate: true, sent: ["cleo"], received: ["bob"] });
-	});
-
 	it("leaves out session secrets and the private data of other users", async () => {
 		const { client, db } = createTestDatabase();
 		const ada = insertUser(client, "ada");

@@ -14,10 +14,6 @@ export async function pictureFile(name = "kebab.jpg", { width = 40, height = 20,
 	return new File([new Uint8Array(await image.toBuffer())], name, { type: "image/jpeg" });
 }
 
-export function textFile(name = "menu.jpg") {
-	return new File(["This is not a picture."], name, { type: "image/jpeg" });
-}
-
 export function nameOf(url: string) {
 	return url.split("/").at(-1)!;
 }

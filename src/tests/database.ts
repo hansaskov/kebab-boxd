@@ -4,12 +4,11 @@ import { migrate } from "drizzle-orm/node-sqlite/migrator";
 import { onTestFinished } from "vitest";
 import { createSession, findSession } from "@src/auth/session";
 import { createDatabase } from "@src/db";
-import { refreshAuthorStats } from "@src/db/cached-stats";
 import type { Database } from "@src/db";
 import type { Client } from "@src/db/client";
 import { relations } from "@src/db/relations";
 import { durableSqliteLimits } from "@src/db/limits";
-import { isProblem, type Problem } from "@src/db/problem";
+import { isProblem } from "@src/db/problem";
 import * as s from "@src/db/schema";
 import type { PageRequest } from "@src/pagination";
 import { createPictureStore } from "@src/pictures/store";
@@ -39,12 +38,6 @@ export async function signIn(db: Database, userId: number) {
 	const session = await findSession(db, (await createSession(db, userId)).token);
 	if (!session) throw new Error(`User ${userId} could not sign in.`);
 	return session;
-}
-
-// The items of a page that a read which checks permissions returned. Fails the test when the read was refused.
-export function itemsOf<Item>(result: { items: Item[] } | Problem): Item[] {
-	if (isProblem(result)) throw new Error(`The read was refused: ${result.problem}.`);
-	return result.items;
 }
 
 // Lets the session look as if its browser last came back at the time.
@@ -77,11 +70,6 @@ export function restaurantRow(client: Client, id: number) {
 // Writes the row directly, so the test can choose when it was written. Leaves the cached stats alone.
 export function insertReview(client: Client, authorId: number, restaurantId: number, rating: number, createdAt = new Date()) {
 	return client.insert(s.reviews).values({ authorId, restaurantId, rating, createdAt }).returning().get();
-}
-
-// Brings the cached review stats of the users up to date, after insertReview has left them alone.
-export function refreshAuthorStatsOf(client: Client, userIds: number[]) {
-	client.transaction((tx) => refreshAuthorStats(tx, userIds));
 }
 
 // Publishes a review the way a user does, so the cached rating of the restaurant follows.

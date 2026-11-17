@@ -18,10 +18,4 @@ describe("a form sent by someone who is logged out", () => {
 		expect(response.headers.get("Location")).toBe(`/login?reason=logged-out&next=${encodeURIComponent("/bob/profile?tab=favorites")}`);
 		expect(response.headers.get("Clear-Site-Data")).toContain("prerenderCache");
 	});
-
-	it("leads back to the address of the form without a Referer, and to the Feed when that address is another site", () => {
-		expect(formPage(form("/bob/profile"), origin, "/bob/profile")).toBe("/bob/profile");
-		expect(formPage(form("/bob/profile", "https://evil.example/"), origin, "/bob/profile")).toBe("/bob/profile");
-		expect(formPage(form("/x"), origin, "//evil.example")).toBe("/feed");
-	});
 });

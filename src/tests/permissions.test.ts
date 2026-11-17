@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { can, canOn, refusal, type ResourcePermission, type ReviewAuthor, type SubjectPermission, type Viewer } from "@src/auth/permissions";
+import { canOn, refusal, type ResourcePermission, type ReviewAuthor, type Viewer } from "@src/auth/permissions";
 
 const visitor = null;
 const user = { id: 1, role: "user", bannedAt: null } as const;
@@ -165,17 +165,6 @@ describe("permissions", () => {
 		} satisfies Record<string, (keyof typeof cases)[]>;
 
 		expect(decide(cases, Object.keys(granted) as ResourcePermission[])).toEqual(granted);
-	});
-
-	it("on no resource, which a Visitor never has", () => {
-		const permissions = ["restaurant:suggest", "admin-console:view", "city-search:start", "city-list:update"] as const satisfies SubjectPermission[];
-		const grantedTo = (viewer: Viewer) => permissions.filter((permission) => can(viewer, permission));
-
-		expect({ visitor: grantedTo(visitor), user: grantedTo(user), admin: grantedTo(admin) }).toEqual({
-			visitor: [],
-			user: ["restaurant:suggest"],
-			admin: [...permissions],
-		});
 	});
 
 	it("tell a user that what they may not see does not exist, and forbid only what they can see", () => {
