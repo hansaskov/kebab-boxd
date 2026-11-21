@@ -5,7 +5,7 @@
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url("/fonts/google-sans-medium-latin.woff2") format("woff2");
+  src: url("./layouts/google-sans-medium-latin.woff2") format("woff2");
 }
 
 :root {

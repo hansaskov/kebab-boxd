@@ -1,5 +1,6 @@
 ---
 import { Heart, MapPin, Star, UsersRound } from "@lucide/astro";
+import googleSansUrl from "@src/layouts/google-sans-medium-latin.woff2?url";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
 import Avatar from "@src/users/Avatar.astro";
 import LoginDialog from "@src/auth/LoginDialog.astro";
@@ -54,7 +55,7 @@ const features = [
     prefetchUrls={[feedHref]}
     toast={notice ? noticeToasts[notice] : undefined}
 >
-    <link slot="head" rel="preload" href="/fonts/google-sans-medium-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link slot="head" rel="preload" href={googleSansUrl} as="font" type="font/woff2" crossorigin />
 
     <section class="grid items-center gap-12 pt-6 pb-section md:grid-cols-[1.15fr_1fr] md:pt-12">
         <div class="text-center md:text-left">
