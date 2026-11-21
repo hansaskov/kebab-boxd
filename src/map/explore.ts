@@ -8,6 +8,8 @@ export const exploreMapSize: ViewportSize = { width: 768, height: 512 };
 
 export const exploreCityLimit = 5;
 
+export const exploreListRows = 5;
+
 export const exploreZoomStep = 2;
 
 export const exploreMapCells = { columns: 6, rows: 4 };

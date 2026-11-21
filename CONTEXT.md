@@ -117,7 +117,11 @@ A structured physical address for a Restaurant: address lines, city, postal code
 _Avoid_: Address, Spot, Place
 
 **Cluster**:
-The approved Restaurants close together on the map at its zoom, shown as one marker with their number and named after the best-rated of them, the most reviewed first when several are rated the same, such as "Mangal Express and 4 more". Opening it zooms the map in until all of them are on it. A Restaurant with no other near it is a Cluster of one, shown as a pin that leads to it. At the largest zoom each Restaurant is a Cluster of its own, since a Cluster could not be opened there. The list under the map has one row for each Cluster on it, the nearest to the middle of the map first. A map wider than a part of a City counts the Restaurants in squares a quarter of a Cluster wide, and shows a square when the middle of its Restaurants is on the map, so near the edge a Restaurant may count with a square that is shown or be left out with one that is not.
+The approved Restaurants close together on the map at its zoom, shown as one marker with their number and named after the best-rated of them, the most reviewed first when several are rated the same, such as "Mangal Express and 4 more". Opening it zooms the map in until all of them are on it. A Restaurant with no other near it is a Cluster of one, shown as a pin that leads to it. At the largest zoom each Restaurant is a Cluster of its own, since a Cluster could not be opened there. A map wider than a part of a City counts the Restaurants in squares a quarter of a Cluster wide, and shows a square when the middle of its Restaurants is on the map, so near the edge a Restaurant may count with a square that is shown or be left out with one that is not.
+
+**MostReviewedOnTheMap**:
+The list under the map: the approved Restaurants on the map, the one with the most Reviews first, the newest first when several have as many, 5 to a page. It lists Restaurants, not Clusters. When the map holds many of the Restaurants of the site, it walks the most reviewed of the whole site until it has found a page of those on the map; otherwise it reads each Restaurant on the map, whichever reads fewer rows. Both find the same Restaurants in the same order.
+_Avoid_: Nearby list, Results
 _Avoid_: Group, Bubble, Marker
 
 **ReviewCount**:

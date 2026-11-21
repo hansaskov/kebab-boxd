@@ -78,6 +78,12 @@ function mapOf(db: MeasuredDatabase, zoom: number) {
 	return db.measure("restaurants", "listClusters", { center: db.subjects.center, zoom });
 }
 
+const explorePage: PageRequest = { limit: 5, cursor: undefined };
+
+function exploreAt(db: MeasuredDatabase, zoom: number, page = explorePage) {
+	return db.measure("restaurants", "explore", { search: "", cityId: undefined, requested: { center: db.subjects.center, zoom }, page }, null);
+}
+
 describeCalls("the rows each call of the database reads to show a page", {
 	"sessions.open, on every page a User opens": {
 		measure: (db) => db.measure("sessions", "open", db.subjects.sessionToken, { takeActionOutcome: true }),
@@ -170,8 +176,34 @@ describeCalls("the rows each call of the database reads to show a page", {
 		budget: 10,
 	},
 	"restaurants.explore, the map of a city a search finds": {
-		measure: (db) => db.measure("restaurants", "explore", { search: "odense", cityId: undefined, requested: undefined }, null),
-		budget: 300,
+		measure: (db) => db.measure("restaurants", "explore", { search: "odense", cityId: undefined, requested: undefined, page: explorePage }, null),
+		budget: 450,
+		limitedBy: "the stored cells in view, which the size of the map limits",
+	},
+	"restaurants.explore, the most reviewed in a city, read from the places in view": {
+		measure: (db) => exploreAt(db, 13),
+		budget: 350,
+		limitedBy: "the stored cells and the places in view, which the size of the map limits",
+	},
+	"restaurants.explore, the next page of the most reviewed in a city": {
+		measure: async (db) => {
+			const first = await exploreAt(db, 13);
+			return exploreAt(db, 13, { ...explorePage, cursor: first.value.mostReviewed?.next });
+		},
+		budget: 350,
+		limitedBy: "the stored cells and the places in view, which the size of the map limits",
+	},
+	"restaurants.explore, the most reviewed in a continent, walked from the most reviewed of the site": {
+		measure: (db) => exploreAt(db, 4),
+		budget: 450,
+		limitedBy: "the stored cells in view, which the size of the map limits",
+	},
+	"restaurants.explore, the next page of the most reviewed in a continent": {
+		measure: async (db) => {
+			const first = await exploreAt(db, 4);
+			return exploreAt(db, 4, { ...explorePage, cursor: first.value.mostReviewed?.next });
+		},
+		budget: 450,
 		limitedBy: "the stored cells in view, which the size of the map limits",
 	},
 	"restaurants.feelLucky, in a city": {

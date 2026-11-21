@@ -1,4 +1,4 @@
-import { and, asc, between, desc, eq, sql } from "drizzle-orm";
+import { and, asc, between, desc, eq, inArray, sql } from "drizzle-orm";
 import type { RestaurantPermission } from "@src/auth/permissions";
 import { authorizedRead, authorizedSubjectRead, authorizedWriteAll, findTargetRestaurants } from "@src/db/authorize";
 import { authorsOfReviewsAt, refreshAuthorStats } from "@src/db/cached-stats";
@@ -47,6 +47,7 @@ export interface ExploreRequest {
 	search: string;
 	cityId: number | undefined;
 	requested: MapView | undefined;
+	page: PageRequest;
 }
 
 export interface ClusterRestaurant {
@@ -54,7 +55,6 @@ export interface ClusterRestaurant {
 	name: string;
 	ratingAvg: number;
 	reviewCount: number;
-	city: string | null;
 }
 
 interface ClusterRow extends ClusterRestaurant {
@@ -67,8 +67,8 @@ interface ClusterRow extends ClusterRestaurant {
 	west: number;
 }
 
-function toCluster({ id, name, ratingAvg, reviewCount, city, count, latitude, longitude, north, south, east, west }: ClusterRow): Cluster<ClusterRestaurant> {
-	return { count, center: { latitude, longitude }, bounds: { north, south, east, west }, best: { id, name, ratingAvg, reviewCount, city } };
+function toCluster({ id, name, ratingAvg, reviewCount, count, latitude, longitude, north, south, east, west }: ClusterRow): Cluster<ClusterRestaurant> {
+	return { count, center: { latitude, longitude }, bounds: { north, south, east, west }, best: { id, name, ratingAvg, reviewCount } };
 }
 
 function cellOf({ columnsPerDegree, rowEdges }: ClusterGrid) {
@@ -79,13 +79,12 @@ function cellOf({ columnsPerDegree, rowEdges }: ClusterGrid) {
 	};
 }
 
+function locationsWithin(bounds: Bounds) {
+	return and(between(s.locations.latitude, bounds.south, bounds.north), between(s.locations.longitude, bounds.west, bounds.east));
+}
+
 function approvedIn(bounds: Bounds) {
-	return and(
-		eq(s.restaurants.locationId, s.locations.id),
-		eq(s.restaurants.status, "approved"),
-		between(s.locations.latitude, bounds.south, bounds.north),
-		between(s.locations.longitude, bounds.west, bounds.east),
-	);
+	return and(eq(s.restaurants.locationId, s.locations.id), eq(s.restaurants.status, "approved"), locationsWithin(bounds));
 }
 
 function storedCellsIn(bounds: Bounds, zoom: number) {
@@ -98,6 +97,18 @@ function storedCellsIn(bounds: Bounds, zoom: number) {
 		between(sql`${cells.latitudeSum} / ${cells.count}`, bounds.south, bounds.north),
 		between(sql`${cells.longitudeSum} / ${cells.count}`, bounds.west, bounds.east),
 	);
+}
+
+function approvedWithinWalkingMostReviewed({ north, south, east, west }: Bounds): Filter<"restaurants"> {
+	return { status: "approved", location: { latitude: { gte: south, lte: north }, longitude: { gte: west, lte: east } } };
+}
+
+const rowsReadPerRestaurantWalked = 3;
+const rowsReadPerRestaurantInView = 8;
+
+function walkingReadsFewerRows(countInView: number, approvedCount: number, limit: number) {
+	const walkedPerPage = ((limit + 1) * approvedCount) / countInView;
+	return walkedPerPage * rowsReadPerRestaurantWalked < countInView * rowsReadPerRestaurantInView;
 }
 
 function storedZoomAround(bounds: Bounds) {
@@ -113,7 +124,6 @@ export function createRestaurants(client: Client) {
 				name: s.restaurants.name,
 				ratingAvg: s.restaurants.ratingAvg,
 				reviewCount: s.restaurants.reviewCount,
-				city: s.locations.city,
 				latitude: s.locations.latitude,
 				longitude: s.locations.longitude,
 				column: cell.column.as("cell_column"),
@@ -131,7 +141,6 @@ export function createRestaurants(client: Client) {
 				name: located.name,
 				ratingAvg: located.ratingAvg,
 				reviewCount: located.reviewCount,
-				city: located.city,
 				count: sql<number>`count(*) ${ofCluster}`.as("count"),
 				latitude: sql<number>`avg(${located.latitude}) ${ofCluster}`.as("average_latitude"),
 				longitude: sql<number>`avg(${located.longitude}) ${ofCluster}`.as("average_longitude"),
@@ -195,7 +204,6 @@ export function createRestaurants(client: Client) {
 				name: s.restaurants.name,
 				ratingAvg: s.restaurants.ratingAvg,
 				reviewCount: s.restaurants.reviewCount,
-				city: s.locations.city,
 				count: ranked.count,
 				latitude: ranked.latitude,
 				longitude: ranked.longitude,
@@ -206,7 +214,6 @@ export function createRestaurants(client: Client) {
 			})
 			.from(ranked)
 			.innerJoin(s.restaurants, eq(s.restaurants.id, ranked.bestId))
-			.innerJoin(s.locations, eq(s.locations.id, s.restaurants.locationId))
 			.where(eq(ranked.rank, 1));
 		return rows.map(toCluster);
 	};
@@ -237,6 +244,22 @@ export function createRestaurants(client: Client) {
 			.orderBy(desc(s.restaurants.ratingAvg), desc(s.restaurants.reviewCount), asc(s.restaurants.id))
 			.limit(1);
 		return best;
+	};
+
+	const approvedWithinReadingLocations = (bounds: Bounds): Filter<"restaurants"> => ({
+		RAW: (restaurant) =>
+			sql`${unindexed(restaurant.status)} = 'approved' and ${inArray(restaurant.locationId, client.select({ id: s.locations.id }).from(s.locations).where(locationsWithin(bounds)))}`,
+	});
+
+	const listMostReviewedIn = async (bounds: Bounds, countInView: number, page: PageRequest) => {
+		const approved = await client.query.restaurantCounts.findFirst({ columns: { count: true }, where: { status: "approved" } });
+		const found = walkingReadsFewerRows(countInView, approved?.count ?? 0, page.limit) ? approvedWithinWalkingMostReviewed(bounds) : approvedWithinReadingLocations(bounds);
+		return popularPages(page, (seek) =>
+			client.query.restaurants.findMany({
+				...summary,
+				...seek(found),
+			}),
+		);
 	};
 
 	const findById = async (id: number, viewerId: number | null) => {
@@ -322,12 +345,15 @@ export function createRestaurants(client: Client) {
 		findBestRatedIn,
 		pickApproved,
 
-		async explore({ search, cityId, requested }: ExploreRequest, viewerId: number | null) {
+		async explore({ search, cityId, requested, page }: ExploreRequest, viewerId: number | null) {
 			const { cities, city } = chooseCity(client, search, exploreCityLimit, cityId);
 			const shown = city ? cityView(city) : (requested ?? homeViewOf(viewerId));
-			if (!shown) return { cities, city, view: undefined, clusters: [] };
+			if (!shown) return { cities, city, view: undefined, clusters: [], mostReviewed: undefined };
 			const view = exploreView(shown, viewerId === null);
-			return { cities, city, view, clusters: await clustersOn(exploreViewport(view), listClusters) };
+			const map = exploreViewport(view);
+			const clusters = await clustersOn(map, listClusters);
+			const countInView = clusters.reduce((sum, cluster) => sum + cluster.count, 0);
+			return { cities, city, view, clusters, mostReviewed: await listMostReviewedIn(map.bounds, countInView, page) };
 		},
 
 		async feelLucky(search: string, cityId: number | undefined, fraction: number) {

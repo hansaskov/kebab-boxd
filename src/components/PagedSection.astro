@@ -6,11 +6,12 @@ import { pageNavigation, type Page } from "@src/pagination";
 interface Props extends HTMLAttributes<"section"> {
   page: Page<unknown>;
   empty?: string;
+  fixedRows?: number | undefined;
   "aria-label": string;
 }
 
-const { page, empty, "aria-label": label, ...props } = Astro.props;
-const navigation = pageNavigation(Astro.url, page);
+const { page, empty, fixedRows, "aria-label": label, ...props } = Astro.props;
+const navigation = pageNavigation(Astro.url, page, fixedRows);
 ---
 
 <section aria-label={label} {...props}>

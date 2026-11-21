@@ -25,9 +25,9 @@ function near(north: number, east: number): Coordinates {
 	};
 }
 
-function insertApproved(client: Client, name: string, place: Coordinates, ratingAvg = 0) {
+function insertApproved(client: Client, name: string, place: Coordinates, ratingAvg = 0, reviewCount = 0) {
 	const restaurant = insertRestaurant(client, name, { status: "approved", ...place });
-	client.update(s.restaurants).set({ ratingAvg }).where(eq(s.restaurants.id, restaurant.id)).run();
+	client.update(s.restaurants).set({ ratingAvg, reviewCount }).where(eq(s.restaurants.id, restaurant.id)).run();
 	return restaurant;
 }
 
@@ -37,6 +37,7 @@ function hrefs(html: string, pattern: RegExp) {
 
 const markersOf = (html: string) => hrefs(html, /<li class="map-(?:pin|cluster)"[^>]*><a href="([^"]*)"/g);
 const rowsOf = (html: string) => hrefs(html, /<a class="list-row-link[^"]*" href="([^"]*)"/g);
+const nextPageOf = (html: string) => hrefs(html, /<a class="btn[^"]*" rel="next" href="([^"]*)"/g)[0];
 
 function mapCenterOf(html: string): Coordinates {
 	const [href = ""] = hrefs(html, /<a class="icon-btn" href="([^"]*)"[^>]*title="Zoom in"/g);
@@ -47,24 +48,70 @@ function mapCenterOf(html: string): Coordinates {
 const copenhagen = "/explore?lat=55.6761&lng=12.5683&zoom=12";
 
 describe("the explore map", () => {
-	it("shows each Cluster as one marker on the map and one row of the list below it, the nearest to the middle first", async () => {
+	it("shows each Cluster as one marker on the map, the Restaurants as pins and the rest as counts", async () => {
 		const { client, db } = createTestDatabase();
 		const lone = insertApproved(client, "Lone Kebab", near(200, 0));
 		insertApproved(client, "Grill A", near(0, 1000), 6);
 		insertApproved(client, "Grill B", near(20, 1010), 9);
 		insertApproved(client, "Grill C", near(-15, 990), 4);
-		insertRestaurant(client, "Pending Kebab", { ...near(0, 0) });
-		insertApproved(client, "Copenhagen Kebab", { latitude: 55.6761, longitude: 12.5683 });
 
 		const { html } = await renderPage(ExplorePage, { db, session: null }, odense);
 
-		expect(markersOf(html)).toEqual(rowsOf(html));
-		expect(rowsOf(html)).toHaveLength(2);
-		expect(rowsOf(html)[0]).toBe(restaurantHref(lone.id));
-		expect(rowsOf(html)[1]).toMatch(/^\/explore\?/);
-		expect(html).toContain("Grill B and 2 more");
-		expect(html).not.toContain("Pending Kebab");
-		expect(html).not.toContain("Copenhagen Kebab");
+		expect(markersOf(html)).toHaveLength(2);
+		expect(markersOf(html)).toContain(restaurantHref(lone.id));
+		expect(html).toContain('title="Grill B and 2 more"');
+	});
+});
+
+describe("the most reviewed Restaurants on the explore map", () => {
+	it("lists the approved Restaurants in view, the most reviewed first, five to a page", async () => {
+		const { client, db } = createTestDatabase();
+		const reviewCounts = [3, 12, 0, 7, 1, 9, 5];
+		const inView = reviewCounts.map((reviewCount, i) => ({ ...insertApproved(client, `Grill ${i}`, near(i * 100, i * 150), 0, reviewCount), reviewCount }));
+		const pending = insertRestaurant(client, "Pending Kebab", near(0, 0));
+		client.update(s.restaurants).set({ reviewCount: 50 }).where(eq(s.restaurants.id, pending.id)).run();
+		insertApproved(client, "Copenhagen Kebab", { latitude: 55.6761, longitude: 12.5683 }, 0, 40);
+		const mostReviewedFirst = inView.toSorted((a, b) => b.reviewCount - a.reviewCount).map((restaurant) => restaurantHref(restaurant.id));
+
+		const first = (await renderPage(ExplorePage, { db, session: null }, odense)).html;
+		const next = nextPageOf(first);
+		const second = (await renderPage(ExplorePage, { db, session: null }, next ?? odense)).html;
+
+		expect(rowsOf(first)).toEqual(mostReviewedFirst.slice(0, 5));
+		expect(first).toContain("12 reviews");
+		expect(first).not.toContain("Rows per page");
+		expect(next).toMatch(/^\/explore\?.*after=/);
+		expect(rowsOf(second)).toEqual(mostReviewedFirst.slice(5));
+		expect(nextPageOf(second)).toBeUndefined();
+		expect(`${first}${second}`).not.toContain("Pending Kebab");
+		expect(`${first}${second}`).not.toContain("Copenhagen Kebab");
+	});
+
+	it("lists them in the same order in a city with few of the Restaurants of the site as in a view with most of them", async () => {
+		const { client, db } = createTestDatabase();
+		const inOdense = [2, 0, 5, 1, 3, 4].map((reviewCount, i) => ({ ...insertApproved(client, `Odense Grill ${i}`, near(i * 100, 0), 0, reviewCount), reviewCount }));
+		const inCopenhagen = Array.from({ length: 20 }, (_, i) => ({
+			...insertApproved(client, `Copenhagen Grill ${i}`, { latitude: 55.6761 + i * 0.001, longitude: 12.5683 }, 0, 10 + i),
+			reviewCount: 10 + i,
+		}));
+		const mostReviewedFirst = (restaurants: { id: number; reviewCount: number }[]) =>
+			restaurants.toSorted((a, b) => b.reviewCount - a.reviewCount).map((restaurant) => restaurantHref(restaurant.id));
+
+		const city = (await renderPage(ExplorePage, { db, session: null }, odense)).html;
+		const country = (await renderPage(ExplorePage, { db, session: null }, exploreHref({ center: defaultMapCenter, zoom: 6 }))).html;
+
+		expect(rowsOf(city)).toEqual(mostReviewedFirst(inOdense).slice(0, 5));
+		expect(rowsOf(country)).toEqual(mostReviewedFirst([...inOdense, ...inCopenhagen]).slice(0, 5));
+	});
+
+	it("says so when no Restaurant is in view", async () => {
+		const { client, db } = createTestDatabase();
+		insertApproved(client, "Copenhagen Kebab", { latitude: 55.6761, longitude: 12.5683 }, 0, 40);
+
+		const { html } = await renderPage(ExplorePage, { db, session: null }, odense);
+
+		expect(rowsOf(html)).toEqual([]);
+		expect(html).toContain("There are no restaurants on this part of the map.");
 	});
 });
 

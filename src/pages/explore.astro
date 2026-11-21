@@ -1,7 +1,8 @@
 ---
-import { Search, ZoomIn } from "@lucide/astro";
+import { Search } from "@lucide/astro";
 import { actions } from "astro:actions";
 import BaseLayout from "@src/layouts/BaseLayout.astro";
+import PagedSection from "@src/components/PagedSection.astro";
 import SearchForm from "@src/components/SearchForm.astro";
 import TabNav from "@src/components/TabNav.astro";
 import { successToast } from "@src/actions/toast";
@@ -11,10 +12,12 @@ import { regionAndCountry } from "@src/cities/country";
 import { noCityText } from "@src/cities/geonames";
 import MapView from "@src/map/MapView.astro";
 import { openedView } from "@src/map/clusters";
-import { distanceInMeters, formatDistance, formatOffset } from "@src/map/coordinates";
-import { defaultMapZoom, exploreMapCells, exploreMoves, exploreView, exploreViewport, exploreZoomStep, homeOf, parseMapView } from "@src/map/explore";
+import { distanceInMeters, formatOffset } from "@src/map/coordinates";
+import { defaultMapZoom, exploreListRows, exploreMapCells, exploreMoves, exploreView, exploreViewport, exploreZoomStep, homeOf, parseMapView } from "@src/map/explore";
 import { zoomedIn, zoomedOut, type MapView as View } from "@src/map/viewport";
-import AverageRating from "@src/reviews/AverageRating.astro";
+import RestaurantList from "@src/restaurants/RestaurantList.astro";
+import { parsePageRequest } from "@src/pagination";
+import { plural } from "@src/plural";
 import { exploreCityHref, exploreHref, restaurantHref, searchHref } from "@src/hrefs";
 import { parseId, parseSearch, searchMaxLength } from "@src/params";
 
@@ -23,11 +26,12 @@ const query = parseSearch(params);
 const chosenCityId = parseId(params.get("city") ?? undefined);
 const isLucky = params.has("lucky");
 const requested = parseMapView(params, defaultMapZoom);
+const page = parsePageRequest(Astro.url, exploreListRows);
 
 const { db } = Astro.locals;
 const { lucky, nearby } = await db.load({
 	lucky: isLucky ? db.restaurants.feelLucky(query, chosenCityId, Math.random()) : undefined,
-	nearby: db.restaurants.explore({ search: query, cityId: chosenCityId, requested }, db.viewer),
+	nearby: db.restaurants.explore({ search: query, cityId: chosenCityId, requested, page }, db.viewer),
 });
 const session = await Astro.locals.session();
 const home = session ? homeOf(session.user) : undefined;
@@ -36,27 +40,15 @@ if (lucky?.restaurant) return Astro.redirect(restaurantHref(lucky.restaurant.id)
 if (lucky?.city) return Astro.redirect(exploreCityHref(query, lucky.city.id));
 
 const mapHref = (to: View) => exploreHref(exploreView(to, isVisitor));
-const { cities, city, view, clusters: found } = nearby;
+const { cities, city, view, clusters, mostReviewed } = nearby;
 
 function exploreMap(shown: View) {
 	const map = exploreViewport(shown);
-
-	const clusters = found.map((cluster) => {
-		const isRestaurant = cluster.count === 1;
-		return {
-			...cluster,
-			isRestaurant,
-			name: isRestaurant ? cluster.best.name : `${cluster.best.name} and ${cluster.count - 1} more`,
-			href: isRestaurant ? restaurantHref(cluster.best.id) : mapHref(openedView(cluster, map)),
-			details: [formatDistance(distanceInMeters(map.center, cluster.center)), cluster.best.city].filter(Boolean).join(" · "),
-		};
-	});
 
 	const zoomTo = (zoom: number | undefined) => zoom === undefined ? undefined : mapHref({ center: map.center, zoom });
 
 	return {
 		map,
-		clusters,
 		navigation: {
 			zoomIn: zoomTo(zoomedIn(map.zoom, exploreZoomStep)),
 			zoomOut: zoomTo(zoomedOut(map.zoom, exploreZoomStep)),
@@ -68,18 +60,22 @@ function exploreMap(shown: View) {
 				label: `Move ${formatOffset(map.center, center)}`,
 			})),
 		},
-		markers: clusters.map((cluster) => ({
-			coordinates: cluster.center,
-			href: cluster.href,
-			label: cluster.name,
-			count: cluster.isRestaurant ? undefined : cluster.count,
-		})),
+		markers: clusters.map((cluster) =>
+			cluster.count === 1
+				? { coordinates: cluster.center, href: restaurantHref(cluster.best.id), label: cluster.best.name }
+				: { coordinates: cluster.center, href: mapHref(openedView(cluster, map)), label: `${cluster.best.name} and ${cluster.count - 1} more`, count: cluster.count },
+		),
 		isAtHome: home !== undefined && distanceInMeters(home, map.center) < 1,
 		center: `${map.center.latitude.toFixed(6)}, ${map.center.longitude.toFixed(6)}`,
 	};
 }
 
 const explored = view && exploreMap(view);
+
+const mostReviewedRows = (mostReviewed?.items ?? []).map((restaurant) => ({
+	...restaurant,
+	details: [restaurant.location.city, plural(restaurant.reviewCount, "review")],
+}));
 
 const problem =
 	query && !city
@@ -130,35 +126,12 @@ const toast = successToast(Astro.locals, actions.updateLocation, { title: "Locat
 
 			<MapView class="mt-4" viewport={explored.map} markers={explored.markers} here={home} navigation={explored.navigation} />
 
-			<section class="mt-8" aria-labelledby="on-the-map">
-				<h2 id="on-the-map">On the map</h2>
-				{explored.clusters.length === 0 ? (
-					<p class="t-body mt-2 text-fg-muted">There are no restaurants on this part of the map.</p>
-				) : (
-					<ul class="list mt-3">
-						{explored.clusters.map((cluster) => (
-							<li class="list-row">
-								<div class="min-w-0 flex-1">
-									<a
-										class="list-row-link field-label block truncate"
-										href={cluster.href}
-										rel={cluster.isRestaurant ? undefined : "nofollow"}
-										data-eagerness={cluster.isRestaurant ? undefined : "moderate"}
-									>
-										{cluster.name}
-									</a>
-									<p class="t-body-sm truncate text-fg-muted">{cluster.details}</p>
-								</div>
-								{cluster.isRestaurant ? (
-									<AverageRating ratingAvg={cluster.best.ratingAvg} />
-								) : (
-									<ZoomIn class="shrink-0 text-fg-muted" size={16} aria-hidden="true" />
-								)}
-							</li>
-						))}
-					</ul>
-				)}
-			</section>
+			{mostReviewed && (
+				<PagedSection class="mt-8" aria-label="Most reviewed on the map" page={mostReviewed} fixedRows={exploreListRows} empty="There are no restaurants on this part of the map.">
+					<h2 slot="heading" class="mb-3">Most reviewed on the map</h2>
+					<RestaurantList restaurants={mostReviewedRows} />
+				</PagedSection>
+			)}
 		</>
 	) : (
 		<section class="mx-auto flex min-h-[60dvh] max-w-xl flex-col items-center justify-center text-center">

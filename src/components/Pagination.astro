@@ -9,32 +9,34 @@ interface Props extends HTMLAttributes<"nav"> {
 }
 
 const { id, navigation, class: className, ...props } = Astro.props;
-const { previousHref, nextHref, rows, rowsOptions } = navigation;
+const { previousHref, nextHref, rowsChoice } = navigation;
 const menuId = `${id}-rows`;
 const anchor = `--${menuId}`;
 ---
 
 <nav id={id} class:list={["t-body-sm flex items-center justify-end gap-3 sm:gap-6", className]} {...props}>
-  <div class="flex items-center gap-2 sm:gap-3">
-    <span id={`${menuId}-label`} class="whitespace-nowrap">Rows per page</span>
-    <button
-      type="button"
-      class="input flex w-20 items-center justify-between gap-2 px-3"
-      popovertarget={menuId}
-      aria-labelledby={`${menuId}-label`}
-      style={`anchor-name:${anchor}`}
-    >
-      {rows}
-      <ChevronDown size={16} aria-hidden="true" class="text-fg-muted" />
-    </button>
-    <ul class="popover-panel menu-list w-20" popover id={menuId} style={`position-anchor:${anchor}`}>
-      {rowsOptions.map((option) => (
-        <li>
-          <a href={option.href} aria-current={option.rows === rows ? "true" : undefined}>{option.rows}</a>
-        </li>
-      ))}
-    </ul>
-  </div>
+  {rowsChoice && (
+    <div class="flex items-center gap-2 sm:gap-3">
+      <span id={`${menuId}-label`} class="whitespace-nowrap">Rows per page</span>
+      <button
+        type="button"
+        class="input flex w-20 items-center justify-between gap-2 px-3"
+        popovertarget={menuId}
+        aria-labelledby={`${menuId}-label`}
+        style={`anchor-name:${anchor}`}
+      >
+        {rowsChoice.rows}
+        <ChevronDown size={16} aria-hidden="true" class="text-fg-muted" />
+      </button>
+      <ul class="popover-panel menu-list w-20" popover id={menuId} style={`position-anchor:${anchor}`}>
+        {rowsChoice.options.map((option) => (
+          <li>
+            <a href={option.href} aria-current={option.rows === rowsChoice.rows ? "true" : undefined}>{option.rows}</a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
   <div class="flex items-center gap-1">
     <a class="btn btn-ghost btn-md px-2" rel="prev" href={previousHref} aria-disabled={previousHref ? undefined : "true"}>
       <ChevronLeft size={16} aria-hidden="true" /><span class="max-sm:sr-only">Previous</span>

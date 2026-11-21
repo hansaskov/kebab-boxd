@@ -17,43 +17,52 @@ export interface Page<T> {
 
 export type PageItem<List> = List extends Page<infer Row> ? Row : never;
 
-export interface PageNavigation {
+export interface RowsChoice {
 	rows: number;
+	options: { rows: number; href: string }[];
+}
+
+export interface PageNavigation {
 	previousHref: string | undefined;
 	nextHref: string | undefined;
-	rowsOptions: { rows: number; href: string }[];
+	rowsChoice: RowsChoice | undefined;
 }
 
 type QueryChanges = Record<string, string | undefined>;
 
-export function parsePageRequest(url: URL): PageRequest {
-	const params = url.searchParams;
-	const rows = Number(params.get("rows"));
-	const limit = pageSizes.find((size) => size === rows) ?? defaultPageSize;
+function parseCursor(params: URLSearchParams): Cursor | undefined {
 	const after = params.get("after");
 	const before = params.get("before");
-
-	if (after && !before) return { limit, cursor: { after } };
-	if (before && !after) return { limit, cursor: { before } };
-	return { limit, cursor: undefined };
+	if (after && !before) return { after };
+	if (before && !after) return { before };
+	return undefined;
 }
 
-export function pageNavigation(url: URL, { items, previous, next }: Page<unknown>): PageNavigation | undefined {
+function chosenRows(params: URLSearchParams): number {
+	const rows = Number(params.get("rows"));
+	return pageSizes.find((size) => size === rows) ?? defaultPageSize;
+}
+
+export function parsePageRequest(url: URL, fixedRows?: number): PageRequest {
+	const params = url.searchParams;
+	return { limit: fixedRows ?? chosenRows(params), cursor: parseCursor(params) };
+}
+
+export function pageNavigation(url: URL, { items, previous, next }: Page<unknown>, fixedRows?: number): PageNavigation | undefined {
 	if (items.length === 0 && !previous) return undefined;
 
-	const { limit, cursor } = parsePageRequest(url);
+	const { limit, cursor } = parsePageRequest(url, fixedRows);
 	const href = (to: Cursor | undefined, rows: number) =>
 		hrefWith(url, {
-			rows: rows === defaultPageSize ? undefined : String(rows),
+			rows: fixedRows !== undefined || rows === defaultPageSize ? undefined : String(rows),
 			after: to && "after" in to ? to.after : undefined,
 			before: to && "before" in to ? to.before : undefined,
 		});
 
 	return {
-		rows: limit,
 		previousHref: previous && href(previous, limit),
 		nextHref: next && href(next, limit),
-		rowsOptions: pageSizes.map((rows) => ({ rows, href: href(cursor, rows) })),
+		rowsChoice: fixedRows === undefined ? { rows: limit, options: pageSizes.map((rows) => ({ rows, href: href(cursor, rows) })) } : undefined,
 	};
 }
 
