@@ -17,7 +17,7 @@ The Google Maps links users have suggested that have not become Restaurants. A u
 _Avoid_: Jobs, Imports, Backlog
 
 **City**:
-A populated place on the CityList, with its name, region, country, coordinates and population. A CitySearch looks for Restaurants around one. The search of the site lists the Cities whose name starts with it before the Restaurants and Users it finds, and each leads to its map.
+A populated place on the CityList, with its name, region, country, coordinates and population. A CitySearch looks for Restaurants around one. The search of the site lists the Cities whose name starts with it before the Restaurants and Users it finds, and each leads to its map. A search of three letters or more finds the Restaurants whose name or City holds it, and the Users whose name or Username holds it, without regard to letter case or accents; a shorter one finds those whose name starts with it.
 _Avoid_: Town, Municipality, Place
 
 **CityList**:
@@ -117,7 +117,7 @@ A structured physical address for a Restaurant: address lines, city, postal code
 _Avoid_: Address, Spot, Place
 
 **Cluster**:
-The approved Restaurants close together on the map at its zoom, shown as one marker with their number and named after the best-rated of them, such as "Mangal Express and 4 more". Opening it zooms the map in until all of them are on it. A Restaurant with no other near it is a Cluster of one, shown as a pin that leads to it. At the largest zoom each Restaurant is a Cluster of its own, since a Cluster could not be opened there. The list under the map has one row for each Cluster on it, the nearest to the middle of the map first.
+The approved Restaurants close together on the map at its zoom, shown as one marker with their number and named after the best-rated of them, the most reviewed first when several are rated the same, such as "Mangal Express and 4 more". Opening it zooms the map in until all of them are on it. A Restaurant with no other near it is a Cluster of one, shown as a pin that leads to it. At the largest zoom each Restaurant is a Cluster of its own, since a Cluster could not be opened there. The list under the map has one row for each Cluster on it, the nearest to the middle of the map first. A map wider than a part of a City counts the Restaurants in squares a quarter of a Cluster wide, and shows a square when the middle of its Restaurants is on the map, so near the edge a Restaurant may count with a square that is shown or be left out with one that is not.
 _Avoid_: Group, Bubble, Marker
 
 **ReviewCount**:

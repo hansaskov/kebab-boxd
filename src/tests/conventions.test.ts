@@ -1,8 +1,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getLeadingCommentRanges, getTrailingCommentRanges, type Node } from "typescript/ast";
-import { API } from "typescript/sync";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
@@ -95,11 +94,9 @@ describe("the code", () => {
 });
 
 function hasComment(text: string) {
-	using api = new API();
-	using parsed = api.createSourceFile("file.ts", text);
-	const file = parsed.sourceFile;
-	const commentsAround = (node: Node): boolean =>
-		Boolean(getLeadingCommentRanges(text, node.pos)?.length || getTrailingCommentRanges(text, node.end)?.length) ||
+	const file = ts.createSourceFile("file.ts", text, ts.ScriptTarget.Latest, true);
+	const commentsAround = (node: ts.Node): boolean =>
+		Boolean(ts.getLeadingCommentRanges(text, node.pos)?.length || ts.getTrailingCommentRanges(text, node.end)?.length) ||
 		node.getChildren(file).some(commentsAround);
 
 	return commentsAround(file);

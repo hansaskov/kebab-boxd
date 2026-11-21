@@ -1,4 +1,3 @@
-import { sql } from "drizzle-orm";
 import type { Transaction } from "@src/db/client";
 import * as s from "@src/db/schema";
 import type { RestaurantStatus } from "@src/db/schema";
@@ -21,21 +20,25 @@ function statusOf(origin: Origin): RestaurantStatus {
 	return "suggestedBy" in origin ? "pending" : "approved";
 }
 
+function locationIdsNear(tx: Transaction, place: Coordinates) {
+	const { north, south, east, west } = boundsAround(place, duplicateDistanceMeters);
+	return tx.query.locations
+		.findMany({ columns: { id: true }, where: { latitude: { gte: south, lte: north }, longitude: { gte: west, lte: east } } })
+		.sync()
+		.map((location) => location.id);
+}
+
 export function findExisting(tx: Transaction, place: FoundPlace, statuses: readonly RestaurantStatus[]) {
 	const { googleMapsId, osmId } = place;
-	const { north, south, east, west } = boundsAround(place, duplicateDistanceMeters);
+	const nearIds = locationIdsNear(tx, place);
+	const sameRestaurant = [
+		...(googleMapsId ? [{ googleMapsId }] : []),
+		...(osmId ? [{ osmId }] : []),
+		...(nearIds.length > 0 ? [{ locationId: { in: nearIds } }] : []),
+	];
+	if (sameRestaurant.length === 0) return undefined;
 	const restaurants = tx.query.restaurants
-		.findMany({
-			columns: { id: true, name: true, googleMapsId: true, osmId: true },
-			where: {
-				status: { in: [...statuses] },
-				OR: [
-					...(googleMapsId ? [{ googleMapsId }] : []),
-					...(osmId ? [{ osmId }] : []),
-					{ location: { latitude: { gte: south, lte: north }, longitude: { gte: west, lte: east } } },
-				],
-			},
-		})
+		.findMany({ columns: { id: true, name: true, googleMapsId: true, osmId: true }, where: { status: { in: [...statuses] }, OR: sameRestaurant } })
 		.sync();
 	return restaurants.find(
 		(restaurant) =>
@@ -53,8 +56,4 @@ export function enterRestaurant(tx: Transaction, place: FoundPlace, address: Add
 		.values({ name, googleMapsId, osmId, locationId: location.id, status: statusOf(origin), ...origin })
 		.returning({ id: s.restaurants.id })
 		.get();
-}
-
-export function enteredRestaurantCount(search: Pick<typeof s.citySearches, "id">) {
-	return sql<number>`(select count(*) from ${s.restaurants} where ${s.restaurants.citySearchId} = ${search.id})`.mapWith(Number);
 }

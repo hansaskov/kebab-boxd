@@ -1,0 +1,2 @@
+CREATE INDEX `city_search_candidates_city_search_id_attempts_idx` ON `city_search_candidates` (`city_search_id`,`attempts`);--> statement-breakpoint
+CREATE INDEX `suggestion_queue_status_updated_at_idx` ON `suggestion_queue` (`status`,`updated_at`);

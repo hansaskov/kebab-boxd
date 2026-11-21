@@ -41,17 +41,22 @@ function clamp(value: number, min: number, max: number) {
 	return Math.min(max, Math.max(min, value));
 }
 
-function worldSize(zoom: number) {
+export function worldSize(zoom: number) {
 	return tileSize * 2 ** zoom;
 }
 
-function project({ latitude, longitude }: Coordinates, zoom: number): Point {
-	const size = worldSize(zoom);
+export function worldFraction({ latitude, longitude }: Coordinates): Point {
 	const sin = Math.sin((clamp(latitude, -maxLatitude, maxLatitude) * Math.PI) / 180);
 	return {
-		x: ((longitude + 180) / 360) * size,
-		y: (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * size,
+		x: (longitude + 180) / 360,
+		y: 0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI),
 	};
+}
+
+function project(coordinates: Coordinates, zoom: number): Point {
+	const size = worldSize(zoom);
+	const { x, y } = worldFraction(coordinates);
+	return { x: x * size, y: y * size };
 }
 
 function unproject({ x, y }: Point, zoom: number): Coordinates {

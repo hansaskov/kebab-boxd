@@ -14,6 +14,7 @@ export default defineConfig({
   },
   vite: {
     plugins: [tailwindcss()],
+    css: { devSourcemap: true },
   },
   cache: {
     provider: cacheCloudflare(),

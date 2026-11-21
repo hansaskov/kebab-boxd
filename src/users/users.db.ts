@@ -18,10 +18,16 @@ import { isFollowedBy, isUnbannedUser } from "@src/db/visibility";
 import type { Coordinates } from "@src/map/coordinates";
 import type { PageRequest } from "@src/pagination";
 import type { PictureStore } from "@src/pictures/store";
+import { fewMatchesLimit, matchText, startsWith, startsWithIgnoringCase, type TextIndex, type TextMatch } from "@src/db/text-search";
 
 export type Profile = Pick<User, "fullname" | "username" | "pronoun" | "bio">;
 
 type Users = typeof s.users;
+
+export interface UserTotal {
+	count: number;
+	isAtLeast: boolean;
+}
 
 const filterWhere = {
 	all: () => undefined,
@@ -29,27 +35,28 @@ const filterWhere = {
 	banned: (user) => isNotNull(user.bannedAt),
 } satisfies Record<UserFilter, (user: Users) => SQL | undefined>;
 
-function matching(search: string, filter: UserFilter, user: Users) {
-	return and(
-		filterWhere[filter](user),
-		search
-			? or(
-					sql`instr(lower(${user.username}), lower(${search})) > 0`,
-					sql`instr(lower(${user.fullname}), lower(${search})) > 0`,
-					sql`instr(lower(${user.email}), lower(${search})) > 0`,
-				)
-			: undefined,
-	);
+function nameStartsWith(user: Users, prefix: string) {
+	return or(startsWith(user.username, prefix.toLowerCase()), startsWithIgnoringCase(user.fullname, prefix)) ?? sql`false`;
 }
 
-function matchingName(text: string): Filter<"users"> {
+const nameText: TextIndex<Users> = {
+	table: s.users,
+	searchTable: "user_search",
+	searchedColumns: ["username", "fullname"],
+	startsWith: nameStartsWith,
+};
+
+const accountText: TextIndex<Users> = {
+	table: s.users,
+	searchTable: "user_search",
+	searchedColumns: ["username", "fullname", "email"],
+	startsWith: (user, prefix) => or(nameStartsWith(user, prefix), startsWithIgnoringCase(user.email, prefix)) ?? sql`false`,
+};
+
+function matchingName(client: Client, text: string): Filter<"users"> {
 	if (!text) return {};
-	return {
-		OR: [
-			{ RAW: (user) => sql`instr(lower(${user.username}), lower(${text})) > 0` },
-			{ RAW: (user) => sql`instr(lower(${user.fullname}), lower(${text})) > 0` },
-		],
-	};
+	const { matches } = matchText(client, nameText, text);
+	return { RAW: (user) => matches(user) };
 }
 
 const newestPages = cursorList("users", ["id"], "desc");
@@ -117,6 +124,15 @@ export function createUsers(client: Client, pictures: PictureStore) {
 		return writeOnUser(client, actorId, username, "user:edit-settings", write);
 	}
 
+	async function countMatching(filter: UserFilter, found: TextMatch<Users> | undefined, matching: (user: Users) => SQL): Promise<UserTotal> {
+		if (!found) {
+			const counted = await client.query.userCounts.findFirst({ columns: { count: true }, where: { filter } });
+			return { count: counted?.count ?? 0, isAtLeast: false };
+		}
+		if (found.fewIds === undefined) return { count: fewMatchesLimit, isAtLeast: true };
+		return { count: await client.$count(s.users, matching(s.users)), isAtLeast: false };
+	}
+
 	return {
 		async findInAdminConsole(username: string, viewerId: number | null) {
 			return authorizedSubjectRead(client, viewerId, "admin-console:view", () =>
@@ -160,11 +176,12 @@ export function createUsers(client: Client, pictures: PictureStore) {
 
 		async search(text: string, sort: PersonSort, viewerId: number | null, page: PageRequest) {
 			const card = personCard(viewerId);
+			const found = matchingName(client, text);
 			const read = (seek: Seek<"users">) =>
 				client.query.users.findMany({
 					...card,
 					columns: { ...card.columns, publicReviewCount: true, latestReviewAt: true },
-					...seek({ AND: [{ bannedAt: { isNull: true } }, matchingName(text)] }),
+					...seek({ AND: [{ bannedAt: { isNull: true } }, found] }),
 				});
 			switch (sort) {
 				case "most-reviews":
@@ -176,28 +193,24 @@ export function createUsers(client: Client, pictures: PictureStore) {
 
 		async list(search: string, filter: UserFilter, viewerId: number | null, page: PageRequest) {
 			return authorizedSubjectRead(client, viewerId, "admin-console:view", async () => {
+				const found = search ? matchText(client, accountText, search) : undefined;
+				const matching = (user: Users) => and(filterWhere[filter](user), found?.matches(user)) ?? sql`true`;
 				const users = await newestPages(page, (seek) =>
 					client.query.users.findMany({
 						columns: { id: true, fullname: true, username: true, email: true, role: true, bannedAt: true, createdAt: true },
-						extras: { total: client.$count(s.users, matching(search, filter, s.users)) },
-						...seek({ RAW: (user) => matching(search, filter, user) ?? sql`true` }),
+						...seek({ RAW: matching }),
 					}),
 				);
-				return { ...users, total: users.items[0]?.total ?? 0 };
+				return { ...users, total: await countMatching(filter, found, matching) };
 			});
 		},
 
 		async countByFilter(viewerId: number | null) {
 			return authorizedSubjectRead(client, viewerId, "admin-console:view", async (): Promise<Record<UserFilter, number>> => {
-				const counts = await client.query.users.findFirst({
-					columns: {},
-					extras: {
-						all: client.$count(s.users),
-						admin: client.$count(s.users, filterWhere.admin(s.users)),
-						banned: client.$count(s.users, filterWhere.banned(s.users)),
-					},
-				});
-				return counts ?? { all: 0, admin: 0, banned: 0 };
+				const rows = await client.query.userCounts.findMany();
+				const counts = { all: 0, admin: 0, banned: 0 };
+				for (const { filter, count } of rows) counts[filter] = count;
+				return counts;
 			});
 		},
 

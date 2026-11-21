@@ -1,5 +1,4 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { clusterCellSize } from "@src/map/clusters";
 import { exploreMapSize } from "@src/map/explore";
 import { isProblem } from "@src/db/problem";
 import { viewport } from "@src/map/viewport";
@@ -15,6 +14,7 @@ interface Call {
 	measure: (db: MeasuredDatabase) => Promise<Measured<unknown>>;
 	budget: number;
 	grows?: string;
+	limitedBy?: string;
 	scansTable?: string;
 	findsNothing?: string;
 }
@@ -25,7 +25,13 @@ function tableScans({ plan }: PlannedStatement): string[] {
 	return lines.filter((line) => {
 		const target = /^SCAN (.+)$/.exec(line)?.[1];
 		return (
-			target !== undefined && !target.includes(" USING ") && !subqueries.has(target) && !target.startsWith("(subquery") && target !== "CONSTANT ROW"
+			target !== undefined &&
+			!target.includes(" USING ") &&
+			!subqueries.has(target) &&
+			!target.startsWith("(subquery") &&
+			target !== "CONSTANT ROW" &&
+			!/^\d+-ROW VALUES CLAUSE$/.test(target) &&
+			!/ VIRTUAL TABLE INDEX \d+:M/.test(target)
 		);
 	});
 }
@@ -38,7 +44,9 @@ function itemCount(value: unknown): number | undefined {
 	return undefined;
 }
 
-async function expectCheap({ measure, budget, grows, scansTable, findsNothing }: Call, small: MeasuredDatabase, large: MeasuredDatabase) {
+const largeSiteGrowth = 4;
+
+async function expectCheap({ measure, budget, grows, limitedBy, scansTable, findsNothing }: Call, small: MeasuredDatabase, large: MeasuredDatabase) {
 	const inSmall = await measure(small);
 	const inLarge = await measure(large);
 	const scans = inLarge.statements.flatMap(tableScans);
@@ -48,6 +56,7 @@ async function expectCheap({ measure, budget, grows, scansTable, findsNothing }:
 	expect(found, findsNothing ? `finds nothing: ${findsNothing}` : "finds something").toBe(!findsNothing);
 	expect(inLarge.rowsRead, "reads more rows than its budget").toBeLessThanOrEqual(budget);
 	if (grows) expect(inLarge.rowsRead, `grows with the site: ${grows}`).toBeGreaterThan(inSmall.rowsRead);
+	else if (limitedBy) expect(inLarge.rowsRead, `grows as fast as the site, though ${limitedBy}`).toBeLessThan((inSmall.rowsRead * largeSiteGrowth) / 2);
 	else expect(inLarge.rowsRead, "reads more rows as the site grows").toBe(inSmall.rowsRead);
 	if (scansTable) expect(scans, `scans a table: ${scansTable}`).not.toEqual([]);
 	else expect(scans, "scans a whole table").toEqual([]);
@@ -58,7 +67,7 @@ function describeCalls(title: string, calls: Record<string, Call>) {
 		let small: MeasuredDatabase;
 		let large: MeasuredDatabase;
 		beforeAll(async () => {
-			[small, large] = await Promise.all([openLargeDatabase(1), openLargeDatabase(4)]);
+			[small, large] = await Promise.all([openLargeDatabase(1), openLargeDatabase(largeSiteGrowth)]);
 		});
 
 		for (const [name, call] of Object.entries(calls)) it(name, () => expectCheap(call, small, large));
@@ -66,8 +75,7 @@ function describeCalls(title: string, calls: Record<string, Call>) {
 }
 
 function mapOf(db: MeasuredDatabase, zoom: number) {
-	const map = viewport(db.subjects.center, zoom, exploreMapSize);
-	return db.measure("restaurants", "listClusters", map.bounds, map.clusterGrid(clusterCellSize));
+	return db.measure("restaurants", "listClusters", { center: db.subjects.center, zoom });
 }
 
 describeCalls("the rows each call of the database reads to show a page", {
@@ -128,26 +136,34 @@ describeCalls("the rows each call of the database reads to show a page", {
 	},
 	"restaurants.list, with a search": {
 		measure: (db) => db.measure("restaurants", "list", "kebab", "top-rated", page),
-		budget: 500,
-		grows: "a search reads the approved restaurants, the best rated first, until it has found a page of them",
+		budget: 200,
 	},
 	"restaurants.list, with a search few restaurants match": {
 		measure: (db) => db.measure("restaurants", "list", "funen kebab 2", "top-rated", page),
-		budget: 2500,
-		grows: "a search reads the approved restaurants, the best rated first, until it has found a page of them",
+		budget: 40,
+	},
+	"restaurants.list, with a search of two letters": {
+		measure: (db) => db.measure("restaurants", "list", "fu", "top-rated", page),
+		budget: 150,
+	},
+	"restaurants.listClusters, the map of a part of a city": {
+		measure: (db) => mapOf(db, 14),
+		budget: 200,
 	},
 	"restaurants.listClusters, the map of a city": {
 		measure: (db) => mapOf(db, 13),
-		budget: 200,
+		budget: 250,
+		limitedBy: "the stored cells in view, which the size of the map limits",
 	},
 	"restaurants.listClusters, the map of a continent": {
 		measure: (db) => mapOf(db, 4),
-		budget: 10_000,
-		grows: "the map of a continent shows most restaurants, and reads where each of them is",
+		budget: 600,
+		limitedBy: "the stored cells in view, which the size of the map limits",
 	},
 	"restaurants.findBestRatedIn, feeling lucky in a city": {
 		measure: (db) => db.measure("restaurants", "findBestRatedIn", viewport(db.subjects.center, 13, exploreMapSize).bounds),
-		budget: 200,
+		budget: 100,
+		limitedBy: "the stored cells in view, which the size of the map limits",
 	},
 	"restaurants.pickApproved, feeling lucky without a search": {
 		measure: (db) => db.measure("restaurants", "pickApproved", 0.5),
@@ -156,10 +172,12 @@ describeCalls("the rows each call of the database reads to show a page", {
 	"restaurants.explore, the map of a city a search finds": {
 		measure: (db) => db.measure("restaurants", "explore", { search: "odense", cityId: undefined, requested: undefined }, null),
 		budget: 300,
+		limitedBy: "the stored cells in view, which the size of the map limits",
 	},
 	"restaurants.feelLucky, in a city": {
 		measure: (db) => db.measure("restaurants", "feelLucky", "odense", undefined, 0.5),
-		budget: 250,
+		budget: 100,
+		limitedBy: "the stored cells in view, which the size of the map limits",
 	},
 	"restaurants.listSuggestedBy": {
 		measure: (db) => db.measure("restaurants", "listSuggestedBy", db.subjects.viewerId, page),
@@ -175,13 +193,11 @@ describeCalls("the rows each call of the database reads to show a page", {
 	},
 	"users.search, with a search": {
 		measure: (db) => db.measure("users", "search", "friend", "most-reviews", null, page),
-		budget: 600,
-		grows: "a search reads the people, those with most reviews first, until it has found a page of them",
+		budget: 100,
 	},
 	"users.search, with a search few people match": {
 		measure: (db) => db.measure("users", "search", "hidden", "most-reviews", null, page),
-		budget: 500,
-		grows: "a search reads the people, those with most reviews first, until it has found a page of them",
+		budget: 20,
 	},
 	"users.findProfile": {
 		measure: (db) => db.measure("users", "findProfile", "author", null),
@@ -240,20 +256,26 @@ describeCalls("the rows each call of the database reads to show a page", {
 describeCalls("the rows each call of the database reads for the Admins", {
 	"users.list": {
 		measure: (db) => db.measure("users", "list", "", "all", db.subjects.adminId, page),
-		budget: 500,
-		grows: "the list tells how many users match, which counts them",
-		scansTable: "it counts the users that match",
+		budget: 20,
+		scansTable: "it reads the users from the newest, and stops when the page is full",
+	},
+	"users.list, with a search": {
+		measure: (db) => db.measure("users", "list", "friend", "all", db.subjects.adminId, page),
+		budget: 100,
 	},
 	"users.countByFilter": {
 		measure: (db) => db.measure("users", "countByFilter", db.subjects.adminId),
-		budget: 1500,
-		grows: "it counts the users, the Admins and the banned",
-		scansTable: "it counts the users",
+		budget: 5,
+		scansTable: "it reads the three counts the triggers keep",
 	},
 	"restaurants.countByStatus": {
 		measure: (db) => db.measure("restaurants", "countByStatus", db.subjects.adminId),
-		budget: 1800,
-		grows: "it counts the restaurants of each status",
+		budget: 5,
+		scansTable: "it reads the three counts the triggers keep",
+	},
+	"restaurants.countByStatus, of the Restaurants a CitySearch found": {
+		measure: (db) => db.measure("restaurants", "countByStatus", db.subjects.adminId, db.subjects.citySearchId),
+		budget: 5,
 	},
 	"restaurants.listByStatus": {
 		measure: (db) => db.measure("restaurants", "listByStatus", "pending", db.subjects.adminId, page),
@@ -266,12 +288,12 @@ describeCalls("the rows each call of the database reads for the Admins", {
 	},
 	"citySearches.list": {
 		measure: (db) => db.measure("citySearches", "list", db.subjects.adminId, page),
-		budget: 30,
+		budget: 20,
 		scansTable: "it reads the CitySearches from the newest, and stops when the page is full",
 	},
 	"citySearches.findById": {
 		measure: (db) => db.measure("citySearches", "findById", db.subjects.citySearchId, db.subjects.adminId),
-		budget: 40,
+		budget: 30,
 	},
 	"users.findInAdminConsole": {
 		measure: (db) => db.measure("users", "findInAdminConsole", "author", db.subjects.adminId),
@@ -296,7 +318,6 @@ describeCalls("the rows each call of the database reads for the background work"
 	"citySearches.nextCandidate": {
 		measure: (db) => db.measure("citySearches", "nextCandidate"),
 		budget: 5,
-		findsNothing: "no place of a CitySearch waits",
 	},
 	"cities.nextUpdate": {
 		measure: (db) => db.measure("cities", "nextUpdate"),
@@ -308,8 +329,54 @@ describeCalls("the rows each call of the database reads for the background work"
 			await db.measure("retention", "purge", new Date());
 			return db.measure("retention", "purge", new Date());
 		},
-		budget: 300,
-		grows: "it reads the links that left the SuggestionQueue, which stay for 30 days",
+		budget: 15,
+	},
+});
+
+const foundAddress = { addressLine1: "Havnen 1", postalCode: "5700", city: "Svendborg", country: "Denmark" };
+
+function placesAround({ latitude, longitude }: { latitude: number; longitude: number }, count: number) {
+	return Array.from({ length: count }, (_, i) => ({
+		osmId: `node/${1000 + i}`,
+		name: `Found Grill ${i}`,
+		latitude: latitude + i * 0.001,
+		longitude,
+		address: foundAddress,
+	}));
+}
+
+describeCalls("the rows each step of the background work reads", {
+	"citySearches.saveCandidates, the places OpenStreetMap found": {
+		measure: async (db) => {
+			const started = await db.measure("citySearches", "start", db.subjects.adminId, odenseId, "Odense");
+			if (isProblem(started.value)) throw new Error(`The search did not start: ${started.value.problem}.`);
+			return db.measure("citySearches", "saveCandidates", started.value.id, { places: placesAround(db.subjects.center, 100), server: "overpass", failures: [] });
+		},
+		budget: 700,
+		findsNothing: "it returns nothing",
+	},
+	"citySearches.addCandidate, a place that is new": {
+		measure: (db) => db.measure("citySearches", "addCandidate", db.subjects.candidateIds.newPlace, foundAddress),
+		budget: 60,
+	},
+	"citySearches.addCandidate, a place that already is a Restaurant": {
+		measure: (db) => db.measure("citySearches", "addCandidate", db.subjects.candidateIds.knownPlace, foundAddress),
+		budget: 15,
+	},
+	"citySearches.retryCandidateLater": {
+		measure: (db) => db.measure("citySearches", "retryCandidateLater", db.subjects.candidateIds.failingPlace, new Date(), "Nominatim did not answer"),
+		budget: 20,
+		findsNothing: "it returns nothing",
+	},
+	"suggestionQueue.finish, a new Restaurant": {
+		measure: (db) =>
+			db.measure("suggestionQueue", "finish", db.subjects.queuedSuggestionIds[0]!, { name: "New Kebab", latitude: 56.1, longitude: 10.2, googleMapsId: "0x1:0x2" }, foundAddress),
+		budget: 30,
+	},
+	"suggestionQueue.finish, a Restaurant that exists": {
+		measure: (db) =>
+			db.measure("suggestionQueue", "finish", db.subjects.queuedSuggestionIds[1]!, { name: "funen kebab 0", ...db.subjects.center, googleMapsId: "0x3:0x4" }, foundAddress),
+		budget: 25,
 	},
 });
 
@@ -347,11 +414,13 @@ describeCalls("the rows each write to the database reads", {
 	},
 	"reviews.create": {
 		measure: (db) => db.measure("reviews", "create", db.subjects.viewerId, db.subjects.restaurantId, review, []),
-		budget: 200,
+		budget: 450,
+		limitedBy: "it refreshes the map cells of its restaurants, reading at most 4 finer cells at each zoom",
 	},
 	"reviews.update": {
 		measure: (db) => db.measure("reviews", "update", db.subjects.authorId, db.subjects.reviewId, { ...review, addPictures: [] }),
-		budget: 200,
+		budget: 450,
+		limitedBy: "it refreshes the map cells of its restaurants, reading at most 4 finer cells at each zoom",
 	},
 	"reviews.removePicture": {
 		measure: (db) => db.measure("reviews", "removePicture", db.subjects.authorId, db.subjects.reviewId, 1),
@@ -367,7 +436,8 @@ describeCalls("the rows each write to the database reads", {
 	},
 	"reviews.delete": {
 		measure: (db) => db.measure("reviews", "delete", db.subjects.friendId, db.subjects.friendReviewId),
-		budget: 200,
+		budget: 450,
+		limitedBy: "it refreshes the map cells of its restaurants, reading at most 4 finer cells at each zoom",
 	},
 	"collections.add": {
 		measure: (db) => db.measure("collections", "add", db.subjects.authorId, db.subjects.restaurantId, "favorites"),
@@ -417,7 +487,7 @@ describeCalls("the rows each write to the database reads", {
 	},
 	"restaurants.decide": {
 		measure: (db) => db.measure("restaurants", "decide", db.subjects.adminId, [db.subjects.pendingRestaurantId], "approved"),
-		budget: 20,
+		budget: 60,
 	},
 	"users.setRole": {
 		measure: (db) => db.measure("users", "setRole", db.subjects.adminId, "author", "admin"),
@@ -425,11 +495,13 @@ describeCalls("the rows each write to the database reads", {
 	},
 	"users.ban": {
 		measure: (db) => db.measure("users", "ban", db.subjects.adminId, "friend_2"),
-		budget: 160,
+		budget: 700,
+		limitedBy: "it refreshes the map cells of its restaurants, reading at most 4 finer cells at each zoom",
 	},
 	"users.unban": {
 		measure: (db) => db.measure("users", "unban", db.subjects.adminId, "friend_2"),
-		budget: 160,
+		budget: 700,
+		limitedBy: "it refreshes the map cells of its restaurants, reading at most 4 finer cells at each zoom",
 	},
 	"users.signOutEverywhere": {
 		measure: (db) => db.measure("users", "signOutEverywhere", db.subjects.viewerId, "viewer"),
@@ -443,6 +515,13 @@ describeCalls("the rows each write to the database reads", {
 		measure: (db) => db.measure("cities", "requestUpdate", db.subjects.adminId),
 		budget: 20,
 	},
+	"citySearches.retry, of the places that wait to look up their address": {
+		measure: async (db) => {
+			await db.measure("citySearches", "retryCandidateLater", db.subjects.candidateIds.failingPlace, new Date(), "Nominatim did not answer");
+			return db.measure("citySearches", "retry", db.subjects.adminId, db.subjects.addingSearchId);
+		},
+		budget: 20,
+	},
 	"citySearches.start": {
 		measure: (db) => db.measure("citySearches", "start", db.subjects.adminId, odenseId, "Odense"),
 		budget: 20,
@@ -454,6 +533,7 @@ describeCalls("the rows each write to the database reads", {
 	},
 	"users.delete": {
 		measure: (db) => db.measure("users", "delete", db.subjects.friendId, "friend_0"),
-		budget: 400,
+		budget: 450,
+		limitedBy: "it refreshes the map cells of its restaurants, reading at most 4 finer cells at each zoom",
 	},
 });

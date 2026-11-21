@@ -11,7 +11,7 @@
     "sst:dev": "sst dev",
     "sst:deploy": "sst deploy --stage production",
     "db:generate": "drizzle-kit generate",
-    "check": "tsc --noEmit --runExternalCode",
+    "check": "astro check",
     "test": "vitest run",
     "test:e2e": "E2E=1 vitest run src/tests/e2e",
     "bench:pages": "node tools/page-latency/run.ts",
@@ -27,7 +27,7 @@
     "sst": "^4.17.2"
   },
   "devDependencies": {
-    "@astrojs/ts-content-mapper": "0.2.0",
+    "@astrojs/check": "0.9.12",
     "@cloudflare/workers-types": "^5.20261116.1",
     "@oxlint/plugins": "1.94.0",
     "@tailwindcss/vite": "^4.3.5",
@@ -38,7 +38,7 @@
     "oxlint": "^1.94.0",
     "sharp": "0.35.5",
     "tailwindcss": "^4.3.5",
-    "typescript": "7.1.0-beta",
+    "typescript": "6.0.3",
     "vitest": "^5.1.0"
   },
   "devEngines": {

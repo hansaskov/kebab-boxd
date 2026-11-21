@@ -9,6 +9,7 @@ import { adminTabs } from "@src/admin/tabs";
 import { adminUserHref, feedHref, refusalPage, signInHref } from "@src/hrefs";
 import { userFilters, type UserFilter } from "@src/users/users";
 import { parseOption, parseSearch } from "@src/params";
+import { plural } from "@src/plural";
 import { firstPageHref, parsePageRequest } from "@src/pagination";
 
 const search = parseSearch(Astro.url.searchParams);
@@ -54,7 +55,7 @@ const emptyMessage = search ? `No users match “${search}”.` : emptyGroupMess
   <TabNav class="mt-4" aria-label="Filter users" tabs={filterTabs} />
 
   <PagedSection class="mt-6" aria-label="Users" page={page} empty={emptyMessage}>
-    <p class="t-body-sm text-fg-muted">{page.total} {page.total === 1 ? "user" : "users"}</p>
+    <p class="t-body-sm text-fg-muted">{page.total.isAtLeast && "More than "}{plural(page.total.count, "user")}</p>
     <ul class="list mt-3">
       {page.items.map((user) => (
         <li class="list-row">

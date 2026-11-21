@@ -8,6 +8,10 @@ import m0006 from './20261104205600_city_search_log/migration.sql';
 import m0007 from './20261105145334_private_profiles/migration.sql';
 import m0008 from './20261109141655_user_review_stats/migration.sql';
 import m0009 from './20261110212656_approve_city_search_restaurants/migration.sql';
+import m0010 from './20261121070254_counts/migration.sql';
+import m0011 from './20261121070458_expiry_and_retry_indexes/migration.sql';
+import m0012 from './20261121070653_text_search/migration.sql';
+import m0013 from './20261121071208_map_cells/migration.sql';
 
   export default {
     migrations: {
@@ -20,7 +24,11 @@ import m0009 from './20261110212656_approve_city_search_restaurants/migration.sq
 "20261104205600_city_search_log": m0006,
 "20261105145334_private_profiles": m0007,
 "20261109141655_user_review_stats": m0008,
-"20261110212656_approve_city_search_restaurants": m0009
+"20261110212656_approve_city_search_restaurants": m0009,
+"20261121070254_counts": m0010,
+"20261121070458_expiry_and_retry_indexes": m0011,
+"20261121070653_text_search": m0012,
+"20261121071208_map_cells": m0013
 }
   }
   

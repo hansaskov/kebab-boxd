@@ -151,6 +151,7 @@ function insertBackground(tx: Transaction, scale: number) {
 }
 
 const odense = { latitude: 55.3959, longitude: 10.3883 };
+const svendborg = { latitude: 55.0598, longitude: 10.6068 };
 
 function insertSubjects(tx: Transaction) {
 	let order = 0;
@@ -225,11 +226,15 @@ function insertSubjects(tx: Transaction) {
 	for (let page = 0; page < 30; page++) {
 		tx.insert(s.history).values({ sessionId, requestedAt: next(), method: "GET", route: "/feed", path: "/feed", status: 200 }).run();
 	}
-	for (let i = 0; i < 4; i++) {
-		tx.insert(s.suggestionQueue)
-			.values({ userId: viewerId, link: `https://maps.app.goo.gl/viewer${i}`, status: i === 0 ? "duplicate" : "queued", duplicateId: i === 0 ? restaurantId : null, createdAt: next() })
-			.run();
-	}
+	const suggestionIds = Array.from(
+		{ length: 4 },
+		(_, i) =>
+			tx
+				.insert(s.suggestionQueue)
+				.values({ userId: viewerId, link: `https://maps.app.goo.gl/viewer${i}`, status: i === 0 ? "duplicate" : "queued", duplicateId: i === 0 ? restaurantId : null, createdAt: next() })
+				.returning({ id: s.suggestionQueue.id })
+				.get().id,
+	);
 
 	const odenseRow: CityGroupRow = [2615876, "Odense", "South Denmark", "DK", odense.latitude, odense.longitude, 180_863, ["odense"]];
 	tx.insert(s.cityGroups).values({ prefix: "od", cities: JSON.stringify([odenseRow]) }).run();
@@ -254,6 +259,20 @@ function insertSubjects(tx: Transaction) {
 		});
 	}
 
+	const harbourGrill = { name: "Harbour Grill", latitude: svendborg.latitude + 0.002, longitude: svendborg.longitude };
+	insertRestaurant(tx, harbourGrill.name, { ...harbourGrill, city: "Svendborg", status: "approved", createdAt: next() });
+	const addingSearchId = tx
+		.insert(s.citySearches)
+		.values({ startedBy: adminId, cityId: 2612045, name: "Svendborg", countryCode: "DK", ...svendborg, population: 27_000, status: "adding", createdAt: next() })
+		.returning({ id: s.citySearches.id })
+		.get().id;
+	const candidateId = (osmId: string, name: string, latitude: number, longitude: number) =>
+		tx
+			.insert(s.citySearchCandidates)
+			.values({ citySearchId: addingSearchId, osmId, name, latitude, longitude, addressLine1: "Havnen 1", postalCode: "5700", city: "Svendborg", country: "Denmark" })
+			.returning({ id: s.citySearchCandidates.id })
+			.get().id;
+
 	return {
 		adminId,
 		viewerId,
@@ -268,6 +287,13 @@ function insertSubjects(tx: Transaction) {
 		friendReviewId: friendReviewIds[0]!,
 		privateReviewId: privateReviewIds[0]!,
 		citySearchId,
+		addingSearchId,
+		candidateIds: {
+			newPlace: candidateId("node/101", "Svendborg Shawarma", svendborg.latitude - 0.004, svendborg.longitude),
+			knownPlace: candidateId("node/102", harbourGrill.name.toUpperCase(), harbourGrill.latitude + 0.0002, harbourGrill.longitude),
+			failingPlace: candidateId("node/103", "Durum Corner", svendborg.latitude, svendborg.longitude + 0.004),
+		},
+		queuedSuggestionIds: suggestionIds.slice(1),
 		center: odense,
 	};
 }

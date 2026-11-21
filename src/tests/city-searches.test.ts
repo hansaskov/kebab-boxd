@@ -110,4 +110,50 @@ describe("a CitySearch", () => {
 		expect([restaurantRow(client, rejectedByName.id)?.osmId, restaurantRow(client, pending.id)?.osmId]).toEqual(["node/2", "node/3"]);
 		expect(await notificationsOf(db, admin.id)).toEqual(["finished Odense: 1"]);
 	});
+
+	it("keeps count of the places that wait, those that wait to try again, and the Restaurants it added", async () => {
+		const { client, db, admin } = await setUp();
+		insertRestaurant(client, "Gyros King", { status: "approved", latitude: 55.396, longitude: 10.388 });
+		const id = await startSearch(db, admin.id);
+		const recounted = () => {
+			const candidates = client.query.citySearchCandidates.findMany({ columns: { attempts: true }, where: { citySearchId: id } }).sync();
+			return {
+				candidateCount: candidates.length,
+				retryingCandidateCount: candidates.filter((candidate) => candidate.attempts > 0).length,
+				restaurantCount: client.$count(s.restaurants, eq(s.restaurants.citySearchId, id)).sync(),
+			};
+		};
+		const expectCounts = async (expected: { status: string; candidateCount: number; retryingCandidateCount: number; restaurantCount: number }) => {
+			const { status, candidateCount, retryingCandidateCount, restaurantCount } = allowed(await db.citySearches.findById(id, admin.id))!;
+			const counted = { candidateCount, retryingCandidateCount, restaurantCount };
+			expect({ status, ...counted }).toEqual(expected);
+			expect(counted).toEqual(recounted());
+		};
+		const candidateOf = (osmId: string) => client.query.citySearchCandidates.findFirst({ columns: { id: true }, where: { osmId } }).sync()!.id;
+		const address = kebabPlace("", "").address;
+
+		await db.citySearches.saveCandidates(id, found([
+			kebabPlace("node/1", "Döner Corner", 55.4, 10.39),
+			kebabPlace("node/1", "Döner Corner", 55.4, 10.39),
+			kebabPlace("node/2", "GYROS KING", 55.3961, 10.3881),
+			kebabPlace("node/3", "Shawarma Palace", 55.42, 10.42),
+		]));
+		await expectCounts({ status: "adding", candidateCount: 3, retryingCandidateCount: 0, restaurantCount: 0 });
+
+		const failing = candidateOf("node/1");
+		await db.citySearches.retryCandidateLater(failing, new Date(), "Nominatim did not answer");
+		await db.citySearches.retryCandidateLater(failing, new Date(), "Nominatim did not answer");
+		await expectCounts({ status: "adding", candidateCount: 3, retryingCandidateCount: 1, restaurantCount: 0 });
+
+		await db.citySearches.addCandidate(failing, address, { withoutLookup: true });
+		await expectCounts({ status: "adding", candidateCount: 2, retryingCandidateCount: 0, restaurantCount: 1 });
+
+		expect(await db.citySearches.addCandidate(candidateOf("node/2"), address)).toMatchObject({ status: "known" });
+		await expectCounts({ status: "adding", candidateCount: 1, retryingCandidateCount: 0, restaurantCount: 1 });
+
+		await db.citySearches.addCandidate(candidateOf("node/3"), address);
+		await expectCounts({ status: "finished", candidateCount: 0, retryingCandidateCount: 0, restaurantCount: 2 });
+		expect(logOf(client, id).at(-1)).toBe("Done. Added 2 restaurants.");
+		expect(logOf(client, id)[0]).toBe("overpass.example found 4 places, 3 of them new.");
+	});
 });

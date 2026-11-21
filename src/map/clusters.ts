@@ -1,5 +1,5 @@
 import { distanceInMeters, type Bounds, type Coordinates } from "@src/map/coordinates";
-import { clampZoom, fitBounds, maxZoom, type ClusterGrid, type MapView, type Viewport } from "@src/map/viewport";
+import { clampZoom, fitBounds, maxZoom, type MapView, type Viewport } from "@src/map/viewport";
 
 export const clusterCellSize = 128;
 export const clusterMergeDistance = 40;
@@ -8,6 +8,7 @@ export const clusterMargin = 48;
 export interface ClusterMember {
 	id: number;
 	ratingAvg: number;
+	reviewCount: number;
 }
 
 export interface Cluster<Member extends ClusterMember = ClusterMember> {
@@ -17,10 +18,12 @@ export interface Cluster<Member extends ClusterMember = ClusterMember> {
 	best: Member;
 }
 
-export type ListClusters<Member extends ClusterMember> = (bounds: Bounds, grid: ClusterGrid | undefined) => Promise<Cluster<Member>[]>;
+export type ListClusters<Member extends ClusterMember> = (map: Viewport) => Promise<Cluster<Member>[]>;
 
 function ranksBefore(a: ClusterMember, b: ClusterMember) {
-	return a.ratingAvg > b.ratingAvg || (a.ratingAvg === b.ratingAvg && a.id < b.id);
+	if (a.ratingAvg !== b.ratingAvg) return a.ratingAvg > b.ratingAvg;
+	if (a.reviewCount !== b.reviewCount) return a.reviewCount > b.reviewCount;
+	return a.id < b.id;
 }
 
 function combine<Member extends ClusterMember>(a: Cluster<Member>, b: Cluster<Member>): Cluster<Member> {
@@ -51,8 +54,8 @@ function mergeOverlapping<Member extends ClusterMember>(clusters: Cluster<Member
 }
 
 export async function clustersOn<Member extends ClusterMember>(map: Viewport, list: ListClusters<Member>): Promise<Cluster<Member>[]> {
-	const clusters =
-		map.zoom < maxZoom ? mergeOverlapping(await list(map.bounds, map.clusterGrid(clusterCellSize)), map) : await list(map.bounds, undefined);
+	const listed = await list(map);
+	const clusters = map.zoom < maxZoom ? mergeOverlapping(listed, map) : listed;
 	const distance = (cluster: Cluster<Member>) => distanceInMeters(map.center, cluster.center);
 	return clusters.toSorted((a, b) => distance(a) - distance(b) || a.best.id - b.best.id);
 }

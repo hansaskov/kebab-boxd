@@ -6,8 +6,5 @@
       "@src/*": ["./src/*"],
     }
   },
-  "contentMappers": [
-    { "package": "@astrojs/ts-content-mapper", "extensions": [".astro"] }
-  ],
   "exclude": ["dist", "tools", ".sst", "sst.config.ts"]
 }

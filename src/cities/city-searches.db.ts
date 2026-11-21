@@ -1,4 +1,4 @@
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import { authorizedSubjectRead, authorizedSubjectWrite } from "@src/db/authorize";
 import { maxCitySearchAttempts } from "@src/cities/city-searches";
 import { findCity, searchCities, type City } from "@src/cities/cities.db";
@@ -6,7 +6,7 @@ import type { Client, Transaction } from "@src/db/client";
 import { notify, withdrawCitySearchNotification } from "@src/notifications/notifications.db";
 import { cursorList } from "@src/db/pagination";
 import { chunks, durableSqliteLimits } from "@src/db/limits";
-import { enterRestaurant, enteredRestaurantCount, findExisting } from "@src/restaurants/entered-restaurants.db";
+import { enterRestaurant, findExisting } from "@src/restaurants/entered-restaurants.db";
 import { isProblem, problem, type Problem } from "@src/db/problem";
 import * as s from "@src/db/schema";
 import { restaurantStatuses } from "@src/db/schema";
@@ -26,10 +26,6 @@ const runningStatuses = ["queued", "adding"] as const;
 
 const pages = cursorList("citySearches", ["id"], "desc");
 
-function candidateCount(search: typeof s.citySearches) {
-	return sql<number>`(select count(*) from ${s.citySearchCandidates} where ${s.citySearchCandidates.citySearchId} = ${search.id})`.mapWith(Number);
-}
-
 function minutes(seconds: number) {
 	return plural(Math.round(seconds / 60), "minute");
 }
@@ -42,13 +38,23 @@ function logFailures(tx: Transaction, citySearchId: number, failures: ServerFail
 	for (const { server, reason } of failures) log(tx, citySearchId, `${server} ${reason}.`, true);
 }
 
-function end(tx: Transaction, search: { id: number; startedBy: number | null }, status: "finished" | "failed") {
+interface EndingSearch {
+	id: number;
+	startedBy: number | null;
+}
+
+function end(tx: Transaction, search: EndingSearch, status: "finished" | "failed") {
 	tx.update(s.citySearches).set({ status }).where(eq(s.citySearches.id, search.id)).run();
-	if (status === "finished") {
-		const added = tx.$count(s.restaurants, eq(s.restaurants.citySearchId, search.id)).sync();
-		log(tx, search.id, `Done. Added ${plural(added, "restaurant")}.`);
-	}
 	if (search.startedBy !== null) notify(tx, { kind: "city-search-finished", recipientId: search.startedBy, citySearchId: search.id });
+}
+
+function finish(tx: Transaction, search: EndingSearch & { restaurantCount: number }) {
+	log(tx, search.id, `Done. Added ${plural(search.restaurantCount, "restaurant")}.`);
+	end(tx, search, "finished");
+}
+
+function findEnding(tx: Transaction, id: number) {
+	return tx.query.citySearches.findFirst({ columns: { id: true, startedBy: true, restaurantCount: true, candidateCount: true }, where: { id } }).sync();
 }
 
 function findRunning(tx: Transaction, cityId: number) {
@@ -56,28 +62,31 @@ function findRunning(tx: Transaction, cityId: number) {
 }
 
 const listColumns = {
-	columns: { id: true, name: true, region: true, countryCode: true, status: true, attempts: true, runAfter: true, createdAt: true },
+	columns: {
+		id: true,
+		name: true,
+		region: true,
+		countryCode: true,
+		status: true,
+		attempts: true,
+		runAfter: true,
+		restaurantCount: true,
+		candidateCount: true,
+		createdAt: true,
+	},
 	with: { starter: { columns: { username: true, fullname: true } } },
-	extras: { restaurantCount: enteredRestaurantCount, candidateCount },
 } as const;
 
 export function createCitySearches(client: Client, wake: () => void) {
-	const findSearch = async (id: number) => {
-		const search = await client.query.citySearches.findFirst({
-			...listColumns,
+	const findSearch = (id: number) =>
+		client.query.citySearches.findFirst({
+			columns: { ...listColumns.columns, retryingCandidateCount: true },
 			with: {
 				...listColumns.with,
 				events: { columns: { id: true, isError: true, message: true, createdAt: true }, orderBy: { id: "desc" }, limit: maxEventsShown },
 			},
 			where: { id },
 		});
-		if (!search) return undefined;
-		const retryingCandidateCount = await client.$count(
-			s.citySearchCandidates,
-			and(eq(s.citySearchCandidates.citySearchId, id), gt(s.citySearchCandidates.attempts, 0)),
-		);
-		return { ...search, retryingCandidateCount };
-	};
 
 	return {
 		async start(actorId: number, cityId: number, cityName: string): Promise<{ id: number } | Problem> {
@@ -153,8 +162,8 @@ export function createCitySearches(client: Client, wake: () => void) {
 
 		async saveCandidates(id: number, found: { places: KebabPlace[]; server: string; failures: ServerFailure[] }) {
 			client.transaction((tx) => {
-				const search = tx.query.citySearches.findFirst({ columns: { id: true, startedBy: true }, where: { id, status: "queued" } }).sync();
-				if (!search) return;
+				const isQueued = tx.query.citySearches.findFirst({ columns: { id: true }, where: { id, status: "queued" } }).sync();
+				if (!isQueued) return;
 
 				const { places, server, failures } = found;
 				const known = new Set(
@@ -172,10 +181,12 @@ export function createCitySearches(client: Client, wake: () => void) {
 				for (const chunk of chunks(candidates, Math.floor(durableSqliteLimits.variableNumber / valuesPerCandidate))) {
 					tx.insert(s.citySearchCandidates).values(chunk).onConflictDoNothing().run();
 				}
+				const search = findEnding(tx, id);
+				if (!search) return;
 
 				logFailures(tx, id, failures);
-				log(tx, id, `${server} found ${plural(places.length, "place")}, ${candidates.length} of them new.`);
-				if (candidates.length === 0) end(tx, search, "finished");
+				log(tx, id, `${server} found ${plural(places.length, "place")}, ${search.candidateCount} of them new.`);
+				if (search.candidateCount === 0) finish(tx, search);
 				else tx.update(s.citySearches).set({ status: "adding" }).where(eq(s.citySearches.id, id)).run();
 			});
 		},
@@ -243,14 +254,10 @@ export function createCitySearches(client: Client, wake: () => void) {
 		): Promise<{ status: "added" | "known"; id: number } | { status: "gone" }> {
 			return client.transaction((tx) => {
 				const candidate = tx.query.citySearchCandidates
-					.findFirst({
-						columns: { citySearchId: true, osmId: true, name: true, latitude: true, longitude: true },
-						with: { citySearch: { columns: { id: true, startedBy: true } } },
-						where: { id },
-					})
+					.findFirst({ columns: { citySearchId: true, osmId: true, name: true, latitude: true, longitude: true }, where: { id } })
 					.sync();
 				if (!candidate) return { status: "gone" as const };
-				const { citySearch, citySearchId, ...place } = candidate;
+				const { citySearchId, ...place } = candidate;
 
 				const existing = findExisting(tx, place, knownStatuses);
 				if (existing && existing.osmId === null) {
@@ -264,8 +271,8 @@ export function createCitySearches(client: Client, wake: () => void) {
 				}
 
 				tx.delete(s.citySearchCandidates).where(eq(s.citySearchCandidates.id, id)).run();
-				const left = tx.query.citySearchCandidates.findFirst({ columns: { id: true }, where: { citySearchId } }).sync();
-				if (!left) end(tx, citySearch, "finished");
+				const search = findEnding(tx, citySearchId);
+				if (search?.candidateCount === 0) finish(tx, search);
 				return result;
 			});
 		},

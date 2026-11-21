@@ -23,9 +23,13 @@ function hasRedirect(data: unknown): data is { redirect: string } {
 	return typeof data === "object" && data !== null && "redirect" in data && typeof data.redirect === "string";
 }
 
-function databaseRpc(): DatabaseRpc {
+function backend(): DatabaseRpc {
 	return env.Database ? env.Database.getByName("main") : (Resource.Backend as unknown as DatabaseRpc);
 }
+
+const databaseRpc: DatabaseRpc = {
+	call: async (request) => backend().call(request),
+};
 
 function pageSessionOf(context: APIContext, token: string | undefined): PageSession {
 	if (!token) return { opened: null };
@@ -42,10 +46,13 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 	if (context.isPrerendered) return next();
 
 	const requestedAt = new Date();
-	const measured = measuringDatabase(databaseRpc());
+	const measured = measuringDatabase(databaseRpc);
 	const db = connectDatabase(measured.rpc);
 	const timed = (response: Response) => withChangedHeaders(response, (headers) => headers.append("Server-Timing", measured.header()));
 	const token = sessionTokenOf(context.cookies);
+	const page = connectPage(measured.rpc, pageSessionOf(context, token));
+	context.locals.db = page.db;
+	context.locals.session = page.session;
 
 	const { action } = getActionContext(context);
 	if (action?.calledFrom === "form") {
@@ -54,9 +61,9 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 		if (token) keepSessionCookie(context.cookies, token, session);
 		if (!session) return timed(answerFormOfVisitor(sentFrom));
 
-		const page = connectPage(measured.rpc, { opened: session });
-		context.locals.db = page.db;
-		context.locals.session = page.session;
+		const pageOfForm = connectPage(measured.rpc, { opened: session });
+		context.locals.db = pageOfForm.db;
+		context.locals.session = pageOfForm.session;
 
 		const submitted = context.request.clone();
 		const { data, error } = await action.handler();
@@ -65,10 +72,6 @@ const sessionMiddleware = defineMiddleware(async (context, next) => {
 		const location = !error && hasRedirect(data) ? data.redirect : undefined;
 		return timed(redirectClearingSpeculations(location ?? sentFrom));
 	}
-
-	const page = connectPage(measured.rpc, pageSessionOf(context, token));
-	context.locals.db = page.db;
-	context.locals.session = page.session;
 
 	const response = timed(await next());
 

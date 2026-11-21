@@ -1,9 +1,16 @@
 import * as p from "drizzle-orm/sqlite-core";
-import { roles, pronouns } from "@src/users/users";
+import { roles, pronouns, userFilters } from "@src/users/users";
 import { sql } from "drizzle-orm";
 import type { ActionOutcome } from "@src/actions/outcome";
 
 const now = () => sql`(unixepoch())`;
+
+const finestMapCellsAcross = 65536;
+const maxMapLatitude = 85.05112878;
+const mapCellIndex = (fraction: string) => sql.raw(`min(${finestMapCellsAcross - 1}, max(0, cast(floor((${fraction}) * ${finestMapCellsAcross}) as integer)))`);
+const mapSine = `sin(radians(max(-${maxMapLatitude}, min(${maxMapLatitude}, "latitude"))))`;
+const finestMapColumn = mapCellIndex(`("longitude" + 180) / 360`);
+const finestMapRow = mapCellIndex(`0.5 - ln((1 + ${mapSine}) / (1 - ${mapSine})) / (4 * pi())`);
 
 export const users = p.snakeCase.table("users", {
   id: p.int({ mode: "number" }).primaryKey({ autoIncrement: true }),
@@ -30,6 +37,8 @@ export const users = p.snakeCase.table("users", {
   p.index("users_profile_picture_id_idx").on(t.profilePictureId),
   p.index("users_name_idx").on(t.username),
   p.index("users_email_idx").on(t.email),
+  p.index("users_fullname_nocase_idx").on(sql`${t.fullname} collate nocase`),
+  p.index("users_email_nocase_idx").on(sql`${t.email} collate nocase`),
   p.index("users_public_review_count_id_idx").on(t.publicReviewCount, t.id),
   p.index("users_latest_review_at_id_idx").on(t.latestReviewAt, t.id),
   p.uniqueIndex("users_username_lower_unique").on(sql`lower(${t.username})`),
@@ -38,6 +47,11 @@ export const users = p.snakeCase.table("users", {
 
 export type User = typeof users.$inferSelect
 export type Role = User["role"]
+
+export const userCounts = p.snakeCase.table("user_counts", {
+  filter: p.text({ enum: userFilters }).primaryKey(),
+  count: p.int().notNull().default(0),
+})
 
 export const sessions = p.snakeCase.table("sessions", {
   id: p.text().primaryKey(),
@@ -80,10 +94,31 @@ export const locations = p.snakeCase.table("locations", {
   country: p.text(),
   latitude: p.real().notNull(),
   longitude: p.real().notNull(),
+  mapColumn: p.int().generatedAlwaysAs(finestMapColumn, { mode: "virtual" }),
+  mapRow: p.int().generatedAlwaysAs(finestMapRow, { mode: "virtual" }),
   updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(now),
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
 }, (t) => [
   p.index("locations_latitude_longitude_idx").on(t.latitude, t.longitude),
+  p.index("locations_map_column_map_row_idx").on(t.mapColumn, t.mapRow),
+])
+
+export const mapCells = p.snakeCase.table("map_cells", {
+  zoom: p.int().notNull(),
+  column: p.int().notNull(),
+  row: p.int().notNull(),
+  count: p.int().notNull(),
+  latitudeSum: p.real().notNull(),
+  longitudeSum: p.real().notNull(),
+  north: p.real().notNull(),
+  south: p.real().notNull(),
+  east: p.real().notNull(),
+  west: p.real().notNull(),
+  bestId: p.int({ mode: "number" }).notNull(),
+  bestRatingAvg: p.real().notNull(),
+  bestReviewCount: p.int().notNull(),
+}, (t) => [
+  p.primaryKey({ columns: [t.zoom, t.column, t.row] }),
 ])
 
 export type Location = typeof locations.$inferSelect
@@ -104,6 +139,7 @@ export const restaurants = p.snakeCase.table("restaurants", {
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
 }, (t) => [
   p.index("restaurants_location_id_idx").on(t.locationId),
+  p.index("restaurants_name_nocase_idx").on(sql`${t.name} collate nocase`),
   p.index("restaurants_suggested_by_idx").on(t.suggestedBy),
   p.index("restaurants_status_id_idx").on(t.status, t.id),
   p.index("restaurants_status_rating_avg_id_idx").on(t.status, t.ratingAvg, t.id),
@@ -112,6 +148,11 @@ export const restaurants = p.snakeCase.table("restaurants", {
   p.index("restaurants_osm_id_idx").on(t.osmId),
   p.index("restaurants_city_search_id_status_id_idx").on(t.citySearchId, t.status, t.id),
 ])
+
+export const restaurantCounts = p.snakeCase.table("restaurant_counts", {
+  status: p.text({ enum: ["approved", "pending", "rejected"] }).primaryKey(),
+  count: p.int().notNull().default(0),
+})
 
 export type Restaurant = typeof restaurants.$inferSelect
 export type NewRestaurant = typeof restaurants.$inferInsert
@@ -152,6 +193,7 @@ export const suggestionQueue = p.snakeCase.table("suggestion_queue", {
   p.index("suggestion_queue_status_run_after_id_idx").on(t.status, t.runAfter, t.id),
   p.index("suggestion_queue_user_id_created_at_id_idx").on(t.userId, t.createdAt, t.id),
   p.index("suggestion_queue_duplicate_id_idx").on(t.duplicateId),
+  p.index("suggestion_queue_status_updated_at_idx").on(t.status, t.updatedAt),
 ])
 
 export type QueuedSuggestion = typeof suggestionQueue.$inferSelect
@@ -192,6 +234,11 @@ export const citySearches = p.snakeCase.table("city_searches", {
   status: p.text({ enum: ["queued", "adding", "finished", "failed"] }).notNull().default("queued"),
   attempts: p.int().notNull().default(0),
   runAfter: p.int({ mode: "timestamp" }).notNull().$default(now),
+  restaurantCount: p.int().notNull().default(0),
+  approvedCount: p.int().notNull().default(0),
+  rejectedCount: p.int().notNull().default(0),
+  candidateCount: p.int().notNull().default(0),
+  retryingCandidateCount: p.int().notNull().default(0),
   updatedAt: p.int({ mode: "timestamp" }).notNull().$onUpdate(now),
   createdAt: p.int({ mode: "timestamp" }).notNull().$default(now)
 }, (t) => [
@@ -228,6 +275,7 @@ export const citySearchCandidates = p.snakeCase.table("city_search_candidates", 
 }, (t) => [
   p.index("city_search_candidates_run_after_id_idx").on(t.runAfter, t.id),
   p.uniqueIndex("city_search_candidates_city_search_id_osm_id_unique").on(t.citySearchId, t.osmId),
+  p.index("city_search_candidates_city_search_id_attempts_idx").on(t.citySearchId, t.attempts),
 ])
 
 export const pictures = p.snakeCase.table("pictures", {

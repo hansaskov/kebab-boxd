@@ -1,7 +1,6 @@
 import { and, eq, inArray, isNull, sql, type SQLWrapper } from "drizzle-orm";
 import type { Client, Transaction } from "@src/db/client";
 import { cursorList, type Seek } from "@src/db/pagination";
-import { enteredRestaurantCount } from "@src/restaurants/entered-restaurants.db";
 import * as s from "@src/db/schema";
 import type { FollowKind, NotificationKind, SuggestionDecision, User } from "@src/db/schema";
 import { isVisibleNotification } from "@src/db/visibility";
@@ -89,10 +88,7 @@ const notificationRow = {
 		actor: { columns: { username: true, fullname: true }, with: { profilePicture: { columns: { url: true } } } },
 		review: { columns: { id: true }, with: { restaurant: { columns: { name: true } } } },
 		restaurant: { columns: { id: true, name: true } },
-		citySearch: {
-			columns: { id: true, name: true, status: true },
-			extras: { restaurantCount: enteredRestaurantCount },
-		},
+		citySearch: { columns: { id: true, name: true, status: true, restaurantCount: true } },
 	},
 } as const;
 

@@ -3,12 +3,14 @@ import { loadingWith, pageDatabaseWith, sendQueries, type DatabaseRpc, type Page
 
 type Opened = SessionWithUser | null;
 
-interface Unopened {
+interface SessionNotYetOpened {
 	toOpen: SessionToOpen;
 	onOpened: (session: Opened) => void;
 }
 
-export type PageSession = Unopened | { opened: Opened };
+export type PageSession = SessionNotYetOpened | { opened: Opened };
+
+type SessionOfPage = { opensWithFirstLoad: SessionNotYetOpened } | { opening: Promise<Opened> };
 
 export interface PageConnection {
 	db: PageDatabase;
@@ -21,41 +23,46 @@ export async function openSession(rpc: DatabaseRpc, toOpen: SessionToOpen): Prom
 }
 
 export function connectPage(rpc: DatabaseRpc, pageSession: PageSession): PageConnection {
-	let opened = "opened" in pageSession ? pageSession.opened : undefined;
-	let state: Unopened | { session: Promise<Opened> } = "opened" in pageSession ? { session: Promise.resolve(pageSession.opened) } : pageSession;
-	let firstLoad: Error | undefined;
+	let openedSession = "opened" in pageSession ? pageSession.opened : undefined;
+	let sessionOfPage: SessionOfPage = "opened" in pageSession ? { opening: Promise.resolve(pageSession.opened) } : { opensWithFirstLoad: pageSession };
+	let firstLoadOfPage: Error | undefined;
 
-	async function settle(trip: Promise<Trip>, onOpened: Unopened["onOpened"]) {
-		opened = (await trip).session ?? null;
-		onOpened(opened);
-		return opened;
+	function refuseSecondLoad() {
+		if (firstLoadOfPage) throw new Error("A page loads from the database once. Put every query of the page in the same load.", { cause: firstLoadOfPage });
+		firstLoadOfPage = new Error("The first load of the page");
 	}
 
-	async function open(queries: Queries, { toOpen, onOpened }: Unopened): Promise<Trip> {
+	async function loadOpeningSession(queries: Queries, { toOpen, onOpened }: SessionNotYetOpened): Promise<Trip> {
 		const trip = sendQueries(rpc, queries, { session: toOpen });
-		const session = settle(trip, onOpened);
-		state = { session };
-		await session;
+		const opening = trip.then((arrived) => {
+			openedSession = arrived.session ?? null;
+			onOpened(openedSession);
+			return openedSession;
+		});
+		sessionOfPage = { opening };
+		await opening;
 		return trip;
 	}
 
-	async function travel(queries: Queries): Promise<Trip> {
-		if (firstLoad) throw new Error("A page loads from the database once. Put every query of the page in the same load.", { cause: firstLoad });
-		firstLoad = new Error("The first load of the page");
-
-		if ("toOpen" in state) return open(queries, state);
-		const viewer = await state.session;
+	async function loadAsViewer(queries: Queries, opening: Promise<Opened>): Promise<Trip> {
+		const viewer = await opening;
 		return sendQueries(rpc, queries, { viewerId: viewer?.user.id ?? null });
 	}
 
-	async function sessionOfPage(): Promise<Opened> {
-		if ("session" in state) return state.session;
-		return (await travel({})).session ?? null;
+	async function load(queries: Queries): Promise<Trip> {
+		refuseSecondLoad();
+		if ("opening" in sessionOfPage) return loadAsViewer(queries, sessionOfPage.opening);
+		return loadOpeningSession(queries, sessionOfPage.opensWithFirstLoad);
+	}
+
+	async function session(): Promise<Opened> {
+		if ("opening" in sessionOfPage) return sessionOfPage.opening;
+		return (await load({})).session ?? null;
 	}
 
 	return {
-		db: pageDatabaseWith(loadingWith(async (queries) => (await travel(queries)).loaded)),
-		session: sessionOfPage,
-		openedSession: () => opened,
+		db: pageDatabaseWith(loadingWith(async (queries) => (await load(queries)).loaded)),
+		session,
+		openedSession: () => openedSession,
 	};
 }
